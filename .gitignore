@@ -1,0 +1,7 @@
+/target/
+/.env
+/.env.*
+!/config/*.yaml
+*.log
+*.pdb
+*.rs.bk

@@ -1,0 +1,69 @@
+# KANI Private Settlement Network
+
+Phase 1 local MVP for a private, permissioned settlement network. This implementation is sandbox-only and intentionally does not move real value.
+
+## What Is Implemented
+
+- Rust workspace with separate crates for API, node, ledger, consensus, crypto profiles, compliance, ISO 20022 placeholders, and shared types.
+- In-memory Phase 1 ledger with accounts, balances, issuance tracking, journal entries, audit events, and immutable block append.
+- Transaction support for sandbox mint, burn, and transfer.
+- Proof-of-Authority block production with 3 validators, round-robin leadership, and 2-of-3 finality metadata.
+- Axum API for payments, payment lookup, balances, latest block, health, and sandbox minting.
+- PostgreSQL migration schema for the production ledger tables.
+
+## Sandbox Boundaries
+
+The default runtime is:
+
+```text
+ENV = SANDBOX
+REAL_VALUE = FALSE
+REDEEMABLE = FALSE
+```
+
+No real money, external customers, fiat deposits, redemption, custody, trading, or production payment services are supported by this phase.
+
+## Run Locally
+
+This environment needs Rust installed and available on `PATH`.
+
+```bash
+cargo fmt
+cargo test
+cargo run -p kani-api
+```
+
+The API binds to `127.0.0.1:8080` by default. Set `KANI_API_ADDR=0.0.0.0:8080` for container or LAN testing.
+
+## Example Flow
+
+Mint sandbox test value to Corp A:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/sandbox/mint \
+  -H "content-type: application/json" \
+  -d '{"treasury":"TREASURY_SANDBOX","to":"CORP_A","asset":"KCAD_TEST","amount":1000000}'
+```
+
+Transfer from Corp A to Corp B:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/payments \
+  -H "content-type: application/json" \
+  -d '{"from":"CORP_A","to":"CORP_B","asset":"KCAD_TEST","amount":100000}'
+```
+
+Check balances:
+
+```bash
+curl http://127.0.0.1:8080/v1/accounts/CORP_A/balances/KCAD_TEST
+curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST
+```
+
+## Phase 1 Acceptance Path
+
+1. Mint `1_000_000 KCAD_TEST` from `TREASURY_SANDBOX` to `CORP_A`.
+2. Transfer `100_000 KCAD_TEST` from `CORP_A` to `CORP_B`.
+3. Confirm `CORP_A = 900_000`, `CORP_B = 100_000`.
+4. Confirm the latest block is finalized with 2 validator votes.
+5. Confirm audit events are written for finalized transactions and blocks.

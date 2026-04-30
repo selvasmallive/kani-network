@@ -1,0 +1,14 @@
+consensus:
+  mode: PoA
+  finality: two_of_three
+
+validators:
+  - id: validator-a
+    public_key: sandbox-pubkey-a
+    active: true
+  - id: validator-b
+    public_key: sandbox-pubkey-b
+    active: true
+  - id: validator-c
+    public_key: sandbox-pubkey-c
+    active: true

@@ -1,0 +1,29 @@
+environment:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+
+api:
+  bind: 127.0.0.1:8080
+
+ledger:
+  mode: in_memory
+  database_url: postgres://kani:kani@localhost:5432/kani
+
+assets:
+  - KCAD_TEST
+  - KUSD_TEST
+
+accounts:
+  treasury: TREASURY_SANDBOX
+  institutions:
+    - id: CORP_A
+      institution_id: CORP_A
+    - id: CORP_B
+      institution_id: CORP_B
+  fee: FEE_SANDBOX
+
+phase1_flow:
+  mint_amount: 1000000
+  transfer_amount: 100000
+  asset: KCAD_TEST

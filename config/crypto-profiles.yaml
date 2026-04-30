@@ -1,0 +1,18 @@
+crypto:
+  active_profile: hybrid-pqc-v1
+
+profiles:
+  hybrid-pqc-v1:
+    transaction_signature:
+      - ED25519
+      - ML_DSA_65
+    validator_signature:
+      - ML_DSA_65
+    hash: SHA3_256
+
+  classical-dev-v1:
+    transaction_signature:
+      - ED25519
+    validator_signature:
+      - ED25519
+    hash: SHA2_256

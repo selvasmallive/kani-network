@@ -1,0 +1,13 @@
+[package]
+name = "kani-ledger"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+kani-types = { path = "../kani-types" }
+thiserror.workspace = true
+
+[dev-dependencies]
+kani-crypto = { path = "../kani-crypto" }

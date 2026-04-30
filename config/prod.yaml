@@ -1,0 +1,25 @@
+environment:
+  env: PRODUCTION
+  real_value: false
+  redeemable: false
+
+api:
+  bind: 0.0.0.0:8080
+
+ledger:
+  mode: postgres
+  database_url_secret: kani-prod-ledger-url
+
+security:
+  mtls_required: true
+  oidc_required_for_admin: true
+  kms_key_ring: kani-prod
+  audit_logs_required: true
+
+regulatory_gate:
+  fintrac_msb_required: true
+  aml_kyc_program_required: true
+  legal_review_required: true
+
+notes:
+  - Production value movement remains disabled until legal and compliance gates are completed.

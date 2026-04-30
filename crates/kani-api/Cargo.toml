@@ -1,0 +1,24 @@
+[package]
+name = "kani-api"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+kani-node = { path = "../kani-node" }
+kani-ledger = { path = "../kani-ledger" }
+kani-types = { path = "../kani-types" }
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "kani-api"
+path = "src/main.rs"
