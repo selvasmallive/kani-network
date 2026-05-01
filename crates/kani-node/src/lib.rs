@@ -1,8 +1,11 @@
+use chrono::{DateTime, Utc};
 use kani_consensus::{ConsensusError, PoAConsensus, Validator};
 use kani_crypto::{hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
-use kani_ledger::{InMemoryLedger, LedgerError, LedgerStorageError, PostgresLedgerStore};
+use kani_ledger::{
+    InMemoryLedger, LedgerError, LedgerStorageError, PostgresLedgerStore, ValidatorStatus,
+};
 use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -30,6 +33,17 @@ pub struct KaniNode {
     consensus: PoAConsensus,
     crypto_profile: CryptoProfile,
     storage: Option<PostgresLedgerStore>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ValidatorInfo {
+    pub id: String,
+    pub public_key: String,
+    pub active: bool,
+    pub last_seen_at: Option<DateTime<Utc>>,
+    pub last_finalized_height: Option<i64>,
+    pub last_finalized_hash: Option<String>,
+    pub last_finalized_at: Option<DateTime<Utc>>,
 }
 
 impl KaniNode {
@@ -173,8 +187,24 @@ impl KaniNode {
         Ok(Vec::new())
     }
 
-    pub async fn validators(&self) -> Result<Vec<Validator>, NodeError> {
-        Ok(self.consensus.validators().to_vec())
+    pub async fn validators(&self) -> Result<Vec<ValidatorInfo>, NodeError> {
+        let statuses = if let Some(storage) = &self.storage {
+            storage
+                .validator_statuses()
+                .await?
+                .into_iter()
+                .map(|status| (status.validator_id.clone(), status))
+                .collect()
+        } else {
+            HashMap::new()
+        };
+
+        Ok(self
+            .consensus
+            .validators()
+            .iter()
+            .map(|validator| validator_info_from(validator, statuses.get(&validator.id)))
+            .collect())
     }
 
     pub fn consensus(&self) -> &PoAConsensus {
@@ -269,6 +299,10 @@ impl ValidatorRuntime {
     }
 
     pub async fn run_once(&self) -> Result<Option<Block>, NodeError> {
+        self.storage
+            .record_validator_heartbeat(&self.validator_id)
+            .await?;
+
         let ledger = InMemoryLedger::from_snapshot(self.storage.load_snapshot().await?);
         let height = ledger.next_height();
         let leader = self.consensus.leader_for_height(height)?;
@@ -339,6 +373,9 @@ impl ValidatorRuntime {
         self.storage
             .save_snapshot(&working_ledger.snapshot())
             .await?;
+        self.storage
+            .record_validator_finalized_block(&self.validator_id, &block)
+            .await?;
         Ok(Some(block))
     }
 
@@ -361,6 +398,18 @@ impl ValidatorRuntime {
 
             tokio::time::sleep(poll_interval).await;
         }
+    }
+}
+
+fn validator_info_from(validator: &Validator, status: Option<&ValidatorStatus>) -> ValidatorInfo {
+    ValidatorInfo {
+        id: validator.id.clone(),
+        public_key: validator.public_key.clone(),
+        active: validator.active,
+        last_seen_at: status.map(|status| status.last_seen_at.to_owned()),
+        last_finalized_height: status.and_then(|status| status.last_finalized_height),
+        last_finalized_hash: status.and_then(|status| status.last_finalized_hash.clone()),
+        last_finalized_at: status.and_then(|status| status.last_finalized_at.to_owned()),
     }
 }
 

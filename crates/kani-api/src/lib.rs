@@ -60,6 +60,10 @@ pub struct ValidatorResponse {
     pub id: String,
     pub public_key: String,
     pub active: bool,
+    pub last_seen_at: Option<String>,
+    pub last_finalized_height: Option<i64>,
+    pub last_finalized_hash: Option<String>,
+    pub last_finalized_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -212,6 +216,10 @@ async fn get_validators(
             id: validator.id,
             public_key: validator.public_key,
             active: validator.active,
+            last_seen_at: validator.last_seen_at.map(|value| value.to_rfc3339()),
+            last_finalized_height: validator.last_finalized_height,
+            last_finalized_hash: validator.last_finalized_hash,
+            last_finalized_at: validator.last_finalized_at.map(|value| value.to_rfc3339()),
         })
         .collect();
 

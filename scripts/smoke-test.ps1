@@ -106,6 +106,8 @@ try {
   $auditEvents = Invoke-RestMethod "$base/v1/audit-events"
   $validators = Invoke-RestMethod "$base/v1/validators"
   $pendingTransactions = Invoke-RestMethod "$base/v1/transactions/pending"
+  $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
+  $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 
   if ($balanceAAfterRestart.amount -ne 900000) {
     throw "expected persisted CORP_A balance 900000, got $($balanceAAfterRestart.amount)"
@@ -113,6 +115,14 @@ try {
 
   if ($balanceBAfterRestart.amount -ne 100000) {
     throw "expected persisted CORP_B balance 100000, got $($balanceBAfterRestart.amount)"
+  }
+
+  if ($validatorsWithHeartbeat.Count -ne 3) {
+    throw "expected all 3 validators to report heartbeat state, got $($validatorsWithHeartbeat.Count)"
+  }
+
+  if ($validatorsWithFinalizedBlock.Count -lt 1) {
+    throw "expected at least one validator to report finalized block state"
   }
 
   [pscustomobject]@{
@@ -128,6 +138,8 @@ try {
     block_count                  = @($blocks).Count
     audit_event_count            = @($auditEvents).Count
     validator_count              = @($validators).Count
+    validator_heartbeat_count    = $validatorsWithHeartbeat.Count
+    validator_finalized_count    = $validatorsWithFinalizedBlock.Count
     pending_transaction_count    = @($pendingTransactions).Count
   }
 } finally {

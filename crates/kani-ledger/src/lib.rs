@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use kani_types::{
     Account, AccountType, AuditEvent, Block, JournalDirection, JournalEntry, PaymentRecord,
     Transaction, TransactionKind, TransactionStatus, GENESIS_HASH, KCAD_TEST, KUSD_TEST,
@@ -73,6 +74,15 @@ pub struct Balance {
     pub account_id: String,
     pub asset: String,
     pub amount: i128,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatorStatus {
+    pub validator_id: String,
+    pub last_seen_at: DateTime<Utc>,
+    pub last_finalized_height: Option<i64>,
+    pub last_finalized_hash: Option<String>,
+    pub last_finalized_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -584,6 +594,81 @@ impl PostgresLedgerStore {
         .await?;
 
         Ok(())
+    }
+
+    pub async fn record_validator_heartbeat(
+        &self,
+        validator_id: &str,
+    ) -> Result<(), LedgerStorageError> {
+        sqlx::query(
+            r#"
+            INSERT INTO validator_status (validator_id, last_seen_at)
+            VALUES ($1, now())
+            ON CONFLICT (validator_id) DO UPDATE SET
+              last_seen_at = EXCLUDED.last_seen_at
+            "#,
+        )
+        .bind(validator_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn record_validator_finalized_block(
+        &self,
+        validator_id: &str,
+        block: &Block,
+    ) -> Result<(), LedgerStorageError> {
+        sqlx::query(
+            r#"
+            INSERT INTO validator_status (
+              validator_id, last_seen_at, last_finalized_height, last_finalized_hash, last_finalized_at
+            )
+            VALUES ($1, now(), $2, $3, now())
+            ON CONFLICT (validator_id) DO UPDATE SET
+              last_seen_at = EXCLUDED.last_seen_at,
+              last_finalized_height = EXCLUDED.last_finalized_height,
+              last_finalized_hash = EXCLUDED.last_finalized_hash,
+              last_finalized_at = EXCLUDED.last_finalized_at
+            "#,
+        )
+        .bind(validator_id)
+        .bind(block.height)
+        .bind(&block.hash)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn validator_statuses(&self) -> Result<Vec<ValidatorStatus>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              validator_id,
+              last_seen_at,
+              last_finalized_height,
+              last_finalized_hash,
+              last_finalized_at
+            FROM validator_status
+            ORDER BY validator_id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(ValidatorStatus {
+                    validator_id: row.try_get("validator_id")?,
+                    last_seen_at: row.try_get("last_seen_at")?,
+                    last_finalized_height: row.try_get("last_finalized_height")?,
+                    last_finalized_hash: row.try_get("last_finalized_hash")?,
+                    last_finalized_at: row.try_get("last_finalized_at")?,
+                })
+            })
+            .collect()
     }
 
     pub async fn save_snapshot(&self, snapshot: &LedgerSnapshot) -> Result<(), LedgerStorageError> {
