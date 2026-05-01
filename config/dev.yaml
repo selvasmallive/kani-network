@@ -7,7 +7,7 @@ api:
   bind: 127.0.0.1:8080
 
 ledger:
-  mode: in_memory
+  mode: memory
   database_url: postgres://kani:kani@localhost:5432/kani
 
 assets:

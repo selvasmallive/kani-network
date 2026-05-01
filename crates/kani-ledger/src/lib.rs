@@ -1,9 +1,11 @@
 use kani_types::{
     Account, AccountType, AuditEvent, Block, JournalDirection, JournalEntry, PaymentRecord,
-    Transaction, TransactionKind, GENESIS_HASH, KCAD_TEST, KUSD_TEST, SANDBOX_CORP_A_ACCOUNT,
-    SANDBOX_CORP_B_ACCOUNT, SANDBOX_FEE_ACCOUNT, SANDBOX_TREASURY_ACCOUNT,
+    Transaction, TransactionKind, TransactionStatus, GENESIS_HASH, KCAD_TEST, KUSD_TEST,
+    SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT, SANDBOX_FEE_ACCOUNT, SANDBOX_TREASURY_ACCOUNT,
 };
-use std::collections::HashMap;
+use serde_json::Value;
+use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use std::{collections::HashMap, path::Path};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -39,6 +41,48 @@ pub enum LedgerError {
     MissingBlockHash,
 }
 
+#[derive(Debug, Error)]
+pub enum LedgerStorageError {
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
+    #[error("failed to parse persisted amount {value}: {source}")]
+    ParseAmount {
+        value: String,
+        source: std::num::ParseIntError,
+    },
+    #[error("unknown account type {0}")]
+    UnknownAccountType(String),
+    #[error("unknown transaction kind {0}")]
+    UnknownTransactionKind(String),
+    #[error("unknown transaction status {0}")]
+    UnknownTransactionStatus(String),
+    #[error("unknown journal direction {0}")]
+    UnknownJournalDirection(String),
+    #[error("migration failed: {0}")]
+    Migration(String),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Balance {
+    pub account_id: String,
+    pub asset: String,
+    pub amount: i128,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct LedgerSnapshot {
+    pub accounts: Vec<Account>,
+    pub balances: Vec<Balance>,
+    pub payments: Vec<PaymentRecord>,
+    pub blocks: Vec<Block>,
+    pub audit_events: Vec<AuditEvent>,
+    pub journal_entries: Vec<JournalEntry>,
+    pub nonces: HashMap<String, i64>,
+    pub issued: HashMap<String, i128>,
+}
+
 #[derive(Clone, Debug)]
 pub struct InMemoryLedger {
     accounts: HashMap<String, Account>,
@@ -63,6 +107,59 @@ impl InMemoryLedger {
             nonces: HashMap::new(),
             issued: HashMap::new(),
         }
+    }
+
+    pub fn from_snapshot(snapshot: LedgerSnapshot) -> Self {
+        Self {
+            accounts: snapshot
+                .accounts
+                .into_iter()
+                .map(|account| (account.id.clone(), account))
+                .collect(),
+            balances: snapshot
+                .balances
+                .into_iter()
+                .map(|balance| ((balance.account_id, balance.asset), balance.amount))
+                .collect(),
+            payments: snapshot
+                .payments
+                .into_iter()
+                .map(|payment| (payment.transaction.id.clone(), payment))
+                .collect(),
+            blocks: snapshot.blocks,
+            audit_events: snapshot.audit_events,
+            journal_entries: snapshot.journal_entries,
+            nonces: snapshot.nonces,
+            issued: snapshot.issued,
+        }
+    }
+
+    pub fn snapshot(&self) -> LedgerSnapshot {
+        LedgerSnapshot {
+            accounts: self.accounts(),
+            balances: self
+                .balances
+                .iter()
+                .map(|((account_id, asset), amount)| Balance {
+                    account_id: account_id.clone(),
+                    asset: asset.clone(),
+                    amount: *amount,
+                })
+                .collect(),
+            payments: self.payments.values().cloned().collect(),
+            blocks: self.blocks.clone(),
+            audit_events: self.audit_events.clone(),
+            journal_entries: self.journal_entries.clone(),
+            nonces: self.nonces.clone(),
+            issued: self.issued.clone(),
+        }
+    }
+
+    pub fn is_pristine(&self) -> bool {
+        self.blocks.is_empty()
+            && self.payments.is_empty()
+            && self.audit_events.is_empty()
+            && self.journal_entries.is_empty()
     }
 
     pub fn sandbox() -> Self {
@@ -290,6 +387,510 @@ impl InMemoryLedger {
         self.balances
             .entry((account_id.to_string(), asset.to_string()))
             .or_insert(0);
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresLedgerStore {
+    pool: PgPool,
+}
+
+impl PostgresLedgerStore {
+    pub async fn connect(database_url: &str) -> Result<Self, LedgerStorageError> {
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(database_url)
+            .await?;
+
+        Ok(Self { pool })
+    }
+
+    pub async fn run_migrations(
+        &self,
+        migrations_path: impl AsRef<Path>,
+    ) -> Result<(), LedgerStorageError> {
+        let migrator = sqlx::migrate::Migrator::new(migrations_path.as_ref())
+            .await
+            .map_err(|error| LedgerStorageError::Migration(error.to_string()))?;
+
+        migrator
+            .run(&self.pool)
+            .await
+            .map_err(|error| LedgerStorageError::Migration(error.to_string()))?;
+
+        Ok(())
+    }
+
+    pub async fn save_snapshot(&self, snapshot: &LedgerSnapshot) -> Result<(), LedgerStorageError> {
+        let mut tx = self.pool.begin().await?;
+
+        for account in &snapshot.accounts {
+            sqlx::query(
+                r#"
+                INSERT INTO accounts (id, account_type, institution_id, created_at)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (id) DO UPDATE SET
+                  account_type = EXCLUDED.account_type,
+                  institution_id = EXCLUDED.institution_id
+                "#,
+            )
+            .bind(&account.id)
+            .bind(account_type_to_db(&account.account_type))
+            .bind(&account.institution_id)
+            .bind(account.created_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for balance in &snapshot.balances {
+            sqlx::query(
+                r#"
+                INSERT INTO balances (account_id, asset, amount, updated_at)
+                VALUES ($1, $2, CAST($3 AS NUMERIC(38, 0)), now())
+                ON CONFLICT (account_id, asset) DO UPDATE SET
+                  amount = EXCLUDED.amount,
+                  updated_at = now()
+                "#,
+            )
+            .bind(&balance.account_id)
+            .bind(&balance.asset)
+            .bind(balance.amount.to_string())
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for block in &snapshot.blocks {
+            sqlx::query(
+                r#"
+                INSERT INTO blocks (height, prev_hash, hash, validator, signature, finalized_by, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (height) DO NOTHING
+                "#,
+            )
+            .bind(block.height)
+            .bind(&block.prev_hash)
+            .bind(&block.hash)
+            .bind(&block.validator)
+            .bind(&block.signature)
+            .bind(serde_json::to_value(&block.finalized_by)?)
+            .bind(block.created_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for payment in &snapshot.payments {
+            let tx_record = &payment.transaction;
+            sqlx::query(
+                r#"
+                INSERT INTO transactions (
+                  id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
+                  signatures, metadata, failure_reason, created_at, updated_at
+                )
+                VALUES (
+                  $1::uuid, $2, $3, $4, $5, CAST($6 AS NUMERIC(38, 0)), $7, $8, $9,
+                  $10, $11, $12, $13, $14
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                  block_height = EXCLUDED.block_height,
+                  status = EXCLUDED.status,
+                  failure_reason = EXCLUDED.failure_reason,
+                  updated_at = EXCLUDED.updated_at
+                "#,
+            )
+            .bind(&tx_record.id)
+            .bind(payment.block_height)
+            .bind(&tx_record.from)
+            .bind(&tx_record.to)
+            .bind(&tx_record.asset)
+            .bind(tx_record.amount.to_string())
+            .bind(tx_record.nonce)
+            .bind(transaction_kind_to_db(&tx_record.kind))
+            .bind(transaction_status_to_db(&payment.status))
+            .bind(serde_json::to_value(&tx_record.signatures)?)
+            .bind(serde_json::to_value(&tx_record.metadata)?)
+            .bind(&payment.failure_reason)
+            .bind(payment.created_at)
+            .bind(payment.updated_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for entry in &snapshot.journal_entries {
+            sqlx::query(
+                r#"
+                INSERT INTO journal_entries (
+                  id, transaction_id, account_id, asset, amount, direction, block_height, created_at
+                )
+                VALUES ($1::uuid, $2::uuid, $3, $4, CAST($5 AS NUMERIC(38, 0)), $6, $7, $8)
+                ON CONFLICT (id) DO NOTHING
+                "#,
+            )
+            .bind(&entry.id)
+            .bind(&entry.transaction_id)
+            .bind(&entry.account_id)
+            .bind(&entry.asset)
+            .bind(entry.amount.to_string())
+            .bind(journal_direction_to_db(&entry.direction))
+            .bind(entry.block_height)
+            .bind(entry.created_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for event in &snapshot.audit_events {
+            sqlx::query(
+                r#"
+                INSERT INTO audit_events (
+                  id, event_type, message, block_height, transaction_id, created_at
+                )
+                VALUES ($1::uuid, $2, $3, $4, $5::uuid, $6)
+                ON CONFLICT (id) DO NOTHING
+                "#,
+            )
+            .bind(&event.id)
+            .bind(&event.event_type)
+            .bind(&event.message)
+            .bind(event.block_height)
+            .bind(&event.transaction_id)
+            .bind(event.created_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn load_snapshot(&self) -> Result<LedgerSnapshot, LedgerStorageError> {
+        let accounts = self.load_accounts().await?;
+        let balances = self.load_balances().await?;
+        let (payments, nonces, issued, txs_by_block) = self.load_payments().await?;
+        let blocks = self.load_blocks(txs_by_block).await?;
+        let journal_entries = self.load_journal_entries().await?;
+        let audit_events = self.load_audit_events().await?;
+
+        Ok(LedgerSnapshot {
+            accounts,
+            balances,
+            payments,
+            blocks,
+            audit_events,
+            journal_entries,
+            nonces,
+            issued,
+        })
+    }
+
+    async fn load_accounts(&self) -> Result<Vec<Account>, LedgerStorageError> {
+        let rows = sqlx::query(
+            "SELECT id, account_type, institution_id, created_at FROM accounts ORDER BY id",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(Account {
+                    id: row.try_get("id")?,
+                    account_type: account_type_from_db(row.try_get::<String, _>("account_type")?)?,
+                    institution_id: row.try_get("institution_id")?,
+                    created_at: row.try_get("created_at")?,
+                })
+            })
+            .collect()
+    }
+
+    async fn load_balances(&self) -> Result<Vec<Balance>, LedgerStorageError> {
+        let rows = sqlx::query(
+            "SELECT account_id, asset, amount::text AS amount FROM balances ORDER BY account_id, asset",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let amount = parse_amount(row.try_get("amount")?)?;
+                Ok(Balance {
+                    account_id: row.try_get("account_id")?,
+                    asset: row.try_get("asset")?,
+                    amount,
+                })
+            })
+            .collect()
+    }
+
+    async fn load_payments(
+        &self,
+    ) -> Result<
+        (
+            Vec<PaymentRecord>,
+            HashMap<String, i64>,
+            HashMap<String, i128>,
+            HashMap<i64, Vec<Transaction>>,
+        ),
+        LedgerStorageError,
+    > {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              t.id::text AS id,
+              t.block_height,
+              b.hash AS block_hash,
+              t.from_account,
+              t.to_account,
+              t.asset,
+              t.amount::text AS amount,
+              t.nonce,
+              t.kind,
+              t.status,
+              t.signatures,
+              t.metadata,
+              t.failure_reason,
+              t.created_at,
+              t.updated_at
+            FROM transactions t
+            LEFT JOIN blocks b ON b.height = t.block_height
+            ORDER BY t.created_at, t.id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut payments = Vec::with_capacity(rows.len());
+        let mut nonces = HashMap::new();
+        let mut issued = HashMap::new();
+        let mut txs_by_block: HashMap<i64, Vec<Transaction>> = HashMap::new();
+
+        for row in rows {
+            let amount = parse_amount(row.try_get("amount")?)?;
+            let kind = transaction_kind_from_db(row.try_get::<String, _>("kind")?)?;
+            let status = transaction_status_from_db(row.try_get::<String, _>("status")?)?;
+            let signatures: Vec<Vec<u8>> =
+                serde_json::from_value(row.try_get::<Value, _>("signatures")?)?;
+            let metadata = serde_json::from_value(row.try_get::<Value, _>("metadata")?)?;
+            let block_height: Option<i64> = row.try_get("block_height")?;
+
+            let transaction = Transaction {
+                id: row.try_get("id")?,
+                from: row.try_get("from_account")?,
+                to: row.try_get("to_account")?,
+                asset: row.try_get("asset")?,
+                amount,
+                nonce: row.try_get("nonce")?,
+                signatures,
+                kind,
+                metadata,
+                created_at: row.try_get("created_at")?,
+            };
+
+            if status == TransactionStatus::Finalized {
+                let next_nonce = nonces.entry(transaction.from.clone()).or_insert(0);
+                *next_nonce = (*next_nonce).max(transaction.nonce);
+
+                match transaction.kind {
+                    TransactionKind::Mint => {
+                        *issued.entry(transaction.asset.clone()).or_insert(0) += transaction.amount;
+                    }
+                    TransactionKind::Burn => {
+                        *issued.entry(transaction.asset.clone()).or_insert(0) -= transaction.amount;
+                    }
+                    TransactionKind::Transfer => {}
+                }
+            }
+
+            if let Some(height) = block_height {
+                txs_by_block
+                    .entry(height)
+                    .or_default()
+                    .push(transaction.clone());
+            }
+
+            payments.push(PaymentRecord {
+                transaction,
+                status,
+                block_height,
+                block_hash: row.try_get("block_hash")?,
+                failure_reason: row.try_get("failure_reason")?,
+                created_at: row.try_get("created_at")?,
+                updated_at: row.try_get("updated_at")?,
+            });
+        }
+
+        Ok((payments, nonces, issued, txs_by_block))
+    }
+
+    async fn load_blocks(
+        &self,
+        mut txs_by_block: HashMap<i64, Vec<Transaction>>,
+    ) -> Result<Vec<Block>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT height, prev_hash, hash, validator, signature, finalized_by, created_at
+            FROM blocks
+            ORDER BY height
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let height = row.try_get("height")?;
+                let finalized_by =
+                    serde_json::from_value(row.try_get::<Value, _>("finalized_by")?)?;
+
+                Ok(Block {
+                    height,
+                    prev_hash: row.try_get("prev_hash")?,
+                    txs: txs_by_block.remove(&height).unwrap_or_default(),
+                    validator: row.try_get("validator")?,
+                    signature: row.try_get("signature")?,
+                    hash: row.try_get("hash")?,
+                    finalized_by,
+                    created_at: row.try_get("created_at")?,
+                })
+            })
+            .collect()
+    }
+
+    async fn load_journal_entries(&self) -> Result<Vec<JournalEntry>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              transaction_id::text AS transaction_id,
+              account_id,
+              asset,
+              amount::text AS amount,
+              direction,
+              block_height,
+              created_at
+            FROM journal_entries
+            ORDER BY created_at, id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(JournalEntry {
+                    id: row.try_get("id")?,
+                    transaction_id: row.try_get("transaction_id")?,
+                    account_id: row.try_get("account_id")?,
+                    asset: row.try_get("asset")?,
+                    amount: parse_amount(row.try_get("amount")?)?,
+                    direction: journal_direction_from_db(row.try_get::<String, _>("direction")?)?,
+                    block_height: row.try_get("block_height")?,
+                    created_at: row.try_get("created_at")?,
+                })
+            })
+            .collect()
+    }
+
+    async fn load_audit_events(&self) -> Result<Vec<AuditEvent>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              event_type,
+              message,
+              block_height,
+              transaction_id::text AS transaction_id,
+              created_at
+            FROM audit_events
+            ORDER BY created_at, id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(AuditEvent {
+                    id: row.try_get("id")?,
+                    event_type: row.try_get("event_type")?,
+                    message: row.try_get("message")?,
+                    block_height: row.try_get("block_height")?,
+                    transaction_id: row.try_get("transaction_id")?,
+                    created_at: row.try_get("created_at")?,
+                })
+            })
+            .collect()
+    }
+}
+
+fn parse_amount(value: String) -> Result<i128, LedgerStorageError> {
+    value
+        .parse()
+        .map_err(|source| LedgerStorageError::ParseAmount { value, source })
+}
+
+fn account_type_to_db(account_type: &AccountType) -> &'static str {
+    match account_type {
+        AccountType::Treasury => "TREASURY",
+        AccountType::Institution => "INSTITUTION",
+        AccountType::Settlement => "SETTLEMENT",
+        AccountType::Fee => "FEE",
+    }
+}
+
+fn account_type_from_db(value: String) -> Result<AccountType, LedgerStorageError> {
+    match value.as_str() {
+        "TREASURY" => Ok(AccountType::Treasury),
+        "INSTITUTION" => Ok(AccountType::Institution),
+        "SETTLEMENT" => Ok(AccountType::Settlement),
+        "FEE" => Ok(AccountType::Fee),
+        _ => Err(LedgerStorageError::UnknownAccountType(value)),
+    }
+}
+
+fn transaction_kind_to_db(kind: &TransactionKind) -> &'static str {
+    match kind {
+        TransactionKind::Mint => "MINT",
+        TransactionKind::Burn => "BURN",
+        TransactionKind::Transfer => "TRANSFER",
+    }
+}
+
+fn transaction_kind_from_db(value: String) -> Result<TransactionKind, LedgerStorageError> {
+    match value.as_str() {
+        "MINT" => Ok(TransactionKind::Mint),
+        "BURN" => Ok(TransactionKind::Burn),
+        "TRANSFER" => Ok(TransactionKind::Transfer),
+        _ => Err(LedgerStorageError::UnknownTransactionKind(value)),
+    }
+}
+
+fn transaction_status_to_db(status: &TransactionStatus) -> &'static str {
+    match status {
+        TransactionStatus::Pending => "PENDING",
+        TransactionStatus::Finalized => "FINALIZED",
+        TransactionStatus::Rejected => "REJECTED",
+    }
+}
+
+fn transaction_status_from_db(value: String) -> Result<TransactionStatus, LedgerStorageError> {
+    match value.as_str() {
+        "PENDING" => Ok(TransactionStatus::Pending),
+        "FINALIZED" => Ok(TransactionStatus::Finalized),
+        "REJECTED" => Ok(TransactionStatus::Rejected),
+        _ => Err(LedgerStorageError::UnknownTransactionStatus(value)),
+    }
+}
+
+fn journal_direction_to_db(direction: &JournalDirection) -> &'static str {
+    match direction {
+        JournalDirection::Debit => "DEBIT",
+        JournalDirection::Credit => "CREDIT",
+    }
+}
+
+fn journal_direction_from_db(value: String) -> Result<JournalDirection, LedgerStorageError> {
+    match value.as_str() {
+        "DEBIT" => Ok(JournalDirection::Debit),
+        "CREDIT" => Ok(JournalDirection::Credit),
+        _ => Err(LedgerStorageError::UnknownJournalDirection(value)),
     }
 }
 

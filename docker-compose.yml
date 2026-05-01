@@ -16,6 +16,7 @@ services:
       dockerfile: docker/Dockerfile.api
     environment:
       KANI_API_ADDR: 0.0.0.0:8080
+      KANI_LEDGER_MODE: postgres
       DATABASE_URL: postgres://kani:kani@postgres:5432/kani
       ENV: SANDBOX
       REAL_VALUE: "FALSE"

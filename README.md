@@ -35,6 +35,26 @@ cargo run -p kani-api
 
 The API binds to `127.0.0.1:8080` by default. Set `KANI_API_ADDR=0.0.0.0:8080` for container or LAN testing.
 
+The default ledger mode is in-memory. To run with PostgreSQL persistence:
+
+```bash
+docker compose up -d postgres
+set KANI_LEDGER_MODE=postgres
+set DATABASE_URL=postgres://kani:kani@localhost:5432/kani
+cargo run -p kani-api
+```
+
+In PowerShell:
+
+```powershell
+docker compose up -d postgres
+$env:KANI_LEDGER_MODE = "postgres"
+$env:DATABASE_URL = "postgres://kani:kani@localhost:5432/kani"
+cargo run -p kani-api
+```
+
+PostgreSQL mode runs the migrations in `migrations/`, seeds sandbox accounts when the database is empty, and reloads finalized blocks, balances, transactions, journal entries, and audit events on restart.
+
 ## Example Flow
 
 Mint sandbox test value to Corp A:

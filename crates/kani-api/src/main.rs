@@ -17,7 +17,19 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| "127.0.0.1:8080".to_string())
         .parse()?;
 
-    let app = build_router(KaniNode::sandbox_default());
+    let ledger_mode = std::env::var("KANI_LEDGER_MODE")
+        .unwrap_or_else(|_| "memory".to_string())
+        .to_lowercase();
+    let node = if ledger_mode == "postgres" {
+        let database_url = std::env::var("DATABASE_URL")?;
+        tracing::info!("starting node with PostgreSQL persistence");
+        KaniNode::postgres(&database_url).await?
+    } else {
+        tracing::info!("starting node with in-memory sandbox ledger");
+        KaniNode::sandbox_default()
+    };
+
+    let app = build_router(node);
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     tracing::info!(%addr, "starting kani-api in SANDBOX mode");

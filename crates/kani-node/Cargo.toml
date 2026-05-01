@@ -12,3 +12,4 @@ kani-ledger = { path = "../kani-ledger" }
 kani-types = { path = "../kani-types" }
 serde.workspace = true
 thiserror.workspace = true
+tokio.workspace = true

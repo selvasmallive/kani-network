@@ -86,6 +86,7 @@ impl From<NodeError> for ApiError {
             NodeError::Ledger(kani_ledger_error) => {
                 ApiError::BadRequest(kani_ledger_error.to_string())
             }
+            NodeError::Storage(storage_error) => ApiError::Internal(storage_error.to_string()),
             NodeError::Consensus(consensus_error) => {
                 ApiError::BadRequest(consensus_error.to_string())
             }
@@ -140,6 +141,7 @@ async fn create_payment(
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
     let response = node
         .submit_payment(request.from, request.to, request.asset, request.amount)
+        .await
         .map(PaymentResponse::from)?;
 
     Ok((StatusCode::CREATED, Json(response)))
@@ -149,7 +151,7 @@ async fn get_payment(
     State(node): State<KaniNode>,
     Path(id): Path<String>,
 ) -> Result<Json<PaymentResponse>, ApiError> {
-    let record = node.get_payment(&id).map_err(|error| match error {
+    let record = node.get_payment(&id).await.map_err(|error| match error {
         NodeError::Ledger(kani_ledger::LedgerError::UnknownPayment(_)) => {
             ApiError::NotFound(format!("payment {id} not found"))
         }
@@ -163,7 +165,7 @@ async fn get_balance(
     State(node): State<KaniNode>,
     Path((account_id, asset)): Path<(String, String)>,
 ) -> Result<Json<BalanceResponse>, ApiError> {
-    let amount = node.balance(&account_id, &asset)?;
+    let amount = node.balance(&account_id, &asset).await?;
     Ok(Json(BalanceResponse {
         account_id,
         asset,
@@ -172,7 +174,8 @@ async fn get_balance(
 }
 
 async fn get_latest_block(State(node): State<KaniNode>) -> Result<Json<Block>, ApiError> {
-    node.latest_block()?
+    node.latest_block()
+        .await?
         .map(Json)
         .ok_or_else(|| ApiError::NotFound("no finalized blocks yet".to_string()))
 }
@@ -183,6 +186,7 @@ async fn sandbox_mint(
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
     let response = node
         .mint_sandbox(request.treasury, request.to, request.asset, request.amount)
+        .await
         .map(PaymentResponse::from)?;
 
     Ok((StatusCode::CREATED, Json(response)))
