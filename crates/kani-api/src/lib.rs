@@ -5,8 +5,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use kani_node::{KaniNode, NodeError, PaymentSubmission};
-use kani_types::{AuditEvent, Block, PaymentRecord, TransactionStatus};
+use kani_node::{KaniNode, NodeError};
+use kani_types::{AuditEvent, Block, PaymentRecord, Transaction, TransactionStatus};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize)]
@@ -32,6 +32,7 @@ pub struct PaymentResponse {
     pub status: TransactionStatus,
     pub block_height: Option<i64>,
     pub block_hash: Option<String>,
+    pub failure_reason: Option<String>,
 }
 
 impl From<PaymentRecord> for PaymentResponse {
@@ -42,13 +43,8 @@ impl From<PaymentRecord> for PaymentResponse {
             status: record.status,
             block_height: record.block_height,
             block_hash: record.block_hash,
+            failure_reason: record.failure_reason,
         }
-    }
-}
-
-impl From<PaymentSubmission> for PaymentResponse {
-    fn from(submission: PaymentSubmission) -> Self {
-        submission.payment.into()
     }
 }
 
@@ -57,6 +53,13 @@ pub struct BalanceResponse {
     pub account_id: String,
     pub asset: String,
     pub amount: i128,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ValidatorResponse {
+    pub id: String,
+    pub public_key: String,
+    pub active: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -119,10 +122,12 @@ pub fn build_router(node: KaniNode) -> Router {
         .route("/health", get(health))
         .route("/v1/payments", post(create_payment))
         .route("/v1/payments/:id", get(get_payment))
+        .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
         .route("/v1/blocks", get(get_blocks))
         .route("/v1/blocks/latest", get(get_latest_block))
         .route("/v1/audit-events", get(get_audit_events))
+        .route("/v1/validators", get(get_validators))
         .route("/v1/sandbox/mint", post(sandbox_mint))
         .with_state(node)
 }
@@ -175,6 +180,12 @@ async fn get_balance(
     }))
 }
 
+async fn get_pending_transactions(
+    State(node): State<KaniNode>,
+) -> Result<Json<Vec<Transaction>>, ApiError> {
+    Ok(Json(node.pending_transactions().await?))
+}
+
 async fn get_latest_block(State(node): State<KaniNode>) -> Result<Json<Block>, ApiError> {
     node.latest_block()
         .await?
@@ -188,6 +199,23 @@ async fn get_blocks(State(node): State<KaniNode>) -> Result<Json<Vec<Block>>, Ap
 
 async fn get_audit_events(State(node): State<KaniNode>) -> Result<Json<Vec<AuditEvent>>, ApiError> {
     Ok(Json(node.audit_events().await?))
+}
+
+async fn get_validators(
+    State(node): State<KaniNode>,
+) -> Result<Json<Vec<ValidatorResponse>>, ApiError> {
+    let validators = node
+        .validators()
+        .await?
+        .into_iter()
+        .map(|validator| ValidatorResponse {
+            id: validator.id,
+            public_key: validator.public_key,
+            active: validator.active,
+        })
+        .collect();
+
+    Ok(Json(validators))
 }
 
 async fn sandbox_mint(

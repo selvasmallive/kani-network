@@ -1,4 +1,4 @@
-use kani_consensus::{ConsensusError, PoAConsensus};
+use kani_consensus::{ConsensusError, PoAConsensus, Validator};
 use kani_crypto::{hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
 use kani_ledger::{InMemoryLedger, LedgerError, LedgerStorageError, PostgresLedgerStore};
 use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction};
@@ -32,12 +32,6 @@ pub struct KaniNode {
     storage: Option<PostgresLedgerStore>,
 }
 
-#[derive(Clone, Debug)]
-pub struct PaymentSubmission {
-    pub payment: PaymentRecord,
-    pub block: Block,
-}
-
 impl KaniNode {
     pub fn new(
         ledger: InMemoryLedger,
@@ -63,17 +57,8 @@ impl KaniNode {
     pub async fn postgres(database_url: &str) -> Result<Self, NodeError> {
         let storage = PostgresLedgerStore::connect(database_url).await?;
         storage.run_migrations("migrations").await?;
-
-        let snapshot = storage.load_snapshot().await?;
-        let ledger = if snapshot.accounts.is_empty() {
-            InMemoryLedger::sandbox()
-        } else {
-            InMemoryLedger::from_snapshot(snapshot)
-        };
-
-        if ledger.is_pristine() {
-            storage.save_snapshot(&ledger.snapshot()).await?;
-        }
+        storage.ensure_sandbox_seed().await?;
+        let ledger = InMemoryLedger::from_snapshot(storage.load_snapshot().await?);
 
         Ok(Self {
             ledger: Arc::new(Mutex::new(ledger)),
@@ -89,10 +74,16 @@ impl KaniNode {
         to: impl Into<String>,
         asset: impl Into<String>,
         amount: i128,
-    ) -> Result<PaymentSubmission, NodeError> {
+    ) -> Result<PaymentRecord, NodeError> {
         let from = from.into();
         let to = to.into();
         let asset = asset.into();
+
+        if let Some(storage) = &self.storage {
+            let nonce = storage.next_nonce_for_account(&from).await?;
+            let tx = Transaction::new_transfer(from, to, asset, amount, nonce);
+            return Ok(storage.enqueue_pending_transaction(tx).await?);
+        }
 
         let mut ledger = self.ledger.lock().await;
         let nonce = ledger.next_nonce(&from);
@@ -106,10 +97,16 @@ impl KaniNode {
         to: impl Into<String>,
         asset: impl Into<String>,
         amount: i128,
-    ) -> Result<PaymentSubmission, NodeError> {
+    ) -> Result<PaymentRecord, NodeError> {
         let treasury = treasury.into();
         let to = to.into();
         let asset = asset.into();
+
+        if let Some(storage) = &self.storage {
+            let nonce = storage.next_nonce_for_account(&treasury).await?;
+            let tx = Transaction::new_mint(treasury, to, asset, amount, nonce);
+            return Ok(storage.enqueue_pending_transaction(tx).await?);
+        }
 
         let mut ledger = self.ledger.lock().await;
         let nonce = ledger.next_nonce(&treasury);
@@ -123,10 +120,16 @@ impl KaniNode {
         treasury: impl Into<String>,
         asset: impl Into<String>,
         amount: i128,
-    ) -> Result<PaymentSubmission, NodeError> {
+    ) -> Result<PaymentRecord, NodeError> {
         let from = from.into();
         let treasury = treasury.into();
         let asset = asset.into();
+
+        if let Some(storage) = &self.storage {
+            let nonce = storage.next_nonce_for_account(&from).await?;
+            let tx = Transaction::new_burn(from, treasury, asset, amount, nonce);
+            return Ok(storage.enqueue_pending_transaction(tx).await?);
+        }
 
         let mut ledger = self.ledger.lock().await;
         let nonce = ledger.next_nonce(&from);
@@ -135,31 +138,43 @@ impl KaniNode {
     }
 
     pub async fn get_payment(&self, payment_id: &str) -> Result<PaymentRecord, NodeError> {
-        Ok(self.ledger.lock().await.get_payment(payment_id)?)
+        Ok(self.current_ledger().await?.get_payment(payment_id)?)
     }
 
     pub async fn balance(&self, account_id: &str, asset: &str) -> Result<i128, NodeError> {
-        Ok(self.ledger.lock().await.balance(account_id, asset))
+        Ok(self.current_ledger().await?.balance(account_id, asset))
     }
 
     pub async fn issued(&self, asset: &str) -> Result<i128, NodeError> {
-        Ok(self.ledger.lock().await.issued(asset))
+        Ok(self.current_ledger().await?.issued(asset))
     }
 
     pub async fn latest_block(&self) -> Result<Option<Block>, NodeError> {
-        Ok(self.ledger.lock().await.latest_block())
+        Ok(self.current_ledger().await?.latest_block())
     }
 
     pub async fn blocks(&self) -> Result<Vec<Block>, NodeError> {
-        Ok(self.ledger.lock().await.blocks().to_vec())
+        Ok(self.current_ledger().await?.blocks().to_vec())
     }
 
     pub async fn accounts(&self) -> Result<Vec<Account>, NodeError> {
-        Ok(self.ledger.lock().await.accounts())
+        Ok(self.current_ledger().await?.accounts())
     }
 
     pub async fn audit_events(&self) -> Result<Vec<AuditEvent>, NodeError> {
-        Ok(self.ledger.lock().await.audit_events().to_vec())
+        Ok(self.current_ledger().await?.audit_events().to_vec())
+    }
+
+    pub async fn pending_transactions(&self) -> Result<Vec<Transaction>, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.pending_transactions(100).await?);
+        }
+
+        Ok(Vec::new())
+    }
+
+    pub async fn validators(&self) -> Result<Vec<Validator>, NodeError> {
+        Ok(self.consensus.validators().to_vec())
     }
 
     pub fn consensus(&self) -> &PoAConsensus {
@@ -174,7 +189,7 @@ impl KaniNode {
         &self,
         ledger: &mut InMemoryLedger,
         txs: Vec<Transaction>,
-    ) -> Result<PaymentSubmission, NodeError> {
+    ) -> Result<PaymentRecord, NodeError> {
         if txs.is_empty() {
             return Err(NodeError::EmptyBlock);
         }
@@ -182,14 +197,9 @@ impl KaniNode {
         let block = self.build_block(ledger, txs)?;
         let mut working_ledger = ledger.clone();
         let records = working_ledger.apply_block(block.clone())?;
-        if let Some(storage) = &self.storage {
-            storage.save_snapshot(&working_ledger.snapshot()).await?;
-        }
         *ledger = working_ledger;
 
-        let payment = records.into_iter().next().ok_or(NodeError::EmptyBlock)?;
-
-        Ok(PaymentSubmission { payment, block })
+        records.into_iter().next().ok_or(NodeError::EmptyBlock)
     }
 
     fn build_block(
@@ -214,6 +224,142 @@ impl KaniNode {
 
         Ok(block.seal(hash, signature, votes))
     }
+
+    async fn current_ledger(&self) -> Result<InMemoryLedger, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(InMemoryLedger::from_snapshot(
+                storage.load_snapshot().await?,
+            ));
+        }
+
+        Ok(self.ledger.lock().await.clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct ValidatorRuntime {
+    storage: PostgresLedgerStore,
+    consensus: PoAConsensus,
+    crypto_profile: CryptoProfile,
+    validator_id: String,
+    max_transactions_per_block: i64,
+}
+
+impl ValidatorRuntime {
+    pub async fn connect(
+        database_url: &str,
+        validator_id: impl Into<String>,
+    ) -> Result<Self, NodeError> {
+        let storage = PostgresLedgerStore::connect(database_url).await?;
+        storage.run_migrations("migrations").await?;
+        storage.ensure_sandbox_seed().await?;
+
+        Ok(Self {
+            storage,
+            consensus: PoAConsensus::phase1_default(),
+            crypto_profile: CryptoProfile::hybrid_pqc_v1(),
+            validator_id: validator_id.into(),
+            max_transactions_per_block: 25,
+        })
+    }
+
+    pub fn with_max_transactions_per_block(mut self, max_transactions_per_block: i64) -> Self {
+        self.max_transactions_per_block = max_transactions_per_block.max(1);
+        self
+    }
+
+    pub async fn run_once(&self) -> Result<Option<Block>, NodeError> {
+        let ledger = InMemoryLedger::from_snapshot(self.storage.load_snapshot().await?);
+        let height = ledger.next_height();
+        let leader = self.consensus.leader_for_height(height)?;
+
+        if leader.id != self.validator_id {
+            return Ok(None);
+        }
+
+        let pending = self
+            .storage
+            .pending_transactions(self.max_transactions_per_block)
+            .await?;
+        if pending.is_empty() {
+            return Ok(None);
+        }
+
+        let block = build_block_for_validator(
+            &ledger,
+            pending,
+            &self.consensus,
+            &self.crypto_profile,
+            &self.validator_id,
+        )?;
+        let mut working_ledger = ledger;
+
+        if let Err(error) = working_ledger.apply_block(block.clone()) {
+            if let Some(tx) = block.txs.first() {
+                self.storage
+                    .reject_transaction(&tx.id, &error.to_string())
+                    .await?;
+            }
+            return Err(error.into());
+        }
+
+        self.storage
+            .save_snapshot(&working_ledger.snapshot())
+            .await?;
+        Ok(Some(block))
+    }
+
+    pub async fn run_forever(&self, poll_interval: std::time::Duration) -> Result<(), NodeError> {
+        loop {
+            match self.run_once().await {
+                Ok(Some(block)) => {
+                    tracing::info!(
+                        validator = %self.validator_id,
+                        height = block.height,
+                        tx_count = block.txs.len(),
+                        "finalized block"
+                    );
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    tracing::warn!(validator = %self.validator_id, %error, "validator pass failed");
+                }
+            }
+
+            tokio::time::sleep(poll_interval).await;
+        }
+    }
+}
+
+fn build_block_for_validator(
+    ledger: &InMemoryLedger,
+    txs: Vec<Transaction>,
+    consensus: &PoAConsensus,
+    crypto_profile: &CryptoProfile,
+    validator_id: &str,
+) -> Result<Block, NodeError> {
+    if txs.is_empty() {
+        return Err(NodeError::EmptyBlock);
+    }
+
+    let height = ledger.next_height();
+    let leader = consensus.leader_for_height(height)?;
+    debug_assert_eq!(leader.id, validator_id);
+
+    let votes = consensus.finality_votes_for_block(height)?;
+    let required = consensus.finality_threshold();
+    if votes.len() < required {
+        return Err(NodeError::InsufficientFinality {
+            got: votes.len(),
+            required,
+        });
+    }
+
+    let block = Block::new_unsealed(height, ledger.last_hash(), txs, validator_id);
+    let hash = hash_json(&crypto_profile.hash, &block)?;
+    let signature = sandbox_validator_signature(crypto_profile, validator_id, &hash);
+
+    Ok(block.seal(hash, signature, votes))
 }
 
 #[cfg(test)]
@@ -237,9 +383,8 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(mint.payment.status, TransactionStatus::Finalized);
-        assert_eq!(mint.block.height, 1);
-        assert_eq!(mint.block.finalized_by.len(), 2);
+        assert_eq!(mint.status, TransactionStatus::Finalized);
+        assert_eq!(mint.block_height, Some(1));
 
         let payment = node
             .submit_payment(
@@ -251,8 +396,8 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(payment.payment.status, TransactionStatus::Finalized);
-        assert_eq!(payment.block.height, 2);
+        assert_eq!(payment.status, TransactionStatus::Finalized);
+        assert_eq!(payment.block_height, Some(2));
         assert_eq!(
             node.balance(SANDBOX_CORP_A_ACCOUNT, KCAD_TEST)
                 .await
@@ -265,9 +410,6 @@ mod tests {
                 .unwrap(),
             100_000
         );
-        assert!(node
-            .get_payment(&payment.payment.transaction.id)
-            .await
-            .is_ok());
+        assert!(node.get_payment(&payment.transaction.id).await.is_ok());
     }
 }

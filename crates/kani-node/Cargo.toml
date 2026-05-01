@@ -6,6 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+anyhow.workspace = true
 kani-consensus = { path = "../kani-consensus" }
 kani-crypto = { path = "../kani-crypto" }
 kani-ledger = { path = "../kani-ledger" }
@@ -13,3 +14,12 @@ kani-types = { path = "../kani-types" }
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "kani-node"
+path = "src/main.rs"

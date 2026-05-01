@@ -17,9 +17,11 @@ services:
       start_period: 5s
 
   kani-api:
+    image: kani-kani-api
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+    command: ["kani-api"]
     environment:
       KANI_API_ADDR: 0.0.0.0:8080
       KANI_LEDGER_MODE: postgres
@@ -38,6 +40,48 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+  validator-a:
+    image: kani-kani-api
+    command: ["kani-node"]
+    environment:
+      DATABASE_URL: postgres://kani:kani@postgres:5432/kani
+      KANI_VALIDATOR_ID: validator-a
+      KANI_VALIDATOR_POLL_MS: "500"
+      ENV: SANDBOX
+      REAL_VALUE: "FALSE"
+      REDEEMABLE: "FALSE"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  validator-b:
+    image: kani-kani-api
+    command: ["kani-node"]
+    environment:
+      DATABASE_URL: postgres://kani:kani@postgres:5432/kani
+      KANI_VALIDATOR_ID: validator-b
+      KANI_VALIDATOR_POLL_MS: "500"
+      ENV: SANDBOX
+      REAL_VALUE: "FALSE"
+      REDEEMABLE: "FALSE"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  validator-c:
+    image: kani-kani-api
+    command: ["kani-node"]
+    environment:
+      DATABASE_URL: postgres://kani:kani@postgres:5432/kani
+      KANI_VALIDATOR_ID: validator-c
+      KANI_VALIDATOR_POLL_MS: "500"
+      ENV: SANDBOX
+      REAL_VALUE: "FALSE"
+      REDEEMABLE: "FALSE"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   kani-postgres:

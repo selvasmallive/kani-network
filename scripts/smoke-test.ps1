@@ -36,6 +36,28 @@ function Invoke-KaniPost {
     -Body ($Body | ConvertTo-Json -Compress)
 }
 
+function Wait-KaniPaymentFinalized {
+  param(
+    [string]$Url,
+    [string]$PaymentId
+  )
+
+  for ($i = 0; $i -lt 90; $i++) {
+    $payment = Invoke-RestMethod "$Url/v1/payments/$PaymentId" -TimeoutSec 2
+    if ($payment.status -eq "FINALIZED") {
+      return $payment
+    }
+
+    if ($payment.status -eq "REJECTED") {
+      throw "payment $PaymentId rejected: $($payment.failure_reason)"
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  throw "payment $PaymentId was not finalized in time"
+}
+
 Push-Location $repoRoot
 try {
   if (-not $NoStartStack) {
@@ -50,6 +72,7 @@ try {
     asset    = $Asset
     amount   = 1000000
   }
+  $mint = Wait-KaniPaymentFinalized -Url $base -PaymentId $mint.payment_id
 
   $payment = Invoke-KaniPost "$base/v1/payments" @{
     from   = "CORP_A"
@@ -57,6 +80,7 @@ try {
     asset  = $Asset
     amount = 100000
   }
+  $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id
 
   $balanceA = Invoke-RestMethod "$base/v1/accounts/CORP_A/balances/$Asset"
   $balanceB = Invoke-RestMethod "$base/v1/accounts/CORP_B/balances/$Asset"
@@ -80,6 +104,8 @@ try {
   $latestAfterRestart = Invoke-RestMethod "$base/v1/blocks/latest"
   $blocks = Invoke-RestMethod "$base/v1/blocks"
   $auditEvents = Invoke-RestMethod "$base/v1/audit-events"
+  $validators = Invoke-RestMethod "$base/v1/validators"
+  $pendingTransactions = Invoke-RestMethod "$base/v1/transactions/pending"
 
   if ($balanceAAfterRestart.amount -ne 900000) {
     throw "expected persisted CORP_A balance 900000, got $($balanceAAfterRestart.amount)"
@@ -101,6 +127,8 @@ try {
     latest_height_after_restart  = $latestAfterRestart.height
     block_count                  = @($blocks).Count
     audit_event_count            = @($auditEvents).Count
+    validator_count              = @($validators).Count
+    pending_transaction_count    = @($pendingTransactions).Count
   }
 } finally {
   Pop-Location

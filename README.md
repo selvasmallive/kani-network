@@ -57,7 +57,15 @@ PostgreSQL mode runs the migrations in `migrations/`, seeds sandbox accounts whe
 
 ## Run The Full Local Stack
 
-The compose stack starts Postgres and `kani-api`, waits for Postgres readiness, and health-checks the API.
+The compose stack starts Postgres, `kani-api`, and three local validator processes:
+
+```text
+validator-a
+validator-b
+validator-c
+```
+
+In Postgres mode, `kani-api` queues pending transactions and the validator services finalize blocks in round-robin PoA order.
 
 ```powershell
 cd C:\dev\kani
@@ -70,7 +78,7 @@ Run the repeatable smoke test:
 .\scripts\smoke-test.ps1
 ```
 
-The smoke test mints a fresh test asset, transfers from `CORP_A` to `CORP_B`, verifies balances, restarts `kani-api`, verifies persisted balances, and reads block/audit listings.
+The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
 ## Example Flow
 
@@ -97,6 +105,8 @@ curl http://127.0.0.1:8080/v1/accounts/CORP_A/balances/KCAD_TEST
 curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST
 curl http://127.0.0.1:8080/v1/blocks
 curl http://127.0.0.1:8080/v1/audit-events
+curl http://127.0.0.1:8080/v1/validators
+curl http://127.0.0.1:8080/v1/transactions/pending
 ```
 
 ## Phase 1 Acceptance Path

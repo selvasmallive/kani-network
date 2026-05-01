@@ -864,6 +864,7 @@ dependencies = [
 name = "kani-node"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "kani-consensus",
  "kani-crypto",
  "kani-ledger",
@@ -871,6 +872,8 @@ dependencies = [
  "serde",
  "thiserror 1.0.69",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

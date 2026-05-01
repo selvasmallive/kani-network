@@ -421,6 +421,124 @@ impl PostgresLedgerStore {
         Ok(())
     }
 
+    pub async fn ensure_sandbox_seed(&self) -> Result<(), LedgerStorageError> {
+        let snapshot = self.load_snapshot().await?;
+        if snapshot.accounts.is_empty() {
+            self.save_snapshot(&InMemoryLedger::sandbox().snapshot())
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn next_nonce_for_account(
+        &self,
+        account_id: &str,
+    ) -> Result<i64, LedgerStorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT COALESCE(MAX(nonce), 0) + 1 AS next_nonce
+            FROM transactions
+            WHERE from_account = $1
+            "#,
+        )
+        .bind(account_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.try_get("next_nonce")?)
+    }
+
+    pub async fn enqueue_pending_transaction(
+        &self,
+        tx_record: Transaction,
+    ) -> Result<PaymentRecord, LedgerStorageError> {
+        let payment = PaymentRecord::pending(tx_record);
+        let tx_record = &payment.transaction;
+
+        sqlx::query(
+            r#"
+            INSERT INTO transactions (
+              id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
+              signatures, metadata, failure_reason, created_at, updated_at
+            )
+            VALUES (
+              $1::uuid, NULL, $2, $3, $4, CAST($5 AS NUMERIC(38, 0)), $6, $7, $8,
+              $9, $10, NULL, $11, $12
+            )
+            "#,
+        )
+        .bind(&tx_record.id)
+        .bind(&tx_record.from)
+        .bind(&tx_record.to)
+        .bind(&tx_record.asset)
+        .bind(tx_record.amount.to_string())
+        .bind(tx_record.nonce)
+        .bind(transaction_kind_to_db(&tx_record.kind))
+        .bind(transaction_status_to_db(&payment.status))
+        .bind(serde_json::to_value(&tx_record.signatures)?)
+        .bind(serde_json::to_value(&tx_record.metadata)?)
+        .bind(payment.created_at)
+        .bind(payment.updated_at)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(payment)
+    }
+
+    pub async fn pending_transactions(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<Transaction>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              from_account,
+              to_account,
+              asset,
+              amount::text AS amount,
+              nonce,
+              kind,
+              signatures,
+              metadata,
+              created_at
+            FROM transactions
+            WHERE status = 'PENDING'
+            ORDER BY created_at, id
+            LIMIT $1
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.iter().map(transaction_from_row).collect()
+    }
+
+    pub async fn reject_transaction(
+        &self,
+        transaction_id: &str,
+        reason: &str,
+    ) -> Result<(), LedgerStorageError> {
+        sqlx::query(
+            r#"
+            UPDATE transactions
+            SET status = 'REJECTED',
+                failure_reason = $2,
+                updated_at = now()
+            WHERE id = $1::uuid
+              AND status = 'PENDING'
+            "#,
+        )
+        .bind(transaction_id)
+        .bind(reason)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn save_snapshot(&self, snapshot: &LedgerSnapshot) -> Result<(), LedgerStorageError> {
         let mut tx = self.pool.begin().await?;
 
@@ -662,26 +780,9 @@ impl PostgresLedgerStore {
         let mut txs_by_block: HashMap<i64, Vec<Transaction>> = HashMap::new();
 
         for row in rows {
-            let amount = parse_amount(row.try_get("amount")?)?;
-            let kind = transaction_kind_from_db(row.try_get::<String, _>("kind")?)?;
             let status = transaction_status_from_db(row.try_get::<String, _>("status")?)?;
-            let signatures: Vec<Vec<u8>> =
-                serde_json::from_value(row.try_get::<Value, _>("signatures")?)?;
-            let metadata = serde_json::from_value(row.try_get::<Value, _>("metadata")?)?;
             let block_height: Option<i64> = row.try_get("block_height")?;
-
-            let transaction = Transaction {
-                id: row.try_get("id")?,
-                from: row.try_get("from_account")?,
-                to: row.try_get("to_account")?,
-                asset: row.try_get("asset")?,
-                amount,
-                nonce: row.try_get("nonce")?,
-                signatures,
-                kind,
-                metadata,
-                created_at: row.try_get("created_at")?,
-            };
+            let transaction = transaction_from_row(&row)?;
 
             if status == TransactionStatus::Finalized {
                 let next_nonce = nonces.entry(transaction.from.clone()).or_insert(0);
@@ -818,6 +919,21 @@ impl PostgresLedgerStore {
             })
             .collect()
     }
+}
+
+fn transaction_from_row(row: &sqlx::postgres::PgRow) -> Result<Transaction, LedgerStorageError> {
+    Ok(Transaction {
+        id: row.try_get("id")?,
+        from: row.try_get("from_account")?,
+        to: row.try_get("to_account")?,
+        asset: row.try_get("asset")?,
+        amount: parse_amount(row.try_get("amount")?)?,
+        nonce: row.try_get("nonce")?,
+        signatures: serde_json::from_value(row.try_get::<Value, _>("signatures")?)?,
+        kind: transaction_kind_from_db(row.try_get::<String, _>("kind")?)?,
+        metadata: serde_json::from_value(row.try_get::<Value, _>("metadata")?)?,
+        created_at: row.try_get("created_at")?,
+    })
 }
 
 fn parse_amount(value: String) -> Result<i128, LedgerStorageError> {
