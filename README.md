@@ -66,6 +66,7 @@ validator-c
 ```
 
 In Postgres mode, `kani-api` queues pending transactions and the validator services finalize blocks in round-robin PoA order.
+Validators also take a Postgres advisory lock during block production, so duplicate local validator processes do not finalize the same pending transactions concurrently.
 
 ```powershell
 cd C:\dev\kani

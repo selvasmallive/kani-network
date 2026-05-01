@@ -277,6 +277,39 @@ impl ValidatorRuntime {
             return Ok(None);
         }
 
+        let Some(lock) = self.storage.try_acquire_block_production_lock().await? else {
+            tracing::debug!(
+                validator = %self.validator_id,
+                height,
+                "block production lock is busy"
+            );
+            return Ok(None);
+        };
+
+        let result = self.run_once_with_block_lock().await;
+        if let Err(error) = lock.release().await {
+            tracing::warn!(
+                validator = %self.validator_id,
+                %error,
+                "failed to release block production lock"
+            );
+            if result.is_ok() {
+                return Err(error.into());
+            }
+        }
+
+        result
+    }
+
+    async fn run_once_with_block_lock(&self) -> Result<Option<Block>, NodeError> {
+        let ledger = InMemoryLedger::from_snapshot(self.storage.load_snapshot().await?);
+        let height = ledger.next_height();
+        let leader = self.consensus.leader_for_height(height)?;
+
+        if leader.id != self.validator_id {
+            return Ok(None);
+        }
+
         let pending = self
             .storage
             .pending_transactions(self.max_transactions_per_block)

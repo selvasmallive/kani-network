@@ -4,9 +4,11 @@ use kani_types::{
     SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT, SANDBOX_FEE_ACCOUNT, SANDBOX_TREASURY_ACCOUNT,
 };
 use serde_json::Value;
-use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres, Row};
 use std::{collections::HashMap, path::Path};
 use thiserror::Error;
+
+const BLOCK_PRODUCTION_LOCK_ID: i64 = 0x4B414E49504F4131_i64;
 
 #[derive(Debug, Error)]
 pub enum LedgerError {
@@ -62,6 +64,8 @@ pub enum LedgerStorageError {
     UnknownJournalDirection(String),
     #[error("migration failed: {0}")]
     Migration(String),
+    #[error("failed to release block production advisory lock")]
+    AdvisoryLockReleaseFailed,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -395,6 +399,30 @@ pub struct PostgresLedgerStore {
     pool: PgPool,
 }
 
+#[must_use = "block production locks must be released with release()"]
+pub struct BlockProductionLock {
+    connection: Option<PoolConnection<Postgres>>,
+}
+
+impl BlockProductionLock {
+    pub async fn release(mut self) -> Result<(), LedgerStorageError> {
+        let Some(mut connection) = self.connection.take() else {
+            return Ok(());
+        };
+
+        let row = sqlx::query("SELECT pg_advisory_unlock($1) AS released")
+            .bind(BLOCK_PRODUCTION_LOCK_ID)
+            .fetch_one(&mut *connection)
+            .await?;
+        let released: bool = row.try_get("released")?;
+        if !released {
+            return Err(LedgerStorageError::AdvisoryLockReleaseFailed);
+        }
+
+        Ok(())
+    }
+}
+
 impl PostgresLedgerStore {
     pub async fn connect(database_url: &str) -> Result<Self, LedgerStorageError> {
         let pool = PgPoolOptions::new()
@@ -429,6 +457,25 @@ impl PostgresLedgerStore {
         }
 
         Ok(())
+    }
+
+    pub async fn try_acquire_block_production_lock(
+        &self,
+    ) -> Result<Option<BlockProductionLock>, LedgerStorageError> {
+        let mut connection = self.pool.acquire().await?;
+        let row = sqlx::query("SELECT pg_try_advisory_lock($1) AS acquired")
+            .bind(BLOCK_PRODUCTION_LOCK_ID)
+            .fetch_one(&mut *connection)
+            .await?;
+        let acquired: bool = row.try_get("acquired")?;
+
+        if !acquired {
+            return Ok(None);
+        }
+
+        Ok(Some(BlockProductionLock {
+            connection: Some(connection),
+        }))
     }
 
     pub async fn next_nonce_for_account(
