@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use kani_node::{KaniNode, NodeError, PaymentSubmission};
-use kani_types::{Block, PaymentRecord, TransactionStatus};
+use kani_types::{AuditEvent, Block, PaymentRecord, TransactionStatus};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize)]
@@ -120,7 +120,9 @@ pub fn build_router(node: KaniNode) -> Router {
         .route("/v1/payments", post(create_payment))
         .route("/v1/payments/:id", get(get_payment))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
+        .route("/v1/blocks", get(get_blocks))
         .route("/v1/blocks/latest", get(get_latest_block))
+        .route("/v1/audit-events", get(get_audit_events))
         .route("/v1/sandbox/mint", post(sandbox_mint))
         .with_state(node)
 }
@@ -178,6 +180,14 @@ async fn get_latest_block(State(node): State<KaniNode>) -> Result<Json<Block>, A
         .await?
         .map(Json)
         .ok_or_else(|| ApiError::NotFound("no finalized blocks yet".to_string()))
+}
+
+async fn get_blocks(State(node): State<KaniNode>) -> Result<Json<Vec<Block>>, ApiError> {
+    Ok(Json(node.blocks().await?))
+}
+
+async fn get_audit_events(State(node): State<KaniNode>) -> Result<Json<Vec<AuditEvent>>, ApiError> {
+    Ok(Json(node.audit_events().await?))
 }
 
 async fn sandbox_mint(

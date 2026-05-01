@@ -55,6 +55,23 @@ cargo run -p kani-api
 
 PostgreSQL mode runs the migrations in `migrations/`, seeds sandbox accounts when the database is empty, and reloads finalized blocks, balances, transactions, journal entries, and audit events on restart.
 
+## Run The Full Local Stack
+
+The compose stack starts Postgres and `kani-api`, waits for Postgres readiness, and health-checks the API.
+
+```powershell
+cd C:\dev\kani
+docker compose up -d --build
+```
+
+Run the repeatable smoke test:
+
+```powershell
+.\scripts\smoke-test.ps1
+```
+
+The smoke test mints a fresh test asset, transfers from `CORP_A` to `CORP_B`, verifies balances, restarts `kani-api`, verifies persisted balances, and reads block/audit listings.
+
 ## Example Flow
 
 Mint sandbox test value to Corp A:
@@ -78,6 +95,8 @@ Check balances:
 ```bash
 curl http://127.0.0.1:8080/v1/accounts/CORP_A/balances/KCAD_TEST
 curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST
+curl http://127.0.0.1:8080/v1/blocks
+curl http://127.0.0.1:8080/v1/audit-events
 ```
 
 ## Phase 1 Acceptance Path

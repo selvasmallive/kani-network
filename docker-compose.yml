@@ -9,6 +9,12 @@ services:
       - "5432:5432"
     volumes:
       - kani-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kani -d kani"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
   kani-api:
     build:
@@ -24,7 +30,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 volumes:
   kani-postgres:

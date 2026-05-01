@@ -150,6 +150,10 @@ impl KaniNode {
         Ok(self.ledger.lock().await.latest_block())
     }
 
+    pub async fn blocks(&self) -> Result<Vec<Block>, NodeError> {
+        Ok(self.ledger.lock().await.blocks().to_vec())
+    }
+
     pub async fn accounts(&self) -> Result<Vec<Account>, NodeError> {
         Ok(self.ledger.lock().await.accounts())
     }

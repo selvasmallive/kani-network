@@ -1,4 +1,4 @@
-FROM rust:1.76-bookworm AS builder
+FROM rust:1-bookworm AS builder
 
 WORKDIR /app
 COPY . .
@@ -6,9 +6,13 @@ RUN cargo build --release -p kani-api
 
 FROM debian:bookworm-slim
 
-RUN useradd --create-home --shell /usr/sbin/nologin kani
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /usr/sbin/nologin kani
 WORKDIR /app
 COPY --from=builder /app/target/release/kani-api /usr/local/bin/kani-api
+COPY --from=builder /app/migrations ./migrations
 USER kani
 
 ENV KANI_API_ADDR=0.0.0.0:8080

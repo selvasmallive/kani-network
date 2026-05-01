@@ -1,0 +1,6 @@
+target/
+.git/
+.env
+.env.*
+*.log
+docker-compose.override.yml
