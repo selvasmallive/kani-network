@@ -36,6 +36,30 @@ function Invoke-KaniPost {
     -Body ($Body | ConvertTo-Json -Compress)
 }
 
+function Assert-KaniConflictPost {
+  param(
+    [string]$Url,
+    [hashtable]$Body
+  )
+
+  try {
+    Invoke-KaniPost $Url $Body | Out-Null
+  } catch {
+    $statusCode = $null
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    }
+
+    if ($statusCode -eq 409) {
+      return
+    }
+
+    throw
+  }
+
+  throw "expected idempotency conflict, but request succeeded"
+}
+
 function Wait-KaniPaymentFinalized {
   param(
     [string]$Url,
@@ -87,6 +111,10 @@ try {
   if ($paymentRetry.payment_id -ne $payment.payment_id) {
     throw "expected idempotent retry to return payment $($payment.payment_id), got $($paymentRetry.payment_id)"
   }
+
+  $conflictingPaymentRequest = $paymentRequest.Clone()
+  $conflictingPaymentRequest.amount = 200000
+  Assert-KaniConflictPost "$base/v1/payments" $conflictingPaymentRequest
 
   $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id
   $paymentRetryAfterFinality = Invoke-KaniPost "$base/v1/payments" $paymentRequest
@@ -143,6 +171,7 @@ try {
     mint_payment_id              = $mint.payment_id
     transfer_payment_id          = $payment.payment_id
     transfer_client_reference_id = $payment.client_reference_id
+    idempotency_conflict_checked = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height

@@ -136,6 +136,7 @@ pub struct PaymentRecord {
     pub block_hash: Option<String>,
     pub failure_reason: Option<String>,
     pub client_reference_id: Option<String>,
+    pub request_fingerprint: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -144,6 +145,7 @@ impl PaymentRecord {
     pub fn pending(transaction: Transaction) -> Self {
         let now = Utc::now();
         let client_reference_id = client_reference_id_from(&transaction);
+        let request_fingerprint = request_fingerprint_from(&transaction);
         Self {
             transaction,
             status: TransactionStatus::Pending,
@@ -151,6 +153,7 @@ impl PaymentRecord {
             block_hash: None,
             failure_reason: None,
             client_reference_id,
+            request_fingerprint,
             created_at: now,
             updated_at: now,
         }
@@ -159,6 +162,7 @@ impl PaymentRecord {
     pub fn finalized(transaction: Transaction, block_height: i64, block_hash: String) -> Self {
         let now = Utc::now();
         let client_reference_id = client_reference_id_from(&transaction);
+        let request_fingerprint = request_fingerprint_from(&transaction);
         Self {
             transaction,
             status: TransactionStatus::Finalized,
@@ -166,6 +170,7 @@ impl PaymentRecord {
             block_hash: Some(block_hash),
             failure_reason: None,
             client_reference_id,
+            request_fingerprint,
             created_at: now,
             updated_at: now,
         }
@@ -174,6 +179,7 @@ impl PaymentRecord {
     pub fn rejected(transaction: Transaction, reason: impl Into<String>) -> Self {
         let now = Utc::now();
         let client_reference_id = client_reference_id_from(&transaction);
+        let request_fingerprint = request_fingerprint_from(&transaction);
         Self {
             transaction,
             status: TransactionStatus::Rejected,
@@ -181,6 +187,7 @@ impl PaymentRecord {
             block_hash: None,
             failure_reason: Some(reason.into()),
             client_reference_id,
+            request_fingerprint,
             created_at: now,
             updated_at: now,
         }
@@ -190,10 +197,19 @@ impl PaymentRecord {
         self.client_reference_id = client_reference_id;
         self
     }
+
+    pub fn with_request_fingerprint(mut self, request_fingerprint: Option<String>) -> Self {
+        self.request_fingerprint = request_fingerprint;
+        self
+    }
 }
 
 fn client_reference_id_from(transaction: &Transaction) -> Option<String> {
     transaction.metadata.get("client_reference_id").cloned()
+}
+
+fn request_fingerprint_from(transaction: &Transaction) -> Option<String> {
+    transaction.metadata.get("request_fingerprint").cloned()
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

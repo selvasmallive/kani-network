@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 use kani_consensus::{ConsensusError, PoAConsensus, Validator};
-use kani_crypto::{hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
+use kani_crypto::{hash_bytes, hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
 use kani_ledger::{
     InMemoryLedger, LedgerError, LedgerStorageError, PostgresLedgerStore, ValidatorStatus,
 };
-use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction};
+use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction, TransactionKind};
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -25,6 +25,8 @@ pub enum NodeError {
     EmptyBlock,
     #[error("block finality threshold not met: got {got}, required {required}")]
     InsufficientFinality { got: usize, required: usize },
+    #[error("idempotency key {client_reference_id} was already used for a different payment")]
+    IdempotencyConflict { client_reference_id: String },
 }
 
 #[derive(Clone)]
@@ -93,6 +95,8 @@ impl KaniNode {
         let from = from.into();
         let to = to.into();
         let asset = asset.into();
+        let request_fingerprint =
+            self.request_fingerprint(TransactionKind::Transfer, &from, &to, &asset, amount);
 
         if let Some(storage) = &self.storage {
             let nonce = storage.next_nonce_for_account(&from).await?;
@@ -102,15 +106,36 @@ impl KaniNode {
                     "client_reference_id".to_string(),
                     client_reference_id.to_string(),
                 );
+                tx.metadata.insert(
+                    "request_fingerprint".to_string(),
+                    request_fingerprint.clone(),
+                );
             }
-            return Ok(storage
-                .enqueue_pending_transaction(tx, client_reference_id)
-                .await?);
+            return self
+                .enqueue_postgres_payment(
+                    storage,
+                    tx,
+                    client_reference_id,
+                    Some(request_fingerprint),
+                )
+                .await;
         }
 
         let mut ledger = self.ledger.lock().await;
         if let Some(client_reference_id) = client_reference_id.as_deref() {
             if let Some(payment) = ledger.get_payment_by_client_reference_id(client_reference_id) {
+                ensure_idempotent_retry(
+                    &payment,
+                    IdempotencyAttempt {
+                        kind: TransactionKind::Transfer,
+                        from: &from,
+                        to: &to,
+                        asset: &asset,
+                        amount,
+                        request_fingerprint: &request_fingerprint,
+                        client_reference_id,
+                    },
+                )?;
                 return Ok(payment);
             }
         }
@@ -121,6 +146,10 @@ impl KaniNode {
             tx.metadata.insert(
                 "client_reference_id".to_string(),
                 client_reference_id.to_string(),
+            );
+            tx.metadata.insert(
+                "request_fingerprint".to_string(),
+                request_fingerprint.clone(),
             );
         }
         self.produce_and_apply_locked(&mut ledger, vec![tx]).await
@@ -140,7 +169,7 @@ impl KaniNode {
         if let Some(storage) = &self.storage {
             let nonce = storage.next_nonce_for_account(&treasury).await?;
             let tx = Transaction::new_mint(treasury, to, asset, amount, nonce);
-            return Ok(storage.enqueue_pending_transaction(tx, None).await?);
+            return Ok(storage.enqueue_pending_transaction(tx, None, None).await?);
         }
 
         let mut ledger = self.ledger.lock().await;
@@ -163,7 +192,7 @@ impl KaniNode {
         if let Some(storage) = &self.storage {
             let nonce = storage.next_nonce_for_account(&from).await?;
             let tx = Transaction::new_burn(from, treasury, asset, amount, nonce);
-            return Ok(storage.enqueue_pending_transaction(tx, None).await?);
+            return Ok(storage.enqueue_pending_transaction(tx, None, None).await?);
         }
 
         let mut ledger = self.ledger.lock().await;
@@ -274,6 +303,47 @@ impl KaniNode {
         let signature = sandbox_validator_signature(&self.crypto_profile, &validator.id, &hash);
 
         Ok(block.seal(hash, signature, votes))
+    }
+
+    async fn enqueue_postgres_payment(
+        &self,
+        storage: &PostgresLedgerStore,
+        tx: Transaction,
+        client_reference_id: Option<String>,
+        request_fingerprint: Option<String>,
+    ) -> Result<PaymentRecord, NodeError> {
+        storage
+            .enqueue_pending_transaction(tx, client_reference_id, request_fingerprint)
+            .await
+            .map_err(|error| match error {
+                LedgerStorageError::IdempotencyConflict {
+                    client_reference_id,
+                    ..
+                } => NodeError::IdempotencyConflict {
+                    client_reference_id,
+                },
+                other => NodeError::Storage(other),
+            })
+    }
+
+    fn request_fingerprint(
+        &self,
+        kind: TransactionKind,
+        from: &str,
+        to: &str,
+        asset: &str,
+        amount: i128,
+    ) -> String {
+        let payload = format!(
+            "kind={}\nfrom={}\nto={}\nasset={}\namount={}\n",
+            transaction_kind_fingerprint_value(kind),
+            from,
+            to,
+            asset,
+            amount
+        );
+
+        hash_bytes(&self.crypto_profile.hash, payload.as_bytes())
     }
 
     async fn current_ledger(&self) -> Result<InMemoryLedger, NodeError> {
@@ -434,6 +504,49 @@ fn validator_info_from(validator: &Validator, status: Option<&ValidatorStatus>) 
     }
 }
 
+struct IdempotencyAttempt<'a> {
+    kind: TransactionKind,
+    from: &'a str,
+    to: &'a str,
+    asset: &'a str,
+    amount: i128,
+    request_fingerprint: &'a str,
+    client_reference_id: &'a str,
+}
+
+fn ensure_idempotent_retry(
+    payment: &PaymentRecord,
+    attempt: IdempotencyAttempt<'_>,
+) -> Result<(), NodeError> {
+    let fingerprint_matches = payment
+        .request_fingerprint
+        .as_deref()
+        .map(|existing| existing == attempt.request_fingerprint)
+        .unwrap_or_else(|| {
+            payment.transaction.kind == attempt.kind
+                && payment.transaction.from == attempt.from
+                && payment.transaction.to == attempt.to
+                && payment.transaction.asset == attempt.asset
+                && payment.transaction.amount == attempt.amount
+        });
+
+    if fingerprint_matches {
+        return Ok(());
+    }
+
+    Err(NodeError::IdempotencyConflict {
+        client_reference_id: attempt.client_reference_id.to_string(),
+    })
+}
+
+fn transaction_kind_fingerprint_value(kind: TransactionKind) -> &'static str {
+    match kind {
+        TransactionKind::Mint => "MINT",
+        TransactionKind::Burn => "BURN",
+        TransactionKind::Transfer => "TRANSFER",
+    }
+}
+
 fn build_block_for_validator(
     ledger: &InMemoryLedger,
     txs: Vec<Transaction>,
@@ -515,5 +628,55 @@ mod tests {
             100_000
         );
         assert!(node.get_payment(&payment.transaction.id).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn node_rejects_idempotency_key_conflicts() {
+        let node = KaniNode::sandbox_default();
+
+        node.mint_sandbox(
+            SANDBOX_TREASURY_ACCOUNT,
+            SANDBOX_CORP_A_ACCOUNT,
+            KCAD_TEST,
+            1_000_000,
+        )
+        .await
+        .unwrap();
+
+        let payment = node
+            .submit_payment(
+                SANDBOX_CORP_A_ACCOUNT,
+                SANDBOX_CORP_B_ACCOUNT,
+                KCAD_TEST,
+                100_000,
+                Some("unit-test-transfer".to_string()),
+            )
+            .await
+            .unwrap();
+        let retry = node
+            .submit_payment(
+                SANDBOX_CORP_A_ACCOUNT,
+                SANDBOX_CORP_B_ACCOUNT,
+                KCAD_TEST,
+                100_000,
+                Some("unit-test-transfer".to_string()),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(payment.transaction.id, retry.transaction.id);
+
+        let conflict = node
+            .submit_payment(
+                SANDBOX_CORP_A_ACCOUNT,
+                SANDBOX_CORP_B_ACCOUNT,
+                KCAD_TEST,
+                200_000,
+                Some("unit-test-transfer".to_string()),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(conflict, NodeError::IdempotencyConflict { .. }));
     }
 }

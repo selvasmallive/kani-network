@@ -87,6 +87,7 @@ struct ErrorResponse {
 #[derive(Debug)]
 pub enum ApiError {
     BadRequest(String),
+    Conflict(String),
     NotFound(String),
     Internal(String),
 }
@@ -97,7 +98,18 @@ impl From<NodeError> for ApiError {
             NodeError::Ledger(kani_ledger_error) => {
                 ApiError::BadRequest(kani_ledger_error.to_string())
             }
+            NodeError::Storage(kani_ledger::LedgerStorageError::IdempotencyConflict {
+                client_reference_id,
+                ..
+            }) => ApiError::Conflict(format!(
+                "idempotency key {client_reference_id} was already used for a different payment"
+            )),
             NodeError::Storage(storage_error) => ApiError::Internal(storage_error.to_string()),
+            NodeError::IdempotencyConflict {
+                client_reference_id,
+            } => ApiError::Conflict(format!(
+                "idempotency key {client_reference_id} was already used for a different payment"
+            )),
             NodeError::Consensus(consensus_error) => {
                 ApiError::BadRequest(consensus_error.to_string())
             }
@@ -117,6 +129,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, error) = match self {
             ApiError::BadRequest(error) => (StatusCode::BAD_REQUEST, error),
+            ApiError::Conflict(error) => (StatusCode::CONFLICT, error),
             ApiError::NotFound(error) => (StatusCode::NOT_FOUND, error),
             ApiError::Internal(error) => (StatusCode::INTERNAL_SERVER_ERROR, error),
         };

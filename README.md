@@ -69,6 +69,7 @@ In Postgres mode, `kani-api` queues pending transactions and the validator servi
 Validators also take a Postgres advisory lock during block production, so duplicate local validator processes do not finalize the same pending transactions concurrently.
 Each validator writes heartbeat and last-finalized-block state to Postgres; read it from `GET /v1/validators`.
 Payment requests may include `client_reference_id` or `idempotency_key`; retries with the same value return the original payment record.
+If the same key is reused with different payment details, the API returns `409 Conflict`.
 
 ```powershell
 cd C:\dev\kani

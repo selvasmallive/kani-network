@@ -67,6 +67,11 @@ pub enum LedgerStorageError {
     Migration(String),
     #[error("failed to release block production advisory lock")]
     AdvisoryLockReleaseFailed,
+    #[error("idempotency key {client_reference_id} was already used for payment {payment_id}")]
+    IdempotencyConflict {
+        client_reference_id: String,
+        payment_id: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -520,29 +525,38 @@ impl PostgresLedgerStore {
         &self,
         tx_record: Transaction,
         client_reference_id: Option<String>,
+        request_fingerprint: Option<String>,
     ) -> Result<PaymentRecord, LedgerStorageError> {
         if let Some(client_reference_id) = client_reference_id.as_deref() {
             if let Some(payment) = self
                 .payment_by_client_reference_id(client_reference_id)
                 .await?
             {
+                ensure_idempotent_retry(
+                    &payment,
+                    &tx_record,
+                    client_reference_id,
+                    request_fingerprint.as_deref(),
+                )?;
                 return Ok(payment);
             }
         }
 
-        let payment =
-            PaymentRecord::pending(tx_record).with_client_reference_id(client_reference_id.clone());
+        let payment = PaymentRecord::pending(tx_record)
+            .with_client_reference_id(client_reference_id.clone())
+            .with_request_fingerprint(request_fingerprint.clone());
         let tx_record = &payment.transaction;
 
         let result = sqlx::query(
             r#"
             INSERT INTO transactions (
               id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
-              signatures, metadata, failure_reason, client_reference_id, created_at, updated_at
+              signatures, metadata, failure_reason, client_reference_id, request_fingerprint,
+              created_at, updated_at
             )
             VALUES (
               $1::uuid, NULL, $2, $3, $4, CAST($5 AS NUMERIC(38, 0)), $6, $7, $8,
-              $9, $10, NULL, $11, $12, $13
+              $9, $10, NULL, $11, $12, $13, $14
             )
             ON CONFLICT (client_reference_id) WHERE client_reference_id IS NOT NULL DO NOTHING
             "#,
@@ -558,6 +572,7 @@ impl PostgresLedgerStore {
         .bind(serde_json::to_value(&tx_record.signatures)?)
         .bind(serde_json::to_value(&tx_record.metadata)?)
         .bind(&payment.client_reference_id)
+        .bind(&payment.request_fingerprint)
         .bind(payment.created_at)
         .bind(payment.updated_at)
         .execute(&self.pool)
@@ -569,6 +584,12 @@ impl PostgresLedgerStore {
                     .payment_by_client_reference_id(client_reference_id)
                     .await?
                 {
+                    ensure_idempotent_retry(
+                        &payment,
+                        tx_record,
+                        client_reference_id,
+                        request_fingerprint.as_deref(),
+                    )?;
                     return Ok(payment);
                 }
             }
@@ -598,6 +619,7 @@ impl PostgresLedgerStore {
               t.metadata,
               t.failure_reason,
               t.client_reference_id,
+              t.request_fingerprint,
               t.created_at,
               t.updated_at
             FROM transactions t
@@ -803,11 +825,12 @@ impl PostgresLedgerStore {
                 r#"
                 INSERT INTO transactions (
                   id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
-                  signatures, metadata, failure_reason, client_reference_id, created_at, updated_at
+                  signatures, metadata, failure_reason, client_reference_id, request_fingerprint,
+                  created_at, updated_at
                 )
                 VALUES (
                   $1::uuid, $2, $3, $4, $5, CAST($6 AS NUMERIC(38, 0)), $7, $8, $9,
-                  $10, $11, $12, $13, $14, $15
+                  $10, $11, $12, $13, $14, $15, $16
                 )
                 ON CONFLICT (id) DO UPDATE SET
                   block_height = EXCLUDED.block_height,
@@ -829,6 +852,7 @@ impl PostgresLedgerStore {
             .bind(serde_json::to_value(&tx_record.metadata)?)
             .bind(&payment.failure_reason)
             .bind(&payment.client_reference_id)
+            .bind(&payment.request_fingerprint)
             .bind(payment.created_at)
             .bind(payment.updated_at)
             .execute(&mut *tx)
@@ -967,6 +991,7 @@ impl PostgresLedgerStore {
               t.metadata,
               t.failure_reason,
               t.client_reference_id,
+              t.request_fingerprint,
               t.created_at,
               t.updated_at
             FROM transactions t
@@ -1125,9 +1150,44 @@ fn payment_from_row(row: &sqlx::postgres::PgRow) -> Result<PaymentRecord, Ledger
         block_hash: row.try_get("block_hash")?,
         failure_reason: row.try_get("failure_reason")?,
         client_reference_id: row.try_get("client_reference_id")?,
+        request_fingerprint: row.try_get("request_fingerprint")?,
         created_at: row.try_get("created_at")?,
         updated_at: row.try_get("updated_at")?,
     })
+}
+
+fn ensure_idempotent_retry(
+    payment: &PaymentRecord,
+    attempted_transaction: &Transaction,
+    client_reference_id: &str,
+    attempted_fingerprint: Option<&str>,
+) -> Result<(), LedgerStorageError> {
+    let fingerprint_matches = payment
+        .request_fingerprint
+        .as_deref()
+        .zip(attempted_fingerprint)
+        .map(|(existing, attempted)| existing == attempted)
+        .unwrap_or_else(|| payment_matches_transaction(payment, attempted_transaction));
+
+    if fingerprint_matches {
+        return Ok(());
+    }
+
+    Err(LedgerStorageError::IdempotencyConflict {
+        client_reference_id: client_reference_id.to_string(),
+        payment_id: payment.transaction.id.clone(),
+    })
+}
+
+fn payment_matches_transaction(
+    payment: &PaymentRecord,
+    attempted_transaction: &Transaction,
+) -> bool {
+    payment.transaction.kind == attempted_transaction.kind
+        && payment.transaction.from == attempted_transaction.from
+        && payment.transaction.to == attempted_transaction.to
+        && payment.transaction.asset == attempted_transaction.asset
+        && payment.transaction.amount == attempted_transaction.amount
 }
 
 fn transaction_from_row(row: &sqlx::postgres::PgRow) -> Result<Transaction, LedgerStorageError> {
