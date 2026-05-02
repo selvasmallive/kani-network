@@ -70,7 +70,7 @@ Validators also take a Postgres advisory lock during block production, so duplic
 Each validator writes heartbeat and last-finalized-block state to Postgres; read it from `GET /v1/validators`.
 Payment requests may include `client_reference_id` or `idempotency_key`; retries with the same value return the original payment record.
 If the same key is reused with different payment details, the API returns `409 Conflict`.
-Sandbox write APIs require institution headers:
+Sandbox write APIs and account-scoped read APIs require institution headers:
 
 ```text
 x-kani-institution-id: CORP_A | CORP_B | KANI_TREASURY
@@ -78,6 +78,7 @@ x-kani-api-key: sandbox-corp-a-token | sandbox-corp-b-token | sandbox-treasury-t
 ```
 
 These local keys are simulation-only. Override them with `KANI_SANDBOX_CORP_A_API_KEY`, `KANI_SANDBOX_CORP_B_API_KEY`, and `KANI_SANDBOX_TREASURY_API_KEY` when needed.
+Balance reads require the institution that owns the account. Payment lookup is visible to the sending or receiving institution.
 
 ```powershell
 cd C:\dev\kani
@@ -117,8 +118,14 @@ curl -X POST http://127.0.0.1:8080/v1/payments \
 Check balances:
 
 ```bash
-curl http://127.0.0.1:8080/v1/accounts/CORP_A/balances/KCAD_TEST
-curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST
+curl http://127.0.0.1:8080/v1/accounts/CORP_A/balances/KCAD_TEST \
+  -H "x-kani-institution-id: CORP_A" \
+  -H "x-kani-api-key: sandbox-corp-a-token"
+
+curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST \
+  -H "x-kani-institution-id: CORP_B" \
+  -H "x-kani-api-key: sandbox-corp-b-token"
+
 curl http://127.0.0.1:8080/v1/blocks
 curl http://127.0.0.1:8080/v1/audit-events
 curl http://127.0.0.1:8080/v1/validators

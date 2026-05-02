@@ -316,6 +316,23 @@ async fn authorize_account_control(
     auth: &AuthenticatedInstitution,
     account_id: &str,
 ) -> Result<Account, ApiError> {
+    authorize_account_access(node, auth, account_id, "debit").await
+}
+
+async fn authorize_account_read(
+    node: &KaniNode,
+    auth: &AuthenticatedInstitution,
+    account_id: &str,
+) -> Result<Account, ApiError> {
+    authorize_account_access(node, auth, account_id, "read").await
+}
+
+async fn authorize_account_access(
+    node: &KaniNode,
+    auth: &AuthenticatedInstitution,
+    account_id: &str,
+    action: &str,
+) -> Result<Account, ApiError> {
     let account = node
         .accounts()
         .await?
@@ -328,8 +345,42 @@ async fn authorize_account_control(
     }
 
     Err(ApiError::Forbidden(format!(
-        "institution is not authorized to debit account {account_id}"
+        "institution is not authorized to {action} account {account_id}"
     )))
+}
+
+async fn authorize_payment_read(
+    node: &KaniNode,
+    auth: &AuthenticatedInstitution,
+    payment: &PaymentRecord,
+) -> Result<(), ApiError> {
+    let accounts = node.accounts().await?;
+    let can_read_payment =
+        account_belongs_to_institution(&accounts, &payment.transaction.from, &auth.institution_id)
+            || account_belongs_to_institution(
+                &accounts,
+                &payment.transaction.to,
+                &auth.institution_id,
+            );
+
+    if can_read_payment {
+        return Ok(());
+    }
+
+    Err(ApiError::Forbidden(format!(
+        "institution is not authorized to read payment {}",
+        payment.transaction.id
+    )))
+}
+
+fn account_belongs_to_institution(
+    accounts: &[Account],
+    account_id: &str,
+    institution_id: &str,
+) -> bool {
+    accounts.iter().any(|account| {
+        account.id == account_id && account.institution_id.as_deref() == Some(institution_id)
+    })
 }
 
 fn required_header(headers: &HeaderMap, name: &'static str) -> Result<String, ApiError> {
@@ -350,8 +401,10 @@ fn required_header(headers: &HeaderMap, name: &'static str) -> Result<String, Ap
 
 async fn get_payment(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<PaymentResponse>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
     let record = state
         .node
         .get_payment(&id)
@@ -362,14 +415,18 @@ async fn get_payment(
             }
             other => ApiError::from(other),
         })?;
+    authorize_payment_read(&state.node, &auth, &record).await?;
 
     Ok(Json(record.into()))
 }
 
 async fn get_balance(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((account_id, asset)): Path<(String, String)>,
 ) -> Result<Json<BalanceResponse>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
+    authorize_account_read(&state.node, &auth, &account_id).await?;
     let amount = state.node.balance(&account_id, &asset).await?;
     Ok(Json(BalanceResponse {
         account_id,
@@ -451,7 +508,7 @@ async fn sandbox_mint(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kani_types::{SANDBOX_CORP_A_ACCOUNT, SANDBOX_TREASURY_ACCOUNT};
+    use kani_types::{SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT, SANDBOX_TREASURY_ACCOUNT};
 
     #[test]
     fn sandbox_auth_accepts_matching_credentials() {
@@ -495,6 +552,80 @@ mod tests {
         };
 
         let error = authorize_account_control(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, ApiError::Forbidden(_)));
+    }
+
+    #[tokio::test]
+    async fn institution_can_read_own_account() {
+        let node = KaniNode::sandbox_default();
+        let auth = AuthenticatedInstitution {
+            institution_id: "CORP_A".to_string(),
+        };
+
+        let account = authorize_account_read(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
+            .await
+            .unwrap();
+
+        assert_eq!(account.id, SANDBOX_CORP_A_ACCOUNT);
+    }
+
+    #[tokio::test]
+    async fn institution_cannot_read_another_institutions_account() {
+        let node = KaniNode::sandbox_default();
+        let auth = AuthenticatedInstitution {
+            institution_id: "CORP_B".to_string(),
+        };
+
+        let error = authorize_account_read(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, ApiError::Forbidden(_)));
+    }
+
+    #[tokio::test]
+    async fn payment_read_allows_participating_institutions() {
+        let node = KaniNode::sandbox_default();
+        let payment = PaymentRecord::pending(kani_types::Transaction::new_transfer(
+            SANDBOX_CORP_A_ACCOUNT,
+            SANDBOX_CORP_B_ACCOUNT,
+            "KCAD_TEST",
+            100,
+            1,
+        ));
+        let corp_a = AuthenticatedInstitution {
+            institution_id: "CORP_A".to_string(),
+        };
+        let corp_b = AuthenticatedInstitution {
+            institution_id: "CORP_B".to_string(),
+        };
+
+        authorize_payment_read(&node, &corp_a, &payment)
+            .await
+            .unwrap();
+        authorize_payment_read(&node, &corp_b, &payment)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn payment_read_rejects_uninvolved_institution() {
+        let node = KaniNode::sandbox_default();
+        let payment = PaymentRecord::pending(kani_types::Transaction::new_transfer(
+            SANDBOX_CORP_A_ACCOUNT,
+            SANDBOX_CORP_B_ACCOUNT,
+            "KCAD_TEST",
+            100,
+            1,
+        ));
+        let treasury = AuthenticatedInstitution {
+            institution_id: SANDBOX_TREASURY_INSTITUTION_ID.to_string(),
+        };
+
+        let error = authorize_payment_read(&node, &treasury, &payment)
             .await
             .unwrap_err();
 

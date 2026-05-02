@@ -38,6 +38,15 @@ function Invoke-KaniPost {
     -Body ($Body | ConvertTo-Json -Compress)
 }
 
+function Invoke-KaniGet {
+  param(
+    [string]$Url,
+    [hashtable]$Headers = @{}
+  )
+
+  Invoke-RestMethod $Url -Headers $Headers -TimeoutSec 2
+}
+
 function Assert-KaniStatusPost {
   param(
     [string]$Url,
@@ -48,6 +57,31 @@ function Assert-KaniStatusPost {
 
   try {
     Invoke-KaniPost $Url $Body $Headers | Out-Null
+  } catch {
+    $statusCode = $null
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    }
+
+    if ($statusCode -eq $ExpectedStatusCode) {
+      return
+    }
+
+    throw
+  }
+
+  throw "expected HTTP $ExpectedStatusCode, but request succeeded"
+}
+
+function Assert-KaniStatusGet {
+  param(
+    [string]$Url,
+    [hashtable]$Headers,
+    [int]$ExpectedStatusCode
+  )
+
+  try {
+    Invoke-KaniGet $Url $Headers | Out-Null
   } catch {
     $statusCode = $null
     if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
@@ -84,14 +118,24 @@ function Assert-KaniForbiddenPost {
   Assert-KaniStatusPost $Url $Body $Headers 403
 }
 
+function Assert-KaniForbiddenGet {
+  param(
+    [string]$Url,
+    [hashtable]$Headers
+  )
+
+  Assert-KaniStatusGet $Url $Headers 403
+}
+
 function Wait-KaniPaymentFinalized {
   param(
     [string]$Url,
-    [string]$PaymentId
+    [string]$PaymentId,
+    [hashtable]$Headers
   )
 
   for ($i = 0; $i -lt 90; $i++) {
-    $payment = Invoke-RestMethod "$Url/v1/payments/$PaymentId" -TimeoutSec 2
+    $payment = Invoke-KaniGet "$Url/v1/payments/$PaymentId" $Headers
     if ($payment.status -eq "FINALIZED") {
       return $payment
     }
@@ -133,7 +177,7 @@ try {
     asset    = $Asset
     amount   = 1000000
   } $treasuryHeaders
-  $mint = Wait-KaniPaymentFinalized -Url $base -PaymentId $mint.payment_id
+  $mint = Wait-KaniPaymentFinalized -Url $base -PaymentId $mint.payment_id -Headers $treasuryHeaders
 
   $paymentRequest = @{
     from                = "CORP_A"
@@ -156,16 +200,19 @@ try {
   $forbiddenPaymentRequest = $paymentRequest.Clone()
   $forbiddenPaymentRequest.client_reference_id = "smoke-$Asset-forbidden"
   Assert-KaniForbiddenPost "$base/v1/payments" $forbiddenPaymentRequest $corpBHeaders
+  Assert-KaniForbiddenGet "$base/v1/payments/$($payment.payment_id)" $treasuryHeaders
+  Assert-KaniForbiddenGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpBHeaders
 
-  $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id
+  $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id -Headers $corpAHeaders
+  Invoke-KaniGet "$base/v1/payments/$($payment.payment_id)" $corpBHeaders | Out-Null
   $paymentRetryAfterFinality = Invoke-KaniPost "$base/v1/payments" $paymentRequest $corpAHeaders
 
   if ($paymentRetryAfterFinality.payment_id -ne $payment.payment_id) {
     throw "expected finalized idempotent retry to return payment $($payment.payment_id), got $($paymentRetryAfterFinality.payment_id)"
   }
 
-  $balanceA = Invoke-RestMethod "$base/v1/accounts/CORP_A/balances/$Asset"
-  $balanceB = Invoke-RestMethod "$base/v1/accounts/CORP_B/balances/$Asset"
+  $balanceA = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
+  $balanceB = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
   $latestBeforeRestart = Invoke-RestMethod "$base/v1/blocks/latest"
 
   if ($balanceA.amount -ne 900000) {
@@ -181,8 +228,8 @@ try {
     Wait-KaniHealth -Url $base | Out-Null
   }
 
-  $balanceAAfterRestart = Invoke-RestMethod "$base/v1/accounts/CORP_A/balances/$Asset"
-  $balanceBAfterRestart = Invoke-RestMethod "$base/v1/accounts/CORP_B/balances/$Asset"
+  $balanceAAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
+  $balanceBAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
   $latestAfterRestart = Invoke-RestMethod "$base/v1/blocks/latest"
   $blocks = Invoke-RestMethod "$base/v1/blocks"
   $auditEvents = Invoke-RestMethod "$base/v1/audit-events"
@@ -214,6 +261,7 @@ try {
     transfer_client_reference_id = $payment.client_reference_id
     idempotency_conflict_checked = $true
     authorization_checked        = $true
+    read_authorization_checked   = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height
