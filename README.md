@@ -70,6 +70,14 @@ Validators also take a Postgres advisory lock during block production, so duplic
 Each validator writes heartbeat and last-finalized-block state to Postgres; read it from `GET /v1/validators`.
 Payment requests may include `client_reference_id` or `idempotency_key`; retries with the same value return the original payment record.
 If the same key is reused with different payment details, the API returns `409 Conflict`.
+Sandbox write APIs require institution headers:
+
+```text
+x-kani-institution-id: CORP_A | CORP_B | KANI_TREASURY
+x-kani-api-key: sandbox-corp-a-token | sandbox-corp-b-token | sandbox-treasury-token
+```
+
+These local keys are simulation-only. Override them with `KANI_SANDBOX_CORP_A_API_KEY`, `KANI_SANDBOX_CORP_B_API_KEY`, and `KANI_SANDBOX_TREASURY_API_KEY` when needed.
 
 ```powershell
 cd C:\dev\kani
@@ -91,6 +99,8 @@ Mint sandbox test value to Corp A:
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/sandbox/mint \
   -H "content-type: application/json" \
+  -H "x-kani-institution-id: KANI_TREASURY" \
+  -H "x-kani-api-key: sandbox-treasury-token" \
   -d '{"treasury":"TREASURY_SANDBOX","to":"CORP_A","asset":"KCAD_TEST","amount":1000000}'
 ```
 
@@ -99,6 +109,8 @@ Transfer from Corp A to Corp B:
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/payments \
   -H "content-type: application/json" \
+  -H "x-kani-institution-id: CORP_A" \
+  -H "x-kani-api-key: sandbox-corp-a-token" \
   -d '{"from":"CORP_A","to":"CORP_B","asset":"KCAD_TEST","amount":100000,"client_reference_id":"demo-transfer-001"}'
 ```
 
