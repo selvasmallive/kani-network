@@ -15,6 +15,8 @@ pub struct CreatePaymentRequest {
     pub to: String,
     pub asset: String,
     pub amount: i128,
+    pub client_reference_id: Option<String>,
+    pub idempotency_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -33,6 +35,7 @@ pub struct PaymentResponse {
     pub block_height: Option<i64>,
     pub block_hash: Option<String>,
     pub failure_reason: Option<String>,
+    pub client_reference_id: Option<String>,
 }
 
 impl From<PaymentRecord> for PaymentResponse {
@@ -44,6 +47,7 @@ impl From<PaymentRecord> for PaymentResponse {
             block_height: record.block_height,
             block_hash: record.block_hash,
             failure_reason: record.failure_reason,
+            client_reference_id: record.client_reference_id,
         }
     }
 }
@@ -150,12 +154,48 @@ async fn create_payment(
     State(node): State<KaniNode>,
     Json(request): Json<CreatePaymentRequest>,
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
+    let client_reference_id =
+        normalized_client_reference_id(request.client_reference_id, request.idempotency_key)?;
     let response = node
-        .submit_payment(request.from, request.to, request.asset, request.amount)
+        .submit_payment(
+            request.from,
+            request.to,
+            request.asset,
+            request.amount,
+            client_reference_id,
+        )
         .await
         .map(PaymentResponse::from)?;
 
     Ok((StatusCode::CREATED, Json(response)))
+}
+
+fn normalized_client_reference_id(
+    client_reference_id: Option<String>,
+    idempotency_key: Option<String>,
+) -> Result<Option<String>, ApiError> {
+    let client_reference_id = normalize_optional_id(client_reference_id);
+    let idempotency_key = normalize_optional_id(idempotency_key);
+
+    match (client_reference_id, idempotency_key) {
+        (Some(client_reference_id), Some(idempotency_key))
+            if client_reference_id != idempotency_key =>
+        {
+            Err(ApiError::BadRequest(
+                "client_reference_id and idempotency_key must match when both are provided"
+                    .to_string(),
+            ))
+        }
+        (Some(client_reference_id), _) => Ok(Some(client_reference_id)),
+        (_, Some(idempotency_key)) => Ok(Some(idempotency_key)),
+        (None, None) => Ok(None),
+    }
+}
+
+fn normalize_optional_id(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 async fn get_payment(

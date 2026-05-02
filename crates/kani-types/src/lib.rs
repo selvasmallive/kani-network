@@ -135,6 +135,7 @@ pub struct PaymentRecord {
     pub block_height: Option<i64>,
     pub block_hash: Option<String>,
     pub failure_reason: Option<String>,
+    pub client_reference_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -142,12 +143,14 @@ pub struct PaymentRecord {
 impl PaymentRecord {
     pub fn pending(transaction: Transaction) -> Self {
         let now = Utc::now();
+        let client_reference_id = client_reference_id_from(&transaction);
         Self {
             transaction,
             status: TransactionStatus::Pending,
             block_height: None,
             block_hash: None,
             failure_reason: None,
+            client_reference_id,
             created_at: now,
             updated_at: now,
         }
@@ -155,12 +158,14 @@ impl PaymentRecord {
 
     pub fn finalized(transaction: Transaction, block_height: i64, block_hash: String) -> Self {
         let now = Utc::now();
+        let client_reference_id = client_reference_id_from(&transaction);
         Self {
             transaction,
             status: TransactionStatus::Finalized,
             block_height: Some(block_height),
             block_hash: Some(block_hash),
             failure_reason: None,
+            client_reference_id,
             created_at: now,
             updated_at: now,
         }
@@ -168,16 +173,27 @@ impl PaymentRecord {
 
     pub fn rejected(transaction: Transaction, reason: impl Into<String>) -> Self {
         let now = Utc::now();
+        let client_reference_id = client_reference_id_from(&transaction);
         Self {
             transaction,
             status: TransactionStatus::Rejected,
             block_height: None,
             block_hash: None,
             failure_reason: Some(reason.into()),
+            client_reference_id,
             created_at: now,
             updated_at: now,
         }
     }
+
+    pub fn with_client_reference_id(mut self, client_reference_id: Option<String>) -> Self {
+        self.client_reference_id = client_reference_id;
+        self
+    }
+}
+
+fn client_reference_id_from(transaction: &Transaction) -> Option<String> {
+    transaction.metadata.get("client_reference_id").cloned()
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

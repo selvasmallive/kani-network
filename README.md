@@ -68,6 +68,7 @@ validator-c
 In Postgres mode, `kani-api` queues pending transactions and the validator services finalize blocks in round-robin PoA order.
 Validators also take a Postgres advisory lock during block production, so duplicate local validator processes do not finalize the same pending transactions concurrently.
 Each validator writes heartbeat and last-finalized-block state to Postgres; read it from `GET /v1/validators`.
+Payment requests may include `client_reference_id` or `idempotency_key`; retries with the same value return the original payment record.
 
 ```powershell
 cd C:\dev\kani
@@ -97,7 +98,7 @@ Transfer from Corp A to Corp B:
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/payments \
   -H "content-type: application/json" \
-  -d '{"from":"CORP_A","to":"CORP_B","asset":"KCAD_TEST","amount":100000}'
+  -d '{"from":"CORP_A","to":"CORP_B","asset":"KCAD_TEST","amount":100000,"client_reference_id":"demo-transfer-001"}'
 ```
 
 Check balances:

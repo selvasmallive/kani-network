@@ -261,6 +261,16 @@ impl InMemoryLedger {
             .ok_or_else(|| LedgerError::UnknownPayment(payment_id.to_string()))
     }
 
+    pub fn get_payment_by_client_reference_id(
+        &self,
+        client_reference_id: &str,
+    ) -> Option<PaymentRecord> {
+        self.payments
+            .values()
+            .find(|payment| payment.client_reference_id.as_deref() == Some(client_reference_id))
+            .cloned()
+    }
+
     pub fn apply_block(&mut self, block: Block) -> Result<Vec<PaymentRecord>, LedgerError> {
         if block.hash.is_empty() {
             return Err(LedgerError::MissingBlockHash);
@@ -509,20 +519,32 @@ impl PostgresLedgerStore {
     pub async fn enqueue_pending_transaction(
         &self,
         tx_record: Transaction,
+        client_reference_id: Option<String>,
     ) -> Result<PaymentRecord, LedgerStorageError> {
-        let payment = PaymentRecord::pending(tx_record);
+        if let Some(client_reference_id) = client_reference_id.as_deref() {
+            if let Some(payment) = self
+                .payment_by_client_reference_id(client_reference_id)
+                .await?
+            {
+                return Ok(payment);
+            }
+        }
+
+        let payment =
+            PaymentRecord::pending(tx_record).with_client_reference_id(client_reference_id.clone());
         let tx_record = &payment.transaction;
 
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             INSERT INTO transactions (
               id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
-              signatures, metadata, failure_reason, created_at, updated_at
+              signatures, metadata, failure_reason, client_reference_id, created_at, updated_at
             )
             VALUES (
               $1::uuid, NULL, $2, $3, $4, CAST($5 AS NUMERIC(38, 0)), $6, $7, $8,
-              $9, $10, NULL, $11, $12
+              $9, $10, NULL, $11, $12, $13
             )
+            ON CONFLICT (client_reference_id) WHERE client_reference_id IS NOT NULL DO NOTHING
             "#,
         )
         .bind(&tx_record.id)
@@ -535,12 +557,59 @@ impl PostgresLedgerStore {
         .bind(transaction_status_to_db(&payment.status))
         .bind(serde_json::to_value(&tx_record.signatures)?)
         .bind(serde_json::to_value(&tx_record.metadata)?)
+        .bind(&payment.client_reference_id)
         .bind(payment.created_at)
         .bind(payment.updated_at)
         .execute(&self.pool)
         .await?;
 
+        if result.rows_affected() == 0 {
+            if let Some(client_reference_id) = client_reference_id.as_deref() {
+                if let Some(payment) = self
+                    .payment_by_client_reference_id(client_reference_id)
+                    .await?
+                {
+                    return Ok(payment);
+                }
+            }
+        }
+
         Ok(payment)
+    }
+
+    pub async fn payment_by_client_reference_id(
+        &self,
+        client_reference_id: &str,
+    ) -> Result<Option<PaymentRecord>, LedgerStorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+              t.id::text AS id,
+              t.block_height,
+              b.hash AS block_hash,
+              t.from_account,
+              t.to_account,
+              t.asset,
+              t.amount::text AS amount,
+              t.nonce,
+              t.kind,
+              t.status,
+              t.signatures,
+              t.metadata,
+              t.failure_reason,
+              t.client_reference_id,
+              t.created_at,
+              t.updated_at
+            FROM transactions t
+            LEFT JOIN blocks b ON b.height = t.block_height
+            WHERE t.client_reference_id = $1
+            "#,
+        )
+        .bind(client_reference_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| payment_from_row(&row)).transpose()
     }
 
     pub async fn pending_transactions(
@@ -734,11 +803,11 @@ impl PostgresLedgerStore {
                 r#"
                 INSERT INTO transactions (
                   id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
-                  signatures, metadata, failure_reason, created_at, updated_at
+                  signatures, metadata, failure_reason, client_reference_id, created_at, updated_at
                 )
                 VALUES (
                   $1::uuid, $2, $3, $4, $5, CAST($6 AS NUMERIC(38, 0)), $7, $8, $9,
-                  $10, $11, $12, $13, $14
+                  $10, $11, $12, $13, $14, $15
                 )
                 ON CONFLICT (id) DO UPDATE SET
                   block_height = EXCLUDED.block_height,
@@ -759,6 +828,7 @@ impl PostgresLedgerStore {
             .bind(serde_json::to_value(&tx_record.signatures)?)
             .bind(serde_json::to_value(&tx_record.metadata)?)
             .bind(&payment.failure_reason)
+            .bind(&payment.client_reference_id)
             .bind(payment.created_at)
             .bind(payment.updated_at)
             .execute(&mut *tx)
@@ -896,6 +966,7 @@ impl PostgresLedgerStore {
               t.signatures,
               t.metadata,
               t.failure_reason,
+              t.client_reference_id,
               t.created_at,
               t.updated_at
             FROM transactions t
@@ -912,9 +983,10 @@ impl PostgresLedgerStore {
         let mut txs_by_block: HashMap<i64, Vec<Transaction>> = HashMap::new();
 
         for row in rows {
-            let status = transaction_status_from_db(row.try_get::<String, _>("status")?)?;
+            let payment = payment_from_row(&row)?;
+            let status = payment.status.clone();
             let block_height: Option<i64> = row.try_get("block_height")?;
-            let transaction = transaction_from_row(&row)?;
+            let transaction = payment.transaction.clone();
 
             if status == TransactionStatus::Finalized {
                 let next_nonce = nonces.entry(transaction.from.clone()).or_insert(0);
@@ -938,15 +1010,7 @@ impl PostgresLedgerStore {
                     .push(transaction.clone());
             }
 
-            payments.push(PaymentRecord {
-                transaction,
-                status,
-                block_height,
-                block_hash: row.try_get("block_hash")?,
-                failure_reason: row.try_get("failure_reason")?,
-                created_at: row.try_get("created_at")?,
-                updated_at: row.try_get("updated_at")?,
-            });
+            payments.push(payment);
         }
 
         Ok((payments, nonces, issued, txs_by_block))
@@ -1051,6 +1115,19 @@ impl PostgresLedgerStore {
             })
             .collect()
     }
+}
+
+fn payment_from_row(row: &sqlx::postgres::PgRow) -> Result<PaymentRecord, LedgerStorageError> {
+    Ok(PaymentRecord {
+        transaction: transaction_from_row(row)?,
+        status: transaction_status_from_db(row.try_get::<String, _>("status")?)?,
+        block_height: row.try_get("block_height")?,
+        block_hash: row.try_get("block_hash")?,
+        failure_reason: row.try_get("failure_reason")?,
+        client_reference_id: row.try_get("client_reference_id")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+    })
 }
 
 fn transaction_from_row(row: &sqlx::postgres::PgRow) -> Result<Transaction, LedgerStorageError> {

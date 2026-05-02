@@ -88,6 +88,7 @@ impl KaniNode {
         to: impl Into<String>,
         asset: impl Into<String>,
         amount: i128,
+        client_reference_id: Option<String>,
     ) -> Result<PaymentRecord, NodeError> {
         let from = from.into();
         let to = to.into();
@@ -95,13 +96,33 @@ impl KaniNode {
 
         if let Some(storage) = &self.storage {
             let nonce = storage.next_nonce_for_account(&from).await?;
-            let tx = Transaction::new_transfer(from, to, asset, amount, nonce);
-            return Ok(storage.enqueue_pending_transaction(tx).await?);
+            let mut tx = Transaction::new_transfer(from, to, asset, amount, nonce);
+            if let Some(client_reference_id) = client_reference_id.as_deref() {
+                tx.metadata.insert(
+                    "client_reference_id".to_string(),
+                    client_reference_id.to_string(),
+                );
+            }
+            return Ok(storage
+                .enqueue_pending_transaction(tx, client_reference_id)
+                .await?);
         }
 
         let mut ledger = self.ledger.lock().await;
+        if let Some(client_reference_id) = client_reference_id.as_deref() {
+            if let Some(payment) = ledger.get_payment_by_client_reference_id(client_reference_id) {
+                return Ok(payment);
+            }
+        }
+
         let nonce = ledger.next_nonce(&from);
-        let tx = Transaction::new_transfer(from, to, asset, amount, nonce);
+        let mut tx = Transaction::new_transfer(from, to, asset, amount, nonce);
+        if let Some(client_reference_id) = client_reference_id.as_deref() {
+            tx.metadata.insert(
+                "client_reference_id".to_string(),
+                client_reference_id.to_string(),
+            );
+        }
         self.produce_and_apply_locked(&mut ledger, vec![tx]).await
     }
 
@@ -119,7 +140,7 @@ impl KaniNode {
         if let Some(storage) = &self.storage {
             let nonce = storage.next_nonce_for_account(&treasury).await?;
             let tx = Transaction::new_mint(treasury, to, asset, amount, nonce);
-            return Ok(storage.enqueue_pending_transaction(tx).await?);
+            return Ok(storage.enqueue_pending_transaction(tx, None).await?);
         }
 
         let mut ledger = self.ledger.lock().await;
@@ -142,7 +163,7 @@ impl KaniNode {
         if let Some(storage) = &self.storage {
             let nonce = storage.next_nonce_for_account(&from).await?;
             let tx = Transaction::new_burn(from, treasury, asset, amount, nonce);
-            return Ok(storage.enqueue_pending_transaction(tx).await?);
+            return Ok(storage.enqueue_pending_transaction(tx, None).await?);
         }
 
         let mut ledger = self.ledger.lock().await;
@@ -474,6 +495,7 @@ mod tests {
                 SANDBOX_CORP_B_ACCOUNT,
                 KCAD_TEST,
                 100_000,
+                None,
             )
             .await
             .unwrap();

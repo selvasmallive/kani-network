@@ -74,13 +74,26 @@ try {
   }
   $mint = Wait-KaniPaymentFinalized -Url $base -PaymentId $mint.payment_id
 
-  $payment = Invoke-KaniPost "$base/v1/payments" @{
-    from   = "CORP_A"
-    to     = "CORP_B"
-    asset  = $Asset
-    amount = 100000
+  $paymentRequest = @{
+    from                = "CORP_A"
+    to                  = "CORP_B"
+    asset               = $Asset
+    amount              = 100000
+    client_reference_id = "smoke-$Asset-transfer"
   }
+  $payment = Invoke-KaniPost "$base/v1/payments" $paymentRequest
+  $paymentRetry = Invoke-KaniPost "$base/v1/payments" $paymentRequest
+
+  if ($paymentRetry.payment_id -ne $payment.payment_id) {
+    throw "expected idempotent retry to return payment $($payment.payment_id), got $($paymentRetry.payment_id)"
+  }
+
   $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id
+  $paymentRetryAfterFinality = Invoke-KaniPost "$base/v1/payments" $paymentRequest
+
+  if ($paymentRetryAfterFinality.payment_id -ne $payment.payment_id) {
+    throw "expected finalized idempotent retry to return payment $($payment.payment_id), got $($paymentRetryAfterFinality.payment_id)"
+  }
 
   $balanceA = Invoke-RestMethod "$base/v1/accounts/CORP_A/balances/$Asset"
   $balanceB = Invoke-RestMethod "$base/v1/accounts/CORP_B/balances/$Asset"
@@ -129,6 +142,7 @@ try {
     asset                        = $Asset
     mint_payment_id              = $mint.payment_id
     transfer_payment_id          = $payment.payment_id
+    transfer_client_reference_id = $payment.client_reference_id
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height
