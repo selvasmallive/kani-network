@@ -87,6 +87,7 @@ x-kani-api-key: sandbox-admin-token
 ```
 
 Override the local admin key with `KANI_SANDBOX_ADMIN_API_KEY` when needed.
+API authorization decisions are written to the audit log as `API_AUTHORIZATION_DECISION` events with structured metadata such as `decision`, `action`, `resource`, `institution_id`, `role`, and `status_code`. API keys are never written to audit events.
 
 ```powershell
 cd C:\dev\kani
@@ -99,7 +100,7 @@ Run the repeatable smoke test:
 .\scripts\smoke-test.ps1
 ```
 
-The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
+The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies authorization audit events, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
 ## Example Flow
 

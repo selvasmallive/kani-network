@@ -229,6 +229,17 @@ impl KaniNode {
         Ok(self.current_ledger().await?.audit_events().to_vec())
     }
 
+    pub async fn record_audit_event(&self, event: AuditEvent) -> Result<(), NodeError> {
+        if let Some(storage) = &self.storage {
+            storage.insert_audit_event(&event).await?;
+            return Ok(());
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        ledger.record_audit_event(event);
+        Ok(())
+    }
+
     pub async fn pending_transactions(&self) -> Result<Vec<Transaction>, NodeError> {
         if let Some(storage) = &self.storage {
             return Ok(storage.pending_transactions(100).await?);

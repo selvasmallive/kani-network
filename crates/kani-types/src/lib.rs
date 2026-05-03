@@ -302,6 +302,7 @@ pub struct AuditEvent {
     pub id: String,
     pub event_type: String,
     pub message: String,
+    pub metadata: BTreeMap<String, String>,
     pub block_height: Option<i64>,
     pub transaction_id: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -318,9 +319,15 @@ impl AuditEvent {
             id: Uuid::new_v4().to_string(),
             event_type: event_type.into(),
             message: message.into(),
+            metadata: BTreeMap::new(),
             block_height,
             transaction_id,
             created_at: Utc::now(),
         }
+    }
+
+    pub fn with_metadata(mut self, metadata: BTreeMap<String, String>) -> Self {
+        self.metadata = metadata;
+        self
     }
 }

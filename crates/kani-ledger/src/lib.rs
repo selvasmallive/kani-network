@@ -232,6 +232,10 @@ impl InMemoryLedger {
         &self.audit_events
     }
 
+    pub fn record_audit_event(&mut self, event: AuditEvent) {
+        self.audit_events.push(event);
+    }
+
     pub fn journal_entries(&self) -> &[JournalEntry] {
         &self.journal_entries
     }
@@ -687,6 +691,29 @@ impl PostgresLedgerStore {
         Ok(())
     }
 
+    pub async fn insert_audit_event(&self, event: &AuditEvent) -> Result<(), LedgerStorageError> {
+        sqlx::query(
+            r#"
+            INSERT INTO audit_events (
+              id, event_type, message, metadata, block_height, transaction_id, created_at
+            )
+            VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7)
+            ON CONFLICT (id) DO NOTHING
+            "#,
+        )
+        .bind(&event.id)
+        .bind(&event.event_type)
+        .bind(&event.message)
+        .bind(serde_json::to_value(&event.metadata)?)
+        .bind(event.block_height)
+        .bind(&event.transaction_id)
+        .bind(event.created_at)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn record_validator_heartbeat(
         &self,
         validator_id: &str,
@@ -885,15 +912,16 @@ impl PostgresLedgerStore {
             sqlx::query(
                 r#"
                 INSERT INTO audit_events (
-                  id, event_type, message, block_height, transaction_id, created_at
+                  id, event_type, message, metadata, block_height, transaction_id, created_at
                 )
-                VALUES ($1::uuid, $2, $3, $4, $5::uuid, $6)
+                VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7)
                 ON CONFLICT (id) DO NOTHING
                 "#,
             )
             .bind(&event.id)
             .bind(&event.event_type)
             .bind(&event.message)
+            .bind(serde_json::to_value(&event.metadata)?)
             .bind(event.block_height)
             .bind(&event.transaction_id)
             .bind(event.created_at)
@@ -1117,6 +1145,7 @@ impl PostgresLedgerStore {
               id::text AS id,
               event_type,
               message,
+              metadata,
               block_height,
               transaction_id::text AS transaction_id,
               created_at
@@ -1133,6 +1162,7 @@ impl PostgresLedgerStore {
                     id: row.try_get("id")?,
                     event_type: row.try_get("event_type")?,
                     message: row.try_get("message")?,
+                    metadata: serde_json::from_value(row.try_get::<Value, _>("metadata")?)?,
                     block_height: row.try_get("block_height")?,
                     transaction_id: row.try_get("transaction_id")?,
                     created_at: row.try_get("created_at")?,

@@ -244,6 +244,9 @@ try {
   $auditEvents = Invoke-KaniGet "$base/v1/audit-events" $adminHeaders
   $validators = Invoke-KaniGet "$base/v1/validators" $adminHeaders
   $pendingTransactions = Invoke-KaniGet "$base/v1/transactions/pending" $adminHeaders
+  $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
+  $deniedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "DENIED" })
+  $allowedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "ALLOWED" })
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 
@@ -263,6 +266,32 @@ try {
     throw "expected at least one validator to report finalized block state"
   }
 
+  if ($deniedAuthorizationAuditEvents.Count -lt 7) {
+    throw "expected at least 7 denied authorization audit events, got $($deniedAuthorizationAuditEvents.Count)"
+  }
+
+  if ($allowedAuthorizationAuditEvents.Count -lt 1) {
+    throw "expected allowed authorization audit events"
+  }
+
+  $deniedBalanceAuditEvents = @($deniedAuthorizationAuditEvents | Where-Object {
+      $_.metadata.action -eq "read_balance" -and
+      $_.metadata.resource -eq "account:CORP_A:balance:$Asset" -and
+      $_.metadata.institution_id -eq "CORP_B"
+    })
+  if ($deniedBalanceAuditEvents.Count -lt 1) {
+    throw "expected denied read_balance audit event for CORP_B reading CORP_A"
+  }
+
+  $deniedNetworkAuditEvents = @($deniedAuthorizationAuditEvents | Where-Object {
+      $_.metadata.action -eq "read_blocks" -and
+      $_.metadata.resource -eq "network:blocks" -and
+      $_.metadata.institution_id -eq "CORP_A"
+    })
+  if ($deniedNetworkAuditEvents.Count -lt 1) {
+    throw "expected denied read_blocks audit event for non-admin CORP_A"
+  }
+
   [pscustomobject]@{
     asset                        = $Asset
     mint_payment_id              = $mint.payment_id
@@ -272,6 +301,7 @@ try {
     authorization_checked        = $true
     read_authorization_checked   = $true
     admin_authorization_checked  = $true
+    authorization_audit_checked  = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height
@@ -280,6 +310,8 @@ try {
     latest_height_after_restart  = $latestAfterRestart.height
     block_count                  = @($blocks).Count
     audit_event_count            = @($auditEvents).Count
+    authorization_audit_count    = $authorizationAuditEvents.Count
+    denied_authorization_count   = $deniedAuthorizationAuditEvents.Count
     validator_count              = @($validators).Count
     validator_heartbeat_count    = $validatorsWithHeartbeat.Count
     validator_finalized_count    = $validatorsWithFinalizedBlock.Count

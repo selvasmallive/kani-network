@@ -10,7 +10,7 @@ use kani_types::{
     Account, AccountType, AuditEvent, Block, PaymentRecord, Transaction, TransactionStatus,
 };
 use serde::{Deserialize, Serialize};
-use std::env;
+use std::{collections::BTreeMap, env};
 
 pub const INSTITUTION_ID_HEADER: &str = "x-kani-institution-id";
 pub const API_KEY_HEADER: &str = "x-kani-api-key";
@@ -229,6 +229,30 @@ pub enum ApiError {
     Internal(String),
 }
 
+impl ApiError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApiError::Conflict(_) => StatusCode::CONFLICT,
+            ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND,
+            ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> &str {
+        match self {
+            ApiError::BadRequest(error)
+            | ApiError::Conflict(error)
+            | ApiError::Unauthorized(error)
+            | ApiError::Forbidden(error)
+            | ApiError::NotFound(error)
+            | ApiError::Internal(error) => error,
+        }
+    }
+}
+
 impl From<NodeError> for ApiError {
     fn from(error: NodeError) -> Self {
         match error {
@@ -264,14 +288,8 @@ impl From<NodeError> for ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, error) = match self {
-            ApiError::BadRequest(error) => (StatusCode::BAD_REQUEST, error),
-            ApiError::Conflict(error) => (StatusCode::CONFLICT, error),
-            ApiError::Unauthorized(error) => (StatusCode::UNAUTHORIZED, error),
-            ApiError::Forbidden(error) => (StatusCode::FORBIDDEN, error),
-            ApiError::NotFound(error) => (StatusCode::NOT_FOUND, error),
-            ApiError::Internal(error) => (StatusCode::INTERNAL_SERVER_ERROR, error),
-        };
+        let status = self.status_code();
+        let error = self.message().to_string();
 
         (status, Json(ErrorResponse { error })).into_response()
     }
@@ -311,8 +329,21 @@ async fn create_payment(
     headers: HeaderMap,
     Json(request): Json<CreatePaymentRequest>,
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_account_control(&state.node, &auth, &request.from).await?;
+    let resource = format!("account:{}", request.from);
+    let auth = authenticate_request(&state, &headers, "create_payment", &resource).await?;
+    if let Err(error) = authorize_account_control(&state.node, &auth, &request.from).await {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "create_payment",
+            &resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "create_payment", &resource).await?;
 
     let client_reference_id =
         normalized_client_reference_id(request.client_reference_id, request.idempotency_key)?;
@@ -441,6 +472,119 @@ fn authorize_admin(auth: &AuthenticatedInstitution) -> Result<(), ApiError> {
     ))
 }
 
+async fn authenticate_request(
+    state: &AppState,
+    headers: &HeaderMap,
+    action: &str,
+    resource: &str,
+) -> Result<AuthenticatedInstitution, ApiError> {
+    match state.auth.authenticate(headers) {
+        Ok(auth) => Ok(auth),
+        Err(error) => {
+            audit_authorization_denied(state, headers, None, action, resource, &error).await?;
+            Err(error)
+        }
+    }
+}
+
+async fn audit_authorization_allowed(
+    state: &AppState,
+    headers: &HeaderMap,
+    auth: &AuthenticatedInstitution,
+    action: &str,
+    resource: &str,
+) -> Result<(), ApiError> {
+    audit_authorization_decision(
+        state,
+        headers,
+        Some(auth),
+        action,
+        resource,
+        "ALLOWED",
+        "authorized",
+        StatusCode::OK,
+    )
+    .await
+}
+
+async fn audit_authorization_denied(
+    state: &AppState,
+    headers: &HeaderMap,
+    auth: Option<&AuthenticatedInstitution>,
+    action: &str,
+    resource: &str,
+    error: &ApiError,
+) -> Result<(), ApiError> {
+    audit_authorization_decision(
+        state,
+        headers,
+        auth,
+        action,
+        resource,
+        "DENIED",
+        error.message(),
+        error.status_code(),
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn audit_authorization_decision(
+    state: &AppState,
+    headers: &HeaderMap,
+    auth: Option<&AuthenticatedInstitution>,
+    action: &str,
+    resource: &str,
+    decision: &str,
+    reason: &str,
+    status_code: StatusCode,
+) -> Result<(), ApiError> {
+    let institution_id = auth
+        .map(|auth| auth.institution_id.clone())
+        .or_else(|| institution_hint(headers))
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+    let role = auth.map(auth_role).unwrap_or("UNKNOWN");
+    let mut metadata = BTreeMap::new();
+    metadata.insert("action".to_string(), action.to_string());
+    metadata.insert("decision".to_string(), decision.to_string());
+    metadata.insert("institution_id".to_string(), institution_id.clone());
+    metadata.insert("reason".to_string(), reason.to_string());
+    metadata.insert("resource".to_string(), resource.to_string());
+    metadata.insert("role".to_string(), role.to_string());
+    metadata.insert("status_code".to_string(), status_code.as_u16().to_string());
+
+    let event = AuditEvent::new(
+        "API_AUTHORIZATION_DECISION",
+        format!(
+            "api authorization decision decision={decision} action={action} resource={resource} institution_id={institution_id} status_code={}",
+            status_code.as_u16()
+        ),
+        None,
+        None,
+    )
+    .with_metadata(metadata);
+
+    state.node.record_audit_event(event).await?;
+    Ok(())
+}
+
+fn institution_hint(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(INSTITUTION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+fn auth_role(auth: &AuthenticatedInstitution) -> &'static str {
+    if auth.is_admin {
+        "ADMIN"
+    } else {
+        "INSTITUTION"
+    }
+}
+
 fn required_header(headers: &HeaderMap, name: &'static str) -> Result<String, ApiError> {
     let value = headers
         .get(name)
@@ -462,7 +606,8 @@ async fn get_payment(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<PaymentResponse>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
+    let resource = format!("payment:{id}");
+    let auth = authenticate_request(&state, &headers, "read_payment", &resource).await?;
     let record = state
         .node
         .get_payment(&id)
@@ -473,7 +618,19 @@ async fn get_payment(
             }
             other => ApiError::from(other),
         })?;
-    authorize_payment_read(&state.node, &auth, &record).await?;
+    if let Err(error) = authorize_payment_read(&state.node, &auth, &record).await {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_payment",
+            &resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_payment", &resource).await?;
 
     Ok(Json(record.into()))
 }
@@ -483,8 +640,21 @@ async fn get_balance(
     headers: HeaderMap,
     Path((account_id, asset)): Path<(String, String)>,
 ) -> Result<Json<BalanceResponse>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_account_read(&state.node, &auth, &account_id).await?;
+    let resource = format!("account:{account_id}:balance:{asset}");
+    let auth = authenticate_request(&state, &headers, "read_balance", &resource).await?;
+    if let Err(error) = authorize_account_read(&state.node, &auth, &account_id).await {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_balance",
+            &resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_balance", &resource).await?;
     let amount = state.node.balance(&account_id, &asset).await?;
     Ok(Json(BalanceResponse {
         account_id,
@@ -497,8 +667,29 @@ async fn get_pending_transactions(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<Transaction>>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_admin(&auth)?;
+    let resource = "network:pending_transactions";
+    let auth =
+        authenticate_request(&state, &headers, "read_pending_transactions", resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_pending_transactions",
+            resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(
+        &state,
+        &headers,
+        &auth,
+        "read_pending_transactions",
+        resource,
+    )
+    .await?;
     Ok(Json(state.node.pending_transactions().await?))
 }
 
@@ -506,8 +697,21 @@ async fn get_latest_block(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Block>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_admin(&auth)?;
+    let resource = "network:latest_block";
+    let auth = authenticate_request(&state, &headers, "read_latest_block", resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_latest_block",
+            resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_latest_block", resource).await?;
     state
         .node
         .latest_block()
@@ -520,8 +724,21 @@ async fn get_blocks(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<Block>>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_admin(&auth)?;
+    let resource = "network:blocks";
+    let auth = authenticate_request(&state, &headers, "read_blocks", resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_blocks",
+            resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_blocks", resource).await?;
     Ok(Json(state.node.blocks().await?))
 }
 
@@ -529,8 +746,21 @@ async fn get_audit_events(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<AuditEvent>>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_admin(&auth)?;
+    let resource = "network:audit_events";
+    let auth = authenticate_request(&state, &headers, "read_audit_events", resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_audit_events",
+            resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_audit_events", resource).await?;
     Ok(Json(state.node.audit_events().await?))
 }
 
@@ -538,8 +768,21 @@ async fn get_validators(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<ValidatorResponse>>, ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    authorize_admin(&auth)?;
+    let resource = "network:validators";
+    let auth = authenticate_request(&state, &headers, "read_validators", resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_validators",
+            resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_validators", resource).await?;
     let validators = state
         .node
         .validators()
@@ -564,14 +807,41 @@ async fn sandbox_mint(
     headers: HeaderMap,
     Json(request): Json<SandboxMintRequest>,
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
-    let auth = state.auth.authenticate(&headers)?;
-    let treasury_account = authorize_account_control(&state.node, &auth, &request.treasury).await?;
+    let resource = format!("account:{}", request.treasury);
+    let auth = authenticate_request(&state, &headers, "sandbox_mint", &resource).await?;
+    let treasury_account =
+        match authorize_account_control(&state.node, &auth, &request.treasury).await {
+            Ok(account) => account,
+            Err(error) => {
+                audit_authorization_denied(
+                    &state,
+                    &headers,
+                    Some(&auth),
+                    "sandbox_mint",
+                    &resource,
+                    &error,
+                )
+                .await?;
+                return Err(error);
+            }
+        };
     if treasury_account.account_type != AccountType::Treasury {
-        return Err(ApiError::BadRequest(format!(
+        let error = ApiError::BadRequest(format!(
             "account {} is not a treasury account",
             request.treasury
-        )));
+        ));
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "sandbox_mint",
+            &resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
     }
+    audit_authorization_allowed(&state, &headers, &auth, "sandbox_mint", &resource).await?;
 
     let response = state
         .node
