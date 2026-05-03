@@ -8,6 +8,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
+chrono.workspace = true
 kani-node = { path = "../kani-node" }
 kani-ledger = { path = "../kani-ledger" }
 kani-types = { path = "../kani-types" }

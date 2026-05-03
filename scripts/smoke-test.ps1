@@ -247,6 +247,9 @@ try {
   $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
   $deniedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "DENIED" })
   $allowedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "ALLOWED" })
+  $createdFrom = [uri]::EscapeDataString("1970-01-01T00:00:00Z")
+  $createdTo = [uri]::EscapeDataString((Get-Date).ToUniversalTime().AddMinutes(5).ToString("o"))
+  $filteredDeniedCorpBEvents = @(Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo" $adminHeaders)
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 
@@ -292,6 +295,19 @@ try {
     throw "expected denied read_blocks audit event for non-admin CORP_A"
   }
 
+  if ($filteredDeniedCorpBEvents.Count -lt 1) {
+    throw "expected filtered denied authorization audit events for CORP_B"
+  }
+
+  $unexpectedFilteredAuditEvents = @($filteredDeniedCorpBEvents | Where-Object {
+      $_.event_type -ne "API_AUTHORIZATION_DECISION" -or
+      $_.metadata.decision -ne "DENIED" -or
+      $_.metadata.institution_id -ne "CORP_B"
+    })
+  if ($unexpectedFilteredAuditEvents.Count -ne 0) {
+    throw "filtered audit query returned events outside the requested event_type/decision/institution filters"
+  }
+
   [pscustomobject]@{
     asset                        = $Asset
     mint_payment_id              = $mint.payment_id
@@ -302,6 +318,7 @@ try {
     read_authorization_checked   = $true
     admin_authorization_checked  = $true
     authorization_audit_checked  = $true
+    audit_filter_checked         = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height
@@ -312,6 +329,7 @@ try {
     audit_event_count            = @($auditEvents).Count
     authorization_audit_count    = $authorizationAuditEvents.Count
     denied_authorization_count   = $deniedAuthorizationAuditEvents.Count
+    filtered_denied_corp_b_count = $filteredDeniedCorpBEvents.Count
     validator_count              = @($validators).Count
     validator_heartbeat_count    = $validatorsWithHeartbeat.Count
     validator_finalized_count    = $validatorsWithFinalizedBlock.Count

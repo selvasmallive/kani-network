@@ -1,10 +1,11 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
+use chrono::{DateTime, Utc};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
     Account, AccountType, AuditEvent, Block, PaymentRecord, Transaction, TransactionStatus,
@@ -212,6 +213,15 @@ pub struct HealthResponse {
     pub environment: &'static str,
     pub real_value: bool,
     pub redeemable: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct AuditEventQuery {
+    pub event_type: Option<String>,
+    pub decision: Option<String>,
+    pub institution_id: Option<String>,
+    pub created_from: Option<String>,
+    pub created_to: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -585,6 +595,114 @@ fn auth_role(auth: &AuthenticatedInstitution) -> &'static str {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct AuditEventFilter {
+    event_type: Option<String>,
+    decision: Option<String>,
+    institution_id: Option<String>,
+    created_from: Option<DateTime<Utc>>,
+    created_to: Option<DateTime<Utc>>,
+}
+
+impl AuditEventFilter {
+    fn try_from_query(query: AuditEventQuery) -> Result<Self, ApiError> {
+        let created_from = parse_optional_rfc3339("created_from", query.created_from)?;
+        let created_to = parse_optional_rfc3339("created_to", query.created_to)?;
+        if let (Some(created_from), Some(created_to)) = (created_from.as_ref(), created_to.as_ref())
+        {
+            if created_from > created_to {
+                return Err(ApiError::BadRequest(
+                    "created_from must be before or equal to created_to".to_string(),
+                ));
+            }
+        }
+
+        Ok(Self {
+            event_type: normalize_optional_filter(query.event_type),
+            decision: normalize_optional_filter(query.decision),
+            institution_id: normalize_optional_filter(query.institution_id),
+            created_from,
+            created_to,
+        })
+    }
+
+    fn apply(&self, events: Vec<AuditEvent>) -> Vec<AuditEvent> {
+        events
+            .into_iter()
+            .filter(|event| self.matches(event))
+            .collect()
+    }
+
+    fn matches(&self, event: &AuditEvent) -> bool {
+        if let Some(event_type) = &self.event_type {
+            if !event.event_type.eq_ignore_ascii_case(event_type) {
+                return false;
+            }
+        }
+
+        if let Some(decision) = &self.decision {
+            if !metadata_matches_ignore_case(event, "decision", decision) {
+                return false;
+            }
+        }
+
+        if let Some(institution_id) = &self.institution_id {
+            if !metadata_matches(event, "institution_id", institution_id) {
+                return false;
+            }
+        }
+
+        if let Some(created_from) = self.created_from {
+            if event.created_at < created_from {
+                return false;
+            }
+        }
+
+        if let Some(created_to) = self.created_to {
+            if event.created_at > created_to {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+fn metadata_matches(event: &AuditEvent, key: &str, expected: &str) -> bool {
+    event
+        .metadata
+        .get(key)
+        .map(|value| value == expected)
+        .unwrap_or(false)
+}
+
+fn metadata_matches_ignore_case(event: &AuditEvent, key: &str, expected: &str) -> bool {
+    event
+        .metadata
+        .get(key)
+        .map(|value| value.eq_ignore_ascii_case(expected))
+        .unwrap_or(false)
+}
+
+fn parse_optional_rfc3339(
+    field_name: &str,
+    value: Option<String>,
+) -> Result<Option<DateTime<Utc>>, ApiError> {
+    let Some(value) = normalize_optional_filter(value) else {
+        return Ok(None);
+    };
+
+    DateTime::parse_from_rfc3339(&value)
+        .map(|value| Some(value.with_timezone(&Utc)))
+        .map_err(|_| ApiError::BadRequest(format!("{field_name} must be an RFC3339 timestamp")))
+}
+
+fn normalize_optional_filter(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 fn required_header(headers: &HeaderMap, name: &'static str) -> Result<String, ApiError> {
     let value = headers
         .get(name)
@@ -745,6 +863,7 @@ async fn get_blocks(
 async fn get_audit_events(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<AuditEventQuery>,
 ) -> Result<Json<Vec<AuditEvent>>, ApiError> {
     let resource = "network:audit_events";
     let auth = authenticate_request(&state, &headers, "read_audit_events", resource).await?;
@@ -761,7 +880,8 @@ async fn get_audit_events(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "read_audit_events", resource).await?;
-    Ok(Json(state.node.audit_events().await?))
+    let filter = AuditEventFilter::try_from_query(query)?;
+    Ok(Json(filter.apply(state.node.audit_events().await?)))
 }
 
 async fn get_validators(
@@ -1032,6 +1152,87 @@ mod tests {
             authorize_admin(&institution),
             Err(ApiError::Forbidden(_))
         ));
+    }
+
+    #[test]
+    fn audit_event_filter_matches_event_type_metadata_and_window() {
+        let filter = AuditEventFilter::try_from_query(AuditEventQuery {
+            event_type: Some("api_authorization_decision".to_string()),
+            decision: Some("denied".to_string()),
+            institution_id: Some("CORP_B".to_string()),
+            created_from: Some("2026-01-01T00:00:00Z".to_string()),
+            created_to: Some("2026-12-31T23:59:59Z".to_string()),
+        })
+        .unwrap();
+
+        let matched = filter.apply(vec![
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "DENIED",
+                "CORP_B",
+                "2026-05-02T10:00:00Z",
+            ),
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "ALLOWED",
+                "CORP_B",
+                "2026-05-02T10:00:00Z",
+            ),
+            audit_event_with_metadata(
+                "BLOCK_FINALIZED",
+                "DENIED",
+                "CORP_B",
+                "2026-05-02T10:00:00Z",
+            ),
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "DENIED",
+                "CORP_A",
+                "2026-05-02T10:00:00Z",
+            ),
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "DENIED",
+                "CORP_B",
+                "2025-12-31T23:59:59Z",
+            ),
+        ]);
+
+        assert_eq!(matched.len(), 1);
+        assert_eq!(matched[0].metadata.get("institution_id").unwrap(), "CORP_B");
+    }
+
+    #[test]
+    fn audit_event_filter_rejects_invalid_time_windows() {
+        let invalid_timestamp = AuditEventFilter::try_from_query(AuditEventQuery {
+            created_from: Some("not-a-date".to_string()),
+            ..AuditEventQuery::default()
+        });
+        assert!(matches!(invalid_timestamp, Err(ApiError::BadRequest(_))));
+
+        let inverted_window = AuditEventFilter::try_from_query(AuditEventQuery {
+            created_from: Some("2026-12-31T00:00:00Z".to_string()),
+            created_to: Some("2026-01-01T00:00:00Z".to_string()),
+            ..AuditEventQuery::default()
+        });
+        assert!(matches!(inverted_window, Err(ApiError::BadRequest(_))));
+    }
+
+    fn audit_event_with_metadata(
+        event_type: &str,
+        decision: &str,
+        institution_id: &str,
+        created_at: &str,
+    ) -> AuditEvent {
+        let mut metadata = BTreeMap::new();
+        metadata.insert("decision".to_string(), decision.to_string());
+        metadata.insert("institution_id".to_string(), institution_id.to_string());
+        let mut event =
+            AuditEvent::new(event_type, "test event", None, None).with_metadata(metadata);
+        event.created_at = DateTime::parse_from_rfc3339(created_at)
+            .unwrap()
+            .with_timezone(&Utc);
+        event
     }
 
     fn headers_for(institution_id: &str, api_key: &str) -> HeaderMap {
