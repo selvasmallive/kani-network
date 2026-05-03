@@ -1,5 +1,5 @@
 param(
-  [string]$BaseUrl = "http://127.0.0.1:8080",
+  [string]$BaseUrl = "http://localhost:8080",
   [string]$Asset = "KCAD_SMOKE_$(Get-Date -Format 'yyyyMMddHHmmss')",
   [switch]$NoStartStack,
   [switch]$NoRestart
@@ -241,7 +241,11 @@ try {
   $balanceAAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
   $balanceBAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
   $latestAfterRestart = Invoke-KaniGet "$base/v1/blocks/latest" $adminHeaders
-  $blocks = Invoke-KaniGet "$base/v1/blocks" $adminHeaders
+  $blocks = Invoke-KaniGet "$base/v1/blocks?limit=500&offset=0" $adminHeaders
+  $pagedBlocks = @(Invoke-KaniGet "$base/v1/blocks?limit=1&offset=1" $adminHeaders)
+  Assert-KaniStatusGet "$base/v1/blocks?limit=501" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/blocks?limit=-1" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/blocks?offset=-1" $adminHeaders 400
   $createdFrom = [uri]::EscapeDataString($smokeStartedAt.ToString("o"))
   $createdTo = [uri]::EscapeDataString((Get-Date).ToUniversalTime().AddMinutes(5).ToString("o"))
   $auditEvents = Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
@@ -253,6 +257,7 @@ try {
   $filteredDeniedCorpBEvents = @(Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders)
   $pagedAuditEvents = @(Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=1&offset=1" $adminHeaders)
   Assert-KaniStatusGet "$base/v1/audit-events?limit=501" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/audit-events?limit=-1" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/audit-events?offset=-1" $adminHeaders 400
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
@@ -316,6 +321,10 @@ try {
     throw "expected audit pagination limit=1 to return one event, got $($pagedAuditEvents.Count)"
   }
 
+  if ($pagedBlocks.Count -ne 1) {
+    throw "expected block pagination limit=1 to return one block, got $($pagedBlocks.Count)"
+  }
+
   [pscustomobject]@{
     asset                        = $Asset
     mint_payment_id              = $mint.payment_id
@@ -325,6 +334,7 @@ try {
     authorization_checked        = $true
     read_authorization_checked   = $true
     admin_authorization_checked  = $true
+    block_pagination_checked     = $true
     authorization_audit_checked  = $true
     audit_filter_checked         = $true
     audit_pagination_checked     = $true
@@ -335,6 +345,7 @@ try {
     balance_b_after_restart      = $balanceBAfterRestart.amount
     latest_height_after_restart  = $latestAfterRestart.height
     block_count                  = @($blocks).Count
+    paged_block_count            = $pagedBlocks.Count
     audit_event_count            = @($auditEvents).Count
     authorization_audit_count    = $authorizationAuditEvents.Count
     denied_authorization_count   = $deniedAuthorizationAuditEvents.Count

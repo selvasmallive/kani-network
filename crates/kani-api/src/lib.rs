@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
-use kani_ledger::AuditEventSearch;
+use kani_ledger::{AuditEventSearch, BlockSearch};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
     Account, AccountType, AuditEvent, Block, PaymentRecord, Transaction, TransactionStatus,
@@ -29,6 +29,8 @@ const TREASURY_API_KEY_ENV: &str = "KANI_SANDBOX_TREASURY_API_KEY";
 const CORP_A_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_A_API_KEY";
 const CORP_B_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_B_API_KEY";
 const ADMIN_API_KEY_ENV: &str = "KANI_SANDBOX_ADMIN_API_KEY";
+const DEFAULT_BLOCK_LIMIT: i64 = 100;
+const MAX_BLOCK_LIMIT: i64 = 500;
 const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
 const MAX_AUDIT_EVENT_LIMIT: i64 = 500;
 
@@ -225,6 +227,12 @@ pub struct AuditEventQuery {
     pub institution_id: Option<String>,
     pub created_from: Option<String>,
     pub created_to: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct BlockQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
@@ -601,6 +609,32 @@ fn auth_role(auth: &AuthenticatedInstitution) -> &'static str {
 }
 
 #[derive(Clone, Debug, Default)]
+struct BlockFilter {
+    limit: i64,
+    offset: i64,
+}
+
+impl BlockFilter {
+    fn try_from_query(query: BlockQuery) -> Result<Self, ApiError> {
+        let (limit, offset) = validated_page(
+            query.limit,
+            query.offset,
+            DEFAULT_BLOCK_LIMIT,
+            MAX_BLOCK_LIMIT,
+        )?;
+
+        Ok(Self { limit, offset })
+    }
+
+    fn into_search(self) -> BlockSearch {
+        BlockSearch {
+            limit: self.limit,
+            offset: self.offset,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 struct AuditEventFilter {
     event_type: Option<String>,
     decision: Option<String>,
@@ -624,18 +658,12 @@ impl AuditEventFilter {
             }
         }
 
-        let limit = query.limit.unwrap_or(DEFAULT_AUDIT_EVENT_LIMIT);
-        if limit == 0 || limit > MAX_AUDIT_EVENT_LIMIT {
-            return Err(ApiError::BadRequest(format!(
-                "limit must be between 1 and {MAX_AUDIT_EVENT_LIMIT}"
-            )));
-        }
-        let offset = query.offset.unwrap_or(0);
-        if offset < 0 {
-            return Err(ApiError::BadRequest(
-                "offset must be greater than or equal to 0".to_string(),
-            ));
-        }
+        let (limit, offset) = validated_page(
+            query.limit,
+            query.offset,
+            DEFAULT_AUDIT_EVENT_LIMIT,
+            MAX_AUDIT_EVENT_LIMIT,
+        )?;
 
         Ok(Self {
             event_type: normalize_optional_filter(query.event_type),
@@ -659,6 +687,29 @@ impl AuditEventFilter {
             offset: self.offset,
         }
     }
+}
+
+fn validated_page(
+    limit: Option<i64>,
+    offset: Option<i64>,
+    default_limit: i64,
+    max_limit: i64,
+) -> Result<(i64, i64), ApiError> {
+    let limit = limit.unwrap_or(default_limit);
+    if limit <= 0 || limit > max_limit {
+        return Err(ApiError::BadRequest(format!(
+            "limit must be between 1 and {max_limit}"
+        )));
+    }
+
+    let offset = offset.unwrap_or(0);
+    if offset < 0 {
+        return Err(ApiError::BadRequest(
+            "offset must be greater than or equal to 0".to_string(),
+        ));
+    }
+
+    Ok((limit, offset))
 }
 
 fn parse_optional_rfc3339(
@@ -818,6 +869,7 @@ async fn get_latest_block(
 async fn get_blocks(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<BlockQuery>,
 ) -> Result<Json<Vec<Block>>, ApiError> {
     let resource = "network:blocks";
     let auth = authenticate_request(&state, &headers, "read_blocks", resource).await?;
@@ -834,7 +886,8 @@ async fn get_blocks(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "read_blocks", resource).await?;
-    Ok(Json(state.node.blocks().await?))
+    let search = BlockFilter::try_from_query(query)?.into_search();
+    Ok(Json(state.node.blocks(search).await?))
 }
 
 async fn get_audit_events(
@@ -1132,6 +1185,53 @@ mod tests {
     }
 
     #[test]
+    fn block_filter_applies_limit_and_offset() {
+        let search = BlockFilter::try_from_query(BlockQuery {
+            limit: Some(2),
+            offset: Some(1),
+        })
+        .unwrap()
+        .into_search();
+
+        let matched = search.apply(vec![
+            block_with_height(1),
+            block_with_height(2),
+            block_with_height(3),
+        ]);
+
+        assert_eq!(matched.len(), 2);
+        assert_eq!(matched[0].height, 2);
+        assert_eq!(matched[1].height, 3);
+    }
+
+    #[test]
+    fn block_filter_rejects_invalid_page_params() {
+        let zero_limit = BlockFilter::try_from_query(BlockQuery {
+            limit: Some(0),
+            ..BlockQuery::default()
+        });
+        assert!(matches!(zero_limit, Err(ApiError::BadRequest(_))));
+
+        let negative_limit = BlockFilter::try_from_query(BlockQuery {
+            limit: Some(-1),
+            ..BlockQuery::default()
+        });
+        assert!(matches!(negative_limit, Err(ApiError::BadRequest(_))));
+
+        let oversized_limit = BlockFilter::try_from_query(BlockQuery {
+            limit: Some(MAX_BLOCK_LIMIT + 1),
+            ..BlockQuery::default()
+        });
+        assert!(matches!(oversized_limit, Err(ApiError::BadRequest(_))));
+
+        let negative_offset = BlockFilter::try_from_query(BlockQuery {
+            offset: Some(-1),
+            ..BlockQuery::default()
+        });
+        assert!(matches!(negative_offset, Err(ApiError::BadRequest(_))));
+    }
+
+    #[test]
     fn audit_event_filter_matches_event_type_metadata_and_window() {
         let search = AuditEventFilter::try_from_query(AuditEventQuery {
             event_type: Some("api_authorization_decision".to_string()),
@@ -1244,6 +1344,12 @@ mod tests {
         });
         assert!(matches!(zero_limit, Err(ApiError::BadRequest(_))));
 
+        let negative_limit = AuditEventFilter::try_from_query(AuditEventQuery {
+            limit: Some(-1),
+            ..AuditEventQuery::default()
+        });
+        assert!(matches!(negative_limit, Err(ApiError::BadRequest(_))));
+
         let oversized_limit = AuditEventFilter::try_from_query(AuditEventQuery {
             limit: Some(MAX_AUDIT_EVENT_LIMIT + 1),
             ..AuditEventQuery::default()
@@ -1272,6 +1378,19 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         event
+    }
+
+    fn block_with_height(height: i64) -> Block {
+        Block {
+            height,
+            prev_hash: format!("prev-{height}"),
+            txs: Vec::new(),
+            validator: "validator-a".to_string(),
+            signature: Vec::new(),
+            hash: format!("hash-{height}"),
+            finalized_by: vec!["validator-a".to_string(), "validator-b".to_string()],
+            created_at: Utc::now(),
+        }
     }
 
     fn headers_for(institution_id: &str, api_key: &str) -> HeaderMap {

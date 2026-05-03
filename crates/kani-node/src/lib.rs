@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 use kani_consensus::{ConsensusError, PoAConsensus, Validator};
 use kani_crypto::{hash_bytes, hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
 use kani_ledger::{
-    AuditEventSearch, InMemoryLedger, LedgerError, LedgerStorageError, PostgresLedgerStore,
-    ValidatorStatus,
+    AuditEventSearch, BlockSearch, InMemoryLedger, LedgerError, LedgerStorageError,
+    PostgresLedgerStore, ValidatorStatus,
 };
 use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction, TransactionKind};
 use std::{collections::HashMap, sync::Arc};
@@ -218,8 +218,12 @@ impl KaniNode {
         Ok(self.current_ledger().await?.latest_block())
     }
 
-    pub async fn blocks(&self) -> Result<Vec<Block>, NodeError> {
-        Ok(self.current_ledger().await?.blocks().to_vec())
+    pub async fn blocks(&self, search: BlockSearch) -> Result<Vec<Block>, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.query_blocks(&search).await?);
+        }
+
+        Ok(search.apply(self.current_ledger().await?.blocks().to_vec()))
     }
 
     pub async fn accounts(&self) -> Result<Vec<Account>, NodeError> {

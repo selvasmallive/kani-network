@@ -88,6 +88,7 @@ x-kani-api-key: sandbox-admin-token
 
 Override the local admin key with `KANI_SANDBOX_ADMIN_API_KEY` when needed.
 API authorization decisions are written to the audit log as `API_AUTHORIZATION_DECISION` events with structured metadata such as `decision`, `action`, `resource`, `institution_id`, `role`, and `status_code`. API keys are never written to audit events.
+Admin block reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`. In PostgreSQL mode, block pagination runs in SQL and loads only transactions for the selected block page.
 Admin audit reads support filters: `event_type`, `decision`, `institution_id`, `created_from`, and `created_to`. Time filters must be RFC3339 timestamps. Audit reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`. In PostgreSQL mode, audit filtering and pagination run in SQL with supporting indexes.
 
 ```powershell
@@ -101,7 +102,9 @@ Run the repeatable smoke test:
 .\scripts\smoke-test.ps1
 ```
 
-The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies authorization audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
+The smoke script defaults to `http://localhost:8080`, which is the most reliable Docker Desktop host route on Windows. Pass `-BaseUrl http://127.0.0.1:8080` if you want to force IPv4.
+
+The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies block pagination plus authorization audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
 ## Example Flow
 
@@ -136,7 +139,7 @@ curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST \
   -H "x-kani-institution-id: CORP_B" \
   -H "x-kani-api-key: sandbox-corp-b-token"
 
-curl http://127.0.0.1:8080/v1/blocks \
+curl "http://127.0.0.1:8080/v1/blocks?limit=100&offset=0" \
   -H "x-kani-institution-id: KANI_ADMIN" \
   -H "x-kani-api-key: sandbox-admin-token"
 

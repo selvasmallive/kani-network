@@ -91,6 +91,21 @@ pub struct ValidatorStatus {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BlockSearch {
+    pub limit: i64,
+    pub offset: i64,
+}
+
+impl BlockSearch {
+    pub fn apply(&self, blocks: Vec<Block>) -> Vec<Block> {
+        let limit = usize::try_from(self.limit.max(0)).unwrap_or(usize::MAX);
+        let offset = usize::try_from(self.offset.max(0)).unwrap_or(usize::MAX);
+
+        blocks.into_iter().skip(offset).take(limit).collect()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuditEventSearch {
     pub event_type: Option<String>,
     pub decision: Option<String>,
@@ -835,6 +850,38 @@ impl PostgresLedgerStore {
         rows.iter().map(audit_event_from_row).collect()
     }
 
+    pub async fn query_blocks(
+        &self,
+        search: &BlockSearch,
+    ) -> Result<Vec<Block>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT height, prev_hash, hash, validator, signature, finalized_by, created_at
+            FROM blocks
+            ORDER BY height
+            LIMIT $1
+            OFFSET $2
+            "#,
+        )
+        .bind(search.limit)
+        .bind(search.offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let heights = rows
+            .iter()
+            .map(|row| row.try_get("height"))
+            .collect::<Result<Vec<i64>, sqlx::Error>>()?;
+        let mut txs_by_block = self.load_transactions_for_blocks(&heights).await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let height = row.try_get("height")?;
+                block_from_row(&row, txs_by_block.remove(&height).unwrap_or_default())
+            })
+            .collect()
+    }
+
     pub async fn record_validator_heartbeat(
         &self,
         validator_id: &str,
@@ -1207,21 +1254,52 @@ impl PostgresLedgerStore {
         rows.into_iter()
             .map(|row| {
                 let height = row.try_get("height")?;
-                let finalized_by =
-                    serde_json::from_value(row.try_get::<Value, _>("finalized_by")?)?;
-
-                Ok(Block {
-                    height,
-                    prev_hash: row.try_get("prev_hash")?,
-                    txs: txs_by_block.remove(&height).unwrap_or_default(),
-                    validator: row.try_get("validator")?,
-                    signature: row.try_get("signature")?,
-                    hash: row.try_get("hash")?,
-                    finalized_by,
-                    created_at: row.try_get("created_at")?,
-                })
+                block_from_row(&row, txs_by_block.remove(&height).unwrap_or_default())
             })
             .collect()
+    }
+
+    async fn load_transactions_for_blocks(
+        &self,
+        heights: &[i64],
+    ) -> Result<HashMap<i64, Vec<Transaction>>, LedgerStorageError> {
+        if heights.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              block_height,
+              from_account,
+              to_account,
+              asset,
+              amount::text AS amount,
+              nonce,
+              kind,
+              signatures,
+              metadata,
+              created_at
+            FROM transactions
+            WHERE block_height = ANY($1::bigint[])
+            ORDER BY block_height, created_at, id
+            "#,
+        )
+        .bind(heights.to_vec())
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut txs_by_block: HashMap<i64, Vec<Transaction>> = HashMap::new();
+        for row in rows {
+            let block_height = row.try_get("block_height")?;
+            txs_by_block
+                .entry(block_height)
+                .or_default()
+                .push(transaction_from_row(&row)?);
+        }
+
+        Ok(txs_by_block)
     }
 
     async fn load_journal_entries(&self) -> Result<Vec<JournalEntry>, LedgerStorageError> {
@@ -1298,6 +1376,22 @@ fn audit_event_from_row(row: &sqlx::postgres::PgRow) -> Result<AuditEvent, Ledge
         metadata: serde_json::from_value(row.try_get::<Value, _>("metadata")?)?,
         block_height: row.try_get("block_height")?,
         transaction_id: row.try_get("transaction_id")?,
+        created_at: row.try_get("created_at")?,
+    })
+}
+
+fn block_from_row(
+    row: &sqlx::postgres::PgRow,
+    txs: Vec<Transaction>,
+) -> Result<Block, LedgerStorageError> {
+    Ok(Block {
+        height: row.try_get("height")?,
+        prev_hash: row.try_get("prev_hash")?,
+        txs,
+        validator: row.try_get("validator")?,
+        signature: row.try_get("signature")?,
+        hash: row.try_get("hash")?,
+        finalized_by: serde_json::from_value(row.try_get::<Value, _>("finalized_by")?)?,
         created_at: row.try_get("created_at")?,
     })
 }
