@@ -253,6 +253,7 @@ try {
   $filteredDeniedCorpBEvents = @(Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders)
   $pagedAuditEvents = @(Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=1&offset=1" $adminHeaders)
   Assert-KaniStatusGet "$base/v1/audit-events?limit=501" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/audit-events?offset=-1" $adminHeaders 400
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 

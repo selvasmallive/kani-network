@@ -5,7 +5,7 @@ use kani_types::{
     SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT, SANDBOX_FEE_ACCOUNT, SANDBOX_TREASURY_ACCOUNT,
 };
 use serde_json::Value;
-use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres, Row};
+use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres, QueryBuilder, Row};
 use std::{collections::HashMap, path::Path};
 use thiserror::Error;
 
@@ -88,6 +88,65 @@ pub struct ValidatorStatus {
     pub last_finalized_height: Option<i64>,
     pub last_finalized_hash: Option<String>,
     pub last_finalized_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuditEventSearch {
+    pub event_type: Option<String>,
+    pub decision: Option<String>,
+    pub institution_id: Option<String>,
+    pub created_from: Option<DateTime<Utc>>,
+    pub created_to: Option<DateTime<Utc>>,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+impl AuditEventSearch {
+    pub fn apply(&self, events: Vec<AuditEvent>) -> Vec<AuditEvent> {
+        let limit = usize::try_from(self.limit.max(0)).unwrap_or(usize::MAX);
+        let offset = usize::try_from(self.offset.max(0)).unwrap_or(usize::MAX);
+
+        events
+            .into_iter()
+            .filter(|event| self.matches(event))
+            .skip(offset)
+            .take(limit)
+            .collect()
+    }
+
+    fn matches(&self, event: &AuditEvent) -> bool {
+        if let Some(event_type) = &self.event_type {
+            if !event.event_type.eq_ignore_ascii_case(event_type) {
+                return false;
+            }
+        }
+
+        if let Some(decision) = &self.decision {
+            if !metadata_matches_ignore_case(event, "decision", decision) {
+                return false;
+            }
+        }
+
+        if let Some(institution_id) = &self.institution_id {
+            if !metadata_matches(event, "institution_id", institution_id) {
+                return false;
+            }
+        }
+
+        if let Some(created_from) = self.created_from {
+            if event.created_at < created_from {
+                return false;
+            }
+        }
+
+        if let Some(created_to) = self.created_to {
+            if event.created_at > created_to {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -714,6 +773,68 @@ impl PostgresLedgerStore {
         Ok(())
     }
 
+    pub async fn query_audit_events(
+        &self,
+        search: &AuditEventSearch,
+    ) -> Result<Vec<AuditEvent>, LedgerStorageError> {
+        let mut query_builder = QueryBuilder::<Postgres>::new(
+            r#"
+            SELECT
+              id::text AS id,
+              event_type,
+              message,
+              metadata,
+              block_height,
+              transaction_id::text AS transaction_id,
+              created_at
+            FROM audit_events
+            "#,
+        );
+        let mut has_where = false;
+
+        if let Some(event_type) = search.event_type.as_deref() {
+            push_audit_where(&mut query_builder, &mut has_where);
+            query_builder
+                .push("lower(event_type) = lower(")
+                .push_bind(event_type)
+                .push(")");
+        }
+
+        if let Some(decision) = search.decision.as_deref() {
+            push_audit_where(&mut query_builder, &mut has_where);
+            query_builder
+                .push("lower(metadata->>'decision') = lower(")
+                .push_bind(decision)
+                .push(")");
+        }
+
+        if let Some(institution_id) = search.institution_id.as_deref() {
+            push_audit_where(&mut query_builder, &mut has_where);
+            query_builder
+                .push("metadata->>'institution_id' = ")
+                .push_bind(institution_id);
+        }
+
+        if let Some(created_from) = search.created_from {
+            push_audit_where(&mut query_builder, &mut has_where);
+            query_builder.push("created_at >= ").push_bind(created_from);
+        }
+
+        if let Some(created_to) = search.created_to {
+            push_audit_where(&mut query_builder, &mut has_where);
+            query_builder.push("created_at <= ").push_bind(created_to);
+        }
+
+        query_builder
+            .push(" ORDER BY created_at, id LIMIT ")
+            .push_bind(search.limit)
+            .push(" OFFSET ")
+            .push_bind(search.offset);
+
+        let rows = query_builder.build().fetch_all(&self.pool).await?;
+        rows.iter().map(audit_event_from_row).collect()
+    }
+
     pub async fn record_validator_heartbeat(
         &self,
         validator_id: &str,
@@ -1156,20 +1277,29 @@ impl PostgresLedgerStore {
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter()
-            .map(|row| {
-                Ok(AuditEvent {
-                    id: row.try_get("id")?,
-                    event_type: row.try_get("event_type")?,
-                    message: row.try_get("message")?,
-                    metadata: serde_json::from_value(row.try_get::<Value, _>("metadata")?)?,
-                    block_height: row.try_get("block_height")?,
-                    transaction_id: row.try_get("transaction_id")?,
-                    created_at: row.try_get("created_at")?,
-                })
-            })
-            .collect()
+        rows.iter().map(audit_event_from_row).collect()
     }
+}
+
+fn push_audit_where(query_builder: &mut QueryBuilder<'_, Postgres>, has_where: &mut bool) {
+    if *has_where {
+        query_builder.push(" AND ");
+    } else {
+        query_builder.push(" WHERE ");
+        *has_where = true;
+    }
+}
+
+fn audit_event_from_row(row: &sqlx::postgres::PgRow) -> Result<AuditEvent, LedgerStorageError> {
+    Ok(AuditEvent {
+        id: row.try_get("id")?,
+        event_type: row.try_get("event_type")?,
+        message: row.try_get("message")?,
+        metadata: serde_json::from_value(row.try_get::<Value, _>("metadata")?)?,
+        block_height: row.try_get("block_height")?,
+        transaction_id: row.try_get("transaction_id")?,
+        created_at: row.try_get("created_at")?,
+    })
 }
 
 fn payment_from_row(row: &sqlx::postgres::PgRow) -> Result<PaymentRecord, LedgerStorageError> {
@@ -1218,6 +1348,22 @@ fn payment_matches_transaction(
         && payment.transaction.to == attempted_transaction.to
         && payment.transaction.asset == attempted_transaction.asset
         && payment.transaction.amount == attempted_transaction.amount
+}
+
+fn metadata_matches(event: &AuditEvent, key: &str, expected: &str) -> bool {
+    event
+        .metadata
+        .get(key)
+        .map(|value| value == expected)
+        .unwrap_or(false)
+}
+
+fn metadata_matches_ignore_case(event: &AuditEvent, key: &str, expected: &str) -> bool {
+    event
+        .metadata
+        .get(key)
+        .map(|value| value.eq_ignore_ascii_case(expected))
+        .unwrap_or(false)
 }
 
 fn transaction_from_row(row: &sqlx::postgres::PgRow) -> Result<Transaction, LedgerStorageError> {

@@ -88,7 +88,7 @@ x-kani-api-key: sandbox-admin-token
 
 Override the local admin key with `KANI_SANDBOX_ADMIN_API_KEY` when needed.
 API authorization decisions are written to the audit log as `API_AUTHORIZATION_DECISION` events with structured metadata such as `decision`, `action`, `resource`, `institution_id`, `role`, and `status_code`. API keys are never written to audit events.
-Admin audit reads support filters: `event_type`, `decision`, `institution_id`, `created_from`, and `created_to`. Time filters must be RFC3339 timestamps. Audit reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`.
+Admin audit reads support filters: `event_type`, `decision`, `institution_id`, `created_from`, and `created_to`. Time filters must be RFC3339 timestamps. Audit reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`. In PostgreSQL mode, audit filtering and pagination run in SQL with supporting indexes.
 
 ```powershell
 cd C:\dev\kani

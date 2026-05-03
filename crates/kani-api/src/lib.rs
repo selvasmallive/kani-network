@@ -6,6 +6,7 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
+use kani_ledger::AuditEventSearch;
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
     Account, AccountType, AuditEvent, Block, PaymentRecord, Transaction, TransactionStatus,
@@ -28,8 +29,8 @@ const TREASURY_API_KEY_ENV: &str = "KANI_SANDBOX_TREASURY_API_KEY";
 const CORP_A_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_A_API_KEY";
 const CORP_B_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_B_API_KEY";
 const ADMIN_API_KEY_ENV: &str = "KANI_SANDBOX_ADMIN_API_KEY";
-const DEFAULT_AUDIT_EVENT_LIMIT: usize = 100;
-const MAX_AUDIT_EVENT_LIMIT: usize = 500;
+const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
+const MAX_AUDIT_EVENT_LIMIT: i64 = 500;
 
 #[derive(Clone)]
 struct AppState {
@@ -224,8 +225,8 @@ pub struct AuditEventQuery {
     pub institution_id: Option<String>,
     pub created_from: Option<String>,
     pub created_to: Option<String>,
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -606,8 +607,8 @@ struct AuditEventFilter {
     institution_id: Option<String>,
     created_from: Option<DateTime<Utc>>,
     created_to: Option<DateTime<Utc>>,
-    limit: usize,
-    offset: usize,
+    limit: i64,
+    offset: i64,
 }
 
 impl AuditEventFilter {
@@ -629,6 +630,12 @@ impl AuditEventFilter {
                 "limit must be between 1 and {MAX_AUDIT_EVENT_LIMIT}"
             )));
         }
+        let offset = query.offset.unwrap_or(0);
+        if offset < 0 {
+            return Err(ApiError::BadRequest(
+                "offset must be greater than or equal to 0".to_string(),
+            ));
+        }
 
         Ok(Self {
             event_type: normalize_optional_filter(query.event_type),
@@ -637,68 +644,21 @@ impl AuditEventFilter {
             created_from,
             created_to,
             limit,
-            offset: query.offset.unwrap_or(0),
+            offset,
         })
     }
 
-    fn apply(&self, events: Vec<AuditEvent>) -> Vec<AuditEvent> {
-        events
-            .into_iter()
-            .filter(|event| self.matches(event))
-            .skip(self.offset)
-            .take(self.limit)
-            .collect()
+    fn into_search(self) -> AuditEventSearch {
+        AuditEventSearch {
+            event_type: self.event_type,
+            decision: self.decision,
+            institution_id: self.institution_id,
+            created_from: self.created_from,
+            created_to: self.created_to,
+            limit: self.limit,
+            offset: self.offset,
+        }
     }
-
-    fn matches(&self, event: &AuditEvent) -> bool {
-        if let Some(event_type) = &self.event_type {
-            if !event.event_type.eq_ignore_ascii_case(event_type) {
-                return false;
-            }
-        }
-
-        if let Some(decision) = &self.decision {
-            if !metadata_matches_ignore_case(event, "decision", decision) {
-                return false;
-            }
-        }
-
-        if let Some(institution_id) = &self.institution_id {
-            if !metadata_matches(event, "institution_id", institution_id) {
-                return false;
-            }
-        }
-
-        if let Some(created_from) = self.created_from {
-            if event.created_at < created_from {
-                return false;
-            }
-        }
-
-        if let Some(created_to) = self.created_to {
-            if event.created_at > created_to {
-                return false;
-            }
-        }
-
-        true
-    }
-}
-
-fn metadata_matches(event: &AuditEvent, key: &str, expected: &str) -> bool {
-    event
-        .metadata
-        .get(key)
-        .map(|value| value == expected)
-        .unwrap_or(false)
-}
-
-fn metadata_matches_ignore_case(event: &AuditEvent, key: &str, expected: &str) -> bool {
-    event
-        .metadata
-        .get(key)
-        .map(|value| value.eq_ignore_ascii_case(expected))
-        .unwrap_or(false)
 }
 
 fn parse_optional_rfc3339(
@@ -897,8 +857,8 @@ async fn get_audit_events(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "read_audit_events", resource).await?;
-    let filter = AuditEventFilter::try_from_query(query)?;
-    Ok(Json(filter.apply(state.node.audit_events().await?)))
+    let search = AuditEventFilter::try_from_query(query)?.into_search();
+    Ok(Json(state.node.audit_events(search).await?))
 }
 
 async fn get_validators(
@@ -1173,7 +1133,7 @@ mod tests {
 
     #[test]
     fn audit_event_filter_matches_event_type_metadata_and_window() {
-        let filter = AuditEventFilter::try_from_query(AuditEventQuery {
+        let search = AuditEventFilter::try_from_query(AuditEventQuery {
             event_type: Some("api_authorization_decision".to_string()),
             decision: Some("denied".to_string()),
             institution_id: Some("CORP_B".to_string()),
@@ -1181,9 +1141,10 @@ mod tests {
             created_to: Some("2026-12-31T23:59:59Z".to_string()),
             ..AuditEventQuery::default()
         })
-        .unwrap();
+        .unwrap()
+        .into_search();
 
-        let matched = filter.apply(vec![
+        let matched = search.apply(vec![
             audit_event_with_metadata(
                 "API_AUTHORIZATION_DECISION",
                 "DENIED",
@@ -1238,14 +1199,15 @@ mod tests {
 
     #[test]
     fn audit_event_filter_applies_limit_and_offset() {
-        let filter = AuditEventFilter::try_from_query(AuditEventQuery {
+        let search = AuditEventFilter::try_from_query(AuditEventQuery {
             limit: Some(2),
             offset: Some(1),
             ..AuditEventQuery::default()
         })
-        .unwrap();
+        .unwrap()
+        .into_search();
 
-        let matched = filter.apply(vec![
+        let matched = search.apply(vec![
             audit_event_with_metadata(
                 "API_AUTHORIZATION_DECISION",
                 "DENIED",
@@ -1287,6 +1249,12 @@ mod tests {
             ..AuditEventQuery::default()
         });
         assert!(matches!(oversized_limit, Err(ApiError::BadRequest(_))));
+
+        let negative_offset = AuditEventFilter::try_from_query(AuditEventQuery {
+            offset: Some(-1),
+            ..AuditEventQuery::default()
+        });
+        assert!(matches!(negative_offset, Err(ApiError::BadRequest(_))));
     }
 
     fn audit_event_with_metadata(
