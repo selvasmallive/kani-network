@@ -79,6 +79,14 @@ x-kani-api-key: sandbox-corp-a-token | sandbox-corp-b-token | sandbox-treasury-t
 
 These local keys are simulation-only. Override them with `KANI_SANDBOX_CORP_A_API_KEY`, `KANI_SANDBOX_CORP_B_API_KEY`, and `KANI_SANDBOX_TREASURY_API_KEY` when needed.
 Balance reads require the institution that owns the account. Payment lookup is visible to the sending or receiving institution.
+Network-wide read APIs such as blocks, audit events, validators, and pending transactions require sandbox admin headers:
+
+```text
+x-kani-institution-id: KANI_ADMIN
+x-kani-api-key: sandbox-admin-token
+```
+
+Override the local admin key with `KANI_SANDBOX_ADMIN_API_KEY` when needed.
 
 ```powershell
 cd C:\dev\kani
@@ -126,10 +134,21 @@ curl http://127.0.0.1:8080/v1/accounts/CORP_B/balances/KCAD_TEST \
   -H "x-kani-institution-id: CORP_B" \
   -H "x-kani-api-key: sandbox-corp-b-token"
 
-curl http://127.0.0.1:8080/v1/blocks
-curl http://127.0.0.1:8080/v1/audit-events
-curl http://127.0.0.1:8080/v1/validators
-curl http://127.0.0.1:8080/v1/transactions/pending
+curl http://127.0.0.1:8080/v1/blocks \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl http://127.0.0.1:8080/v1/audit-events \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl http://127.0.0.1:8080/v1/validators \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl http://127.0.0.1:8080/v1/transactions/pending \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
 ```
 
 ## Phase 1 Acceptance Path

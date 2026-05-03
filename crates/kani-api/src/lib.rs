@@ -18,12 +18,15 @@ pub const API_KEY_HEADER: &str = "x-kani-api-key";
 const SANDBOX_TREASURY_INSTITUTION_ID: &str = "KANI_TREASURY";
 const SANDBOX_CORP_A_INSTITUTION_ID: &str = "CORP_A";
 const SANDBOX_CORP_B_INSTITUTION_ID: &str = "CORP_B";
+const SANDBOX_ADMIN_ID: &str = "KANI_ADMIN";
 const DEFAULT_TREASURY_API_KEY: &str = "sandbox-treasury-token";
 const DEFAULT_CORP_A_API_KEY: &str = "sandbox-corp-a-token";
 const DEFAULT_CORP_B_API_KEY: &str = "sandbox-corp-b-token";
+const DEFAULT_ADMIN_API_KEY: &str = "sandbox-admin-token";
 const TREASURY_API_KEY_ENV: &str = "KANI_SANDBOX_TREASURY_API_KEY";
 const CORP_A_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_A_API_KEY";
 const CORP_B_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_B_API_KEY";
+const ADMIN_API_KEY_ENV: &str = "KANI_SANDBOX_ADMIN_API_KEY";
 
 #[derive(Clone)]
 struct AppState {
@@ -44,39 +47,76 @@ impl SandboxAuthConfig {
                 .map(|(institution_id, api_key)| SandboxCredential {
                     institution_id,
                     api_key,
+                    role: SandboxCredentialRole::Institution,
                 })
                 .collect(),
         }
     }
 
+    pub fn new_with_admins(
+        institution_credentials: Vec<(String, String)>,
+        admin_credentials: Vec<(String, String)>,
+    ) -> Self {
+        let mut credentials: Vec<SandboxCredential> = institution_credentials
+            .into_iter()
+            .map(|(institution_id, api_key)| SandboxCredential {
+                institution_id,
+                api_key,
+                role: SandboxCredentialRole::Institution,
+            })
+            .collect();
+        credentials.extend(
+            admin_credentials
+                .into_iter()
+                .map(|(institution_id, api_key)| SandboxCredential {
+                    institution_id,
+                    api_key,
+                    role: SandboxCredentialRole::Admin,
+                }),
+        );
+
+        Self { credentials }
+    }
+
     pub fn sandbox_defaults() -> Self {
-        Self::new(vec![
-            (
-                SANDBOX_TREASURY_INSTITUTION_ID.to_string(),
-                env::var(TREASURY_API_KEY_ENV)
-                    .unwrap_or_else(|_| DEFAULT_TREASURY_API_KEY.to_string()),
-            ),
-            (
-                SANDBOX_CORP_A_INSTITUTION_ID.to_string(),
-                env::var(CORP_A_API_KEY_ENV).unwrap_or_else(|_| DEFAULT_CORP_A_API_KEY.to_string()),
-            ),
-            (
-                SANDBOX_CORP_B_INSTITUTION_ID.to_string(),
-                env::var(CORP_B_API_KEY_ENV).unwrap_or_else(|_| DEFAULT_CORP_B_API_KEY.to_string()),
-            ),
-        ])
+        Self::new_with_admins(
+            vec![
+                (
+                    SANDBOX_TREASURY_INSTITUTION_ID.to_string(),
+                    env::var(TREASURY_API_KEY_ENV)
+                        .unwrap_or_else(|_| DEFAULT_TREASURY_API_KEY.to_string()),
+                ),
+                (
+                    SANDBOX_CORP_A_INSTITUTION_ID.to_string(),
+                    env::var(CORP_A_API_KEY_ENV)
+                        .unwrap_or_else(|_| DEFAULT_CORP_A_API_KEY.to_string()),
+                ),
+                (
+                    SANDBOX_CORP_B_INSTITUTION_ID.to_string(),
+                    env::var(CORP_B_API_KEY_ENV)
+                        .unwrap_or_else(|_| DEFAULT_CORP_B_API_KEY.to_string()),
+                ),
+            ],
+            vec![(
+                SANDBOX_ADMIN_ID.to_string(),
+                env::var(ADMIN_API_KEY_ENV).unwrap_or_else(|_| DEFAULT_ADMIN_API_KEY.to_string()),
+            )],
+        )
     }
 
     fn authenticate(&self, headers: &HeaderMap) -> Result<AuthenticatedInstitution, ApiError> {
         let institution_id = required_header(headers, INSTITUTION_ID_HEADER)?;
         let api_key = required_header(headers, API_KEY_HEADER)?;
 
-        let authenticated = self.credentials.iter().any(|credential| {
+        let credential = self.credentials.iter().find(|credential| {
             credential.institution_id == institution_id && credential.api_key == api_key
         });
 
-        if authenticated {
-            return Ok(AuthenticatedInstitution { institution_id });
+        if let Some(credential) = credential {
+            return Ok(AuthenticatedInstitution {
+                institution_id,
+                is_admin: credential.role == SandboxCredentialRole::Admin,
+            });
         }
 
         Err(ApiError::Unauthorized(
@@ -89,11 +129,19 @@ impl SandboxAuthConfig {
 struct SandboxCredential {
     institution_id: String,
     api_key: String,
+    role: SandboxCredentialRole,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SandboxCredentialRole {
+    Institution,
+    Admin,
 }
 
 #[derive(Clone, Debug)]
 struct AuthenticatedInstitution {
     institution_id: String,
+    is_admin: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -383,6 +431,16 @@ fn account_belongs_to_institution(
     })
 }
 
+fn authorize_admin(auth: &AuthenticatedInstitution) -> Result<(), ApiError> {
+    if auth.is_admin {
+        return Ok(());
+    }
+
+    Err(ApiError::Forbidden(
+        "admin credentials are required for network-wide reads".to_string(),
+    ))
+}
+
 fn required_header(headers: &HeaderMap, name: &'static str) -> Result<String, ApiError> {
     let value = headers
         .get(name)
@@ -437,11 +495,19 @@ async fn get_balance(
 
 async fn get_pending_transactions(
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<Transaction>>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
+    authorize_admin(&auth)?;
     Ok(Json(state.node.pending_transactions().await?))
 }
 
-async fn get_latest_block(State(state): State<AppState>) -> Result<Json<Block>, ApiError> {
+async fn get_latest_block(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Block>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
+    authorize_admin(&auth)?;
     state
         .node
         .latest_block()
@@ -450,19 +516,30 @@ async fn get_latest_block(State(state): State<AppState>) -> Result<Json<Block>, 
         .ok_or_else(|| ApiError::NotFound("no finalized blocks yet".to_string()))
 }
 
-async fn get_blocks(State(state): State<AppState>) -> Result<Json<Vec<Block>>, ApiError> {
+async fn get_blocks(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<Block>>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
+    authorize_admin(&auth)?;
     Ok(Json(state.node.blocks().await?))
 }
 
 async fn get_audit_events(
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<AuditEvent>>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
+    authorize_admin(&auth)?;
     Ok(Json(state.node.audit_events().await?))
 }
 
 async fn get_validators(
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<ValidatorResponse>>, ApiError> {
+    let auth = state.auth.authenticate(&headers)?;
+    authorize_admin(&auth)?;
     let validators = state
         .node
         .validators()
@@ -518,6 +595,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(auth.institution_id, "CORP_A");
+        assert!(!auth.is_admin);
     }
 
     #[test]
@@ -535,6 +613,7 @@ mod tests {
         let node = KaniNode::sandbox_default();
         let auth = AuthenticatedInstitution {
             institution_id: "CORP_A".to_string(),
+            is_admin: false,
         };
 
         let account = authorize_account_control(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
@@ -549,6 +628,7 @@ mod tests {
         let node = KaniNode::sandbox_default();
         let auth = AuthenticatedInstitution {
             institution_id: "CORP_B".to_string(),
+            is_admin: false,
         };
 
         let error = authorize_account_control(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
@@ -563,6 +643,7 @@ mod tests {
         let node = KaniNode::sandbox_default();
         let auth = AuthenticatedInstitution {
             institution_id: "CORP_A".to_string(),
+            is_admin: false,
         };
 
         let account = authorize_account_read(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
@@ -577,6 +658,7 @@ mod tests {
         let node = KaniNode::sandbox_default();
         let auth = AuthenticatedInstitution {
             institution_id: "CORP_B".to_string(),
+            is_admin: false,
         };
 
         let error = authorize_account_read(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
@@ -598,9 +680,11 @@ mod tests {
         ));
         let corp_a = AuthenticatedInstitution {
             institution_id: "CORP_A".to_string(),
+            is_admin: false,
         };
         let corp_b = AuthenticatedInstitution {
             institution_id: "CORP_B".to_string(),
+            is_admin: false,
         };
 
         authorize_payment_read(&node, &corp_a, &payment)
@@ -623,6 +707,7 @@ mod tests {
         ));
         let treasury = AuthenticatedInstitution {
             institution_id: SANDBOX_TREASURY_INSTITUTION_ID.to_string(),
+            is_admin: false,
         };
 
         let error = authorize_payment_read(&node, &treasury, &payment)
@@ -637,6 +722,7 @@ mod tests {
         let node = KaniNode::sandbox_default();
         let auth = AuthenticatedInstitution {
             institution_id: SANDBOX_TREASURY_INSTITUTION_ID.to_string(),
+            is_admin: false,
         };
 
         let account = authorize_account_control(&node, &auth, SANDBOX_TREASURY_ACCOUNT)
@@ -644,6 +730,38 @@ mod tests {
             .unwrap();
 
         assert_eq!(account.account_type, AccountType::Treasury);
+    }
+
+    #[test]
+    fn sandbox_admin_auth_accepts_admin_credentials() {
+        let config = SandboxAuthConfig::new_with_admins(
+            vec![("CORP_A".to_string(), "corp-a-key".to_string())],
+            vec![("KANI_ADMIN".to_string(), "admin-key".to_string())],
+        );
+        let auth = config
+            .authenticate(&headers_for("KANI_ADMIN", "admin-key"))
+            .unwrap();
+
+        assert_eq!(auth.institution_id, "KANI_ADMIN");
+        assert!(auth.is_admin);
+    }
+
+    #[test]
+    fn network_read_authorization_requires_admin_credentials() {
+        let admin = AuthenticatedInstitution {
+            institution_id: SANDBOX_ADMIN_ID.to_string(),
+            is_admin: true,
+        };
+        let institution = AuthenticatedInstitution {
+            institution_id: "CORP_A".to_string(),
+            is_admin: false,
+        };
+
+        assert!(authorize_admin(&admin).is_ok());
+        assert!(matches!(
+            authorize_admin(&institution),
+            Err(ApiError::Forbidden(_))
+        ));
     }
 
     fn headers_for(institution_id: &str, api_key: &str) -> HeaderMap {

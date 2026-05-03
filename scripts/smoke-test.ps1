@@ -170,6 +170,10 @@ try {
     "x-kani-institution-id" = "CORP_B"
     "x-kani-api-key"        = "sandbox-corp-b-token"
   }
+  $adminHeaders = @{
+    "x-kani-institution-id" = "KANI_ADMIN"
+    "x-kani-api-key"        = "sandbox-admin-token"
+  }
 
   $mint = Invoke-KaniPost "$base/v1/sandbox/mint" @{
     treasury = "TREASURY_SANDBOX"
@@ -202,6 +206,11 @@ try {
   Assert-KaniForbiddenPost "$base/v1/payments" $forbiddenPaymentRequest $corpBHeaders
   Assert-KaniForbiddenGet "$base/v1/payments/$($payment.payment_id)" $treasuryHeaders
   Assert-KaniForbiddenGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpBHeaders
+  Assert-KaniForbiddenGet "$base/v1/blocks/latest" $corpAHeaders
+  Assert-KaniForbiddenGet "$base/v1/blocks" $corpAHeaders
+  Assert-KaniForbiddenGet "$base/v1/audit-events" $corpAHeaders
+  Assert-KaniForbiddenGet "$base/v1/validators" $corpAHeaders
+  Assert-KaniForbiddenGet "$base/v1/transactions/pending" $corpAHeaders
 
   $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id -Headers $corpAHeaders
   Invoke-KaniGet "$base/v1/payments/$($payment.payment_id)" $corpBHeaders | Out-Null
@@ -213,7 +222,7 @@ try {
 
   $balanceA = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
   $balanceB = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
-  $latestBeforeRestart = Invoke-RestMethod "$base/v1/blocks/latest"
+  $latestBeforeRestart = Invoke-KaniGet "$base/v1/blocks/latest" $adminHeaders
 
   if ($balanceA.amount -ne 900000) {
     throw "expected CORP_A balance 900000, got $($balanceA.amount)"
@@ -230,11 +239,11 @@ try {
 
   $balanceAAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
   $balanceBAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
-  $latestAfterRestart = Invoke-RestMethod "$base/v1/blocks/latest"
-  $blocks = Invoke-RestMethod "$base/v1/blocks"
-  $auditEvents = Invoke-RestMethod "$base/v1/audit-events"
-  $validators = Invoke-RestMethod "$base/v1/validators"
-  $pendingTransactions = Invoke-RestMethod "$base/v1/transactions/pending"
+  $latestAfterRestart = Invoke-KaniGet "$base/v1/blocks/latest" $adminHeaders
+  $blocks = Invoke-KaniGet "$base/v1/blocks" $adminHeaders
+  $auditEvents = Invoke-KaniGet "$base/v1/audit-events" $adminHeaders
+  $validators = Invoke-KaniGet "$base/v1/validators" $adminHeaders
+  $pendingTransactions = Invoke-KaniGet "$base/v1/transactions/pending" $adminHeaders
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 
@@ -262,6 +271,7 @@ try {
     idempotency_conflict_checked = $true
     authorization_checked        = $true
     read_authorization_checked   = $true
+    admin_authorization_checked  = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height
