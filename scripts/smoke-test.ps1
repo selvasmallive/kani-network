@@ -241,21 +241,26 @@ try {
   $balanceAAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
   $balanceBAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
   $latestAfterRestart = Invoke-KaniGet "$base/v1/blocks/latest" $adminHeaders
-  $blocks = Invoke-KaniGet "$base/v1/blocks?limit=500&offset=0" $adminHeaders
-  $pagedBlocks = @(Invoke-KaniGet "$base/v1/blocks?limit=1&offset=1" $adminHeaders)
+  $blockPage = Invoke-KaniGet "$base/v1/blocks?limit=500&offset=0" $adminHeaders
+  $blocks = @($blockPage.items)
+  $pagedBlockPage = Invoke-KaniGet "$base/v1/blocks?limit=1&offset=1" $adminHeaders
+  $pagedBlocks = @($pagedBlockPage.items)
   Assert-KaniStatusGet "$base/v1/blocks?limit=501" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/blocks?limit=-1" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/blocks?offset=-1" $adminHeaders 400
   $createdFrom = [uri]::EscapeDataString($smokeStartedAt.ToString("o"))
   $createdTo = [uri]::EscapeDataString((Get-Date).ToUniversalTime().AddMinutes(5).ToString("o"))
-  $auditEvents = Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
+  $auditEventPage = Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
+  $auditEvents = @($auditEventPage.items)
   $validators = Invoke-KaniGet "$base/v1/validators" $adminHeaders
   $pendingTransactions = Invoke-KaniGet "$base/v1/transactions/pending" $adminHeaders
   $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
   $deniedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "DENIED" })
   $allowedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "ALLOWED" })
-  $filteredDeniedCorpBEvents = @(Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders)
-  $pagedAuditEvents = @(Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=1&offset=1" $adminHeaders)
+  $filteredDeniedCorpBPage = Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
+  $filteredDeniedCorpBEvents = @($filteredDeniedCorpBPage.items)
+  $pagedAuditEventPage = Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=1&offset=1" $adminHeaders
+  $pagedAuditEvents = @($pagedAuditEventPage.items)
   Assert-KaniStatusGet "$base/v1/audit-events?limit=501" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/audit-events?limit=-1" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/audit-events?offset=-1" $adminHeaders 400
@@ -276,6 +281,34 @@ try {
 
   if ($validatorsWithFinalizedBlock.Count -lt 1) {
     throw "expected at least one validator to report finalized block state"
+  }
+
+  if ($blockPage.limit -ne 500 -or $blockPage.offset -ne 0 -or $blockPage.count -ne $blocks.Count) {
+    throw "block page metadata did not match returned items"
+  }
+
+  if ($pagedBlockPage.limit -ne 1 -or $pagedBlockPage.offset -ne 1 -or $pagedBlockPage.count -ne $pagedBlocks.Count) {
+    throw "paged block metadata did not match returned items"
+  }
+
+  if ($blocks.Count -gt 2 -and $pagedBlockPage.next_offset -ne 2) {
+    throw "expected paged block response next_offset 2, got $($pagedBlockPage.next_offset)"
+  }
+
+  if ($auditEventPage.limit -ne 500 -or $auditEventPage.offset -ne 0 -or $auditEventPage.count -ne $auditEvents.Count) {
+    throw "audit event page metadata did not match returned items"
+  }
+
+  if ($filteredDeniedCorpBPage.limit -ne 500 -or $filteredDeniedCorpBPage.offset -ne 0 -or $filteredDeniedCorpBPage.count -ne $filteredDeniedCorpBEvents.Count) {
+    throw "filtered audit page metadata did not match returned items"
+  }
+
+  if ($pagedAuditEventPage.limit -ne 1 -or $pagedAuditEventPage.offset -ne 1 -or $pagedAuditEventPage.count -ne $pagedAuditEvents.Count) {
+    throw "paged audit metadata did not match returned items"
+  }
+
+  if ($auditEvents.Count -gt 2 -and $pagedAuditEventPage.next_offset -ne 2) {
+    throw "expected paged audit response next_offset 2, got $($pagedAuditEventPage.next_offset)"
   }
 
   if ($deniedAuthorizationAuditEvents.Count -lt 7) {
@@ -346,11 +379,13 @@ try {
     latest_height_after_restart  = $latestAfterRestart.height
     block_count                  = @($blocks).Count
     paged_block_count            = $pagedBlocks.Count
+    paged_block_next_offset      = $pagedBlockPage.next_offset
     audit_event_count            = @($auditEvents).Count
     authorization_audit_count    = $authorizationAuditEvents.Count
     denied_authorization_count   = $deniedAuthorizationAuditEvents.Count
     filtered_denied_corp_b_count = $filteredDeniedCorpBEvents.Count
     paged_audit_event_count      = $pagedAuditEvents.Count
+    paged_audit_next_offset      = $pagedAuditEventPage.next_offset
     validator_count              = @($validators).Count
     validator_heartbeat_count    = $validatorsWithHeartbeat.Count
     validator_finalized_count    = $validatorsWithFinalizedBlock.Count

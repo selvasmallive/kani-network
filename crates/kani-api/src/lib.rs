@@ -220,6 +220,33 @@ pub struct HealthResponse {
     pub redeemable: bool,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct PaginatedResponse<T> {
+    pub items: Vec<T>,
+    pub limit: i64,
+    pub offset: i64,
+    pub count: usize,
+    pub next_offset: Option<i64>,
+}
+
+impl<T> PaginatedResponse<T> {
+    fn from_limit_plus_one(mut items: Vec<T>, limit: i64, offset: i64) -> Self {
+        let requested = limit as usize;
+        let has_more = items.len() > requested;
+        if has_more {
+            items.truncate(requested);
+        }
+
+        Self {
+            count: items.len(),
+            items,
+            limit,
+            offset,
+            next_offset: has_more.then_some(offset + limit),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct AuditEventQuery {
     pub event_type: Option<String>,
@@ -626,9 +653,9 @@ impl BlockFilter {
         Ok(Self { limit, offset })
     }
 
-    fn into_search(self) -> BlockSearch {
+    fn into_search_with_limit(self, limit: i64) -> BlockSearch {
         BlockSearch {
-            limit: self.limit,
+            limit,
             offset: self.offset,
         }
     }
@@ -676,14 +703,14 @@ impl AuditEventFilter {
         })
     }
 
-    fn into_search(self) -> AuditEventSearch {
+    fn into_search_with_limit(self, limit: i64) -> AuditEventSearch {
         AuditEventSearch {
             event_type: self.event_type,
             decision: self.decision,
             institution_id: self.institution_id,
             created_from: self.created_from,
             created_to: self.created_to,
-            limit: self.limit,
+            limit,
             offset: self.offset,
         }
     }
@@ -870,7 +897,7 @@ async fn get_blocks(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<BlockQuery>,
-) -> Result<Json<Vec<Block>>, ApiError> {
+) -> Result<Json<PaginatedResponse<Block>>, ApiError> {
     let resource = "network:blocks";
     let auth = authenticate_request(&state, &headers, "read_blocks", resource).await?;
     if let Err(error) = authorize_admin(&auth) {
@@ -886,15 +913,21 @@ async fn get_blocks(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "read_blocks", resource).await?;
-    let search = BlockFilter::try_from_query(query)?.into_search();
-    Ok(Json(state.node.blocks(search).await?))
+    let filter = BlockFilter::try_from_query(query)?;
+    let limit = filter.limit;
+    let offset = filter.offset;
+    let search = filter.into_search_with_limit(limit + 1);
+    let items = state.node.blocks(search).await?;
+    Ok(Json(PaginatedResponse::from_limit_plus_one(
+        items, limit, offset,
+    )))
 }
 
 async fn get_audit_events(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<AuditEventQuery>,
-) -> Result<Json<Vec<AuditEvent>>, ApiError> {
+) -> Result<Json<PaginatedResponse<AuditEvent>>, ApiError> {
     let resource = "network:audit_events";
     let auth = authenticate_request(&state, &headers, "read_audit_events", resource).await?;
     if let Err(error) = authorize_admin(&auth) {
@@ -910,8 +943,14 @@ async fn get_audit_events(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "read_audit_events", resource).await?;
-    let search = AuditEventFilter::try_from_query(query)?.into_search();
-    Ok(Json(state.node.audit_events(search).await?))
+    let filter = AuditEventFilter::try_from_query(query)?;
+    let limit = filter.limit;
+    let offset = filter.offset;
+    let search = filter.into_search_with_limit(limit + 1);
+    let items = state.node.audit_events(search).await?;
+    Ok(Json(PaginatedResponse::from_limit_plus_one(
+        items, limit, offset,
+    )))
 }
 
 async fn get_validators(
@@ -1185,13 +1224,34 @@ mod tests {
     }
 
     #[test]
+    fn paginated_response_reports_next_offset_when_more_items_exist() {
+        let response = PaginatedResponse::from_limit_plus_one(vec![1, 2, 3], 2, 5);
+
+        assert_eq!(response.items, vec![1, 2]);
+        assert_eq!(response.limit, 2);
+        assert_eq!(response.offset, 5);
+        assert_eq!(response.count, 2);
+        assert_eq!(response.next_offset, Some(7));
+    }
+
+    #[test]
+    fn paginated_response_omits_next_offset_on_last_page() {
+        let response = PaginatedResponse::from_limit_plus_one(vec![1, 2], 2, 5);
+
+        assert_eq!(response.items, vec![1, 2]);
+        assert_eq!(response.count, 2);
+        assert_eq!(response.next_offset, None);
+    }
+
+    #[test]
     fn block_filter_applies_limit_and_offset() {
-        let search = BlockFilter::try_from_query(BlockQuery {
+        let filter = BlockFilter::try_from_query(BlockQuery {
             limit: Some(2),
             offset: Some(1),
         })
-        .unwrap()
-        .into_search();
+        .unwrap();
+        let limit = filter.limit;
+        let search = filter.into_search_with_limit(limit);
 
         let matched = search.apply(vec![
             block_with_height(1),
@@ -1233,7 +1293,7 @@ mod tests {
 
     #[test]
     fn audit_event_filter_matches_event_type_metadata_and_window() {
-        let search = AuditEventFilter::try_from_query(AuditEventQuery {
+        let filter = AuditEventFilter::try_from_query(AuditEventQuery {
             event_type: Some("api_authorization_decision".to_string()),
             decision: Some("denied".to_string()),
             institution_id: Some("CORP_B".to_string()),
@@ -1241,8 +1301,9 @@ mod tests {
             created_to: Some("2026-12-31T23:59:59Z".to_string()),
             ..AuditEventQuery::default()
         })
-        .unwrap()
-        .into_search();
+        .unwrap();
+        let limit = filter.limit;
+        let search = filter.into_search_with_limit(limit);
 
         let matched = search.apply(vec![
             audit_event_with_metadata(
@@ -1299,13 +1360,14 @@ mod tests {
 
     #[test]
     fn audit_event_filter_applies_limit_and_offset() {
-        let search = AuditEventFilter::try_from_query(AuditEventQuery {
+        let filter = AuditEventFilter::try_from_query(AuditEventQuery {
             limit: Some(2),
             offset: Some(1),
             ..AuditEventQuery::default()
         })
-        .unwrap()
-        .into_search();
+        .unwrap();
+        let limit = filter.limit;
+        let search = filter.into_search_with_limit(limit);
 
         let matched = search.apply(vec![
             audit_event_with_metadata(
