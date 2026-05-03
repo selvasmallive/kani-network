@@ -141,9 +141,16 @@ cargo fmt --check
 cargo test --workspace
 cargo test -p kani-api --test postgres_api -- --nocapture
 cargo clippy --workspace -- -D warnings
+docker build --file docker/Dockerfile.api --tag kani-api:ci .
 ```
 
-The CI job starts a Postgres 16 service for the API integration test.
+The CI job starts a Postgres 16 service for the API integration test and separately validates the API/validator container image build.
+
+Run the same checks locally from PowerShell:
+
+```powershell
+.\scripts\ci-local.ps1
+```
 
 ## Example Flow
 

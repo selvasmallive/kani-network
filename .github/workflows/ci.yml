@@ -52,3 +52,14 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy --workspace -- -D warnings
+
+  container:
+    name: Container build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build API and validator image
+        run: docker build --file docker/Dockerfile.api --tag kani-api:ci .
