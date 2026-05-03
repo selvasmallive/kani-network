@@ -132,6 +132,19 @@ $env:KANI_TEST_DATABASE_URL = "postgres://kani:kani@localhost:5432/kani"
 cargo test -p kani-api --test postgres_api -- --nocapture
 ```
 
+## CI Checks
+
+GitHub Actions runs the same Phase 1 guardrails in `.github/workflows/ci.yml`:
+
+```text
+cargo fmt --check
+cargo test --workspace
+cargo test -p kani-api --test postgres_api -- --nocapture
+cargo clippy --workspace -- -D warnings
+```
+
+The CI job starts a Postgres 16 service for the API integration test.
+
 ## Example Flow
 
 Mint sandbox test value to Corp A:
