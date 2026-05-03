@@ -124,6 +124,14 @@ The smoke script defaults to `http://localhost:8080`, which is the most reliable
 
 The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies block pagination plus authorization audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
+To run the faster Postgres-backed API integration test, keep the compose Postgres service running and provide a test database URL. The test creates and drops an isolated temporary database on the same Postgres server, so the configured user must be allowed to create databases.
+
+```powershell
+docker compose up -d postgres
+$env:KANI_TEST_DATABASE_URL = "postgres://kani:kani@localhost:5432/kani"
+cargo test -p kani-api --test postgres_api -- --nocapture
+```
+
 ## Example Flow
 
 Mint sandbox test value to Corp A:

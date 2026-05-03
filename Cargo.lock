@@ -809,7 +809,9 @@ dependencies = [
  "kani-types",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
+ "tower",
  "tracing",
  "tracing-subscriber",
 ]
