@@ -157,6 +157,51 @@ try {
   }
 
   Wait-KaniHealth -Url $base | Out-Null
+  $openApi = Invoke-KaniGet "$base/openapi.json"
+  $requiredOpenApiPaths = @(
+    "/health",
+    "/openapi.json",
+    "/v1/payments",
+    "/v1/payments/{id}",
+    "/v1/accounts/{account_id}/balances/{asset}",
+    "/v1/transactions/pending",
+    "/v1/blocks",
+    "/v1/blocks/latest",
+    "/v1/audit-events",
+    "/v1/validators",
+    "/v1/sandbox/mint"
+  )
+  $openApiPaths = @($openApi.paths.PSObject.Properties.Name)
+  foreach ($path in $requiredOpenApiPaths) {
+    if ($openApiPaths -notcontains $path) {
+      throw "OpenAPI contract missing path $path"
+    }
+  }
+
+  $requiredOpenApiSchemas = @(
+    "CreatePaymentRequest",
+    "SandboxMintRequest",
+    "PaymentResponse",
+    "BalanceResponse",
+    "PaginatedBlockResponse",
+    "PaginatedAuditEventResponse",
+    "Block",
+    "Transaction",
+    "AuditEvent",
+    "ValidatorResponse",
+    "ErrorResponse"
+  )
+  $openApiSchemas = @($openApi.components.schemas.PSObject.Properties.Name)
+  foreach ($schema in $requiredOpenApiSchemas) {
+    if ($openApiSchemas -notcontains $schema) {
+      throw "OpenAPI contract missing schema $schema"
+    }
+  }
+
+  if ($openApi.openapi -ne "3.1.0") {
+    throw "expected OpenAPI version 3.1.0, got $($openApi.openapi)"
+  }
+
   $smokeStartedAt = (Get-Date).ToUniversalTime().AddMinutes(-1)
 
   $treasuryHeaders = @{
@@ -363,6 +408,7 @@ try {
     mint_payment_id              = $mint.payment_id
     transfer_payment_id          = $payment.payment_id
     transfer_client_reference_id = $payment.client_reference_id
+    openapi_checked              = $true
     idempotency_conflict_checked = $true
     authorization_checked        = $true
     read_authorization_checked   = $true

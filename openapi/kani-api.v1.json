@@ -1,0 +1,1053 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "KANI Private Settlement Network API",
+    "version": "0.1.0",
+    "description": "Phase 1 sandbox-only API for the KANI private settlement network. This contract is for internal simulation only and does not represent real-value payment services."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local Docker Desktop sandbox"
+    },
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Local IPv4 sandbox"
+    }
+  ],
+  "security": [
+    {
+      "KaniInstitutionId": [],
+      "KaniApiKey": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Read sandbox service health",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service health",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Read the Phase 1 OpenAPI contract",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document",
+            "content": {
+              "application/vnd.oai.openapi+json;version=3.1": {
+                "schema": {
+                  "type": "object"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments": {
+      "post": {
+        "summary": "Submit a sandbox transfer payment",
+        "description": "Creates or returns an idempotent sandbox transfer payment. The caller must control the `from` account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/payments/{id}": {
+      "get": {
+        "summary": "Read a payment by id",
+        "description": "Visible to the sending or receiving institution.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaymentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/accounts/{account_id}/balances/{asset}": {
+      "get": {
+        "summary": "Read an account asset balance",
+        "description": "Visible only to the institution that owns the account.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccountId"
+          },
+          {
+            "$ref": "#/components/parameters/Asset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/transactions/pending": {
+      "get": {
+        "summary": "Read pending transactions",
+        "description": "Sandbox admin credentials are required.",
+        "responses": {
+          "200": {
+            "description": "Pending transactions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Transaction"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/blocks": {
+      "get": {
+        "summary": "Read finalized blocks",
+        "description": "Sandbox admin credentials are required. Results are paginated and returned newest to oldest in PostgreSQL mode.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated finalized blocks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedBlockResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/blocks/latest": {
+      "get": {
+        "summary": "Read the latest finalized block",
+        "description": "Sandbox admin credentials are required.",
+        "responses": {
+          "200": {
+            "description": "Latest finalized block",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Block"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/audit-events": {
+      "get": {
+        "summary": "Read audit events",
+        "description": "Sandbox admin credentials are required. Supports server-side filtering and pagination.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventType"
+          },
+          {
+            "$ref": "#/components/parameters/Decision"
+          },
+          {
+            "$ref": "#/components/parameters/InstitutionIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedFrom"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedTo"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated audit events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAuditEventResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/validators": {
+      "get": {
+        "summary": "Read validator status",
+        "description": "Sandbox admin credentials are required.",
+        "responses": {
+          "200": {
+            "description": "Validators",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ValidatorResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/sandbox/mint": {
+      "post": {
+        "summary": "Mint sandbox test value",
+        "description": "Sandbox treasury credentials are required. This operation is simulation-only and does not create real redeemable value.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxMintRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mint payment accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "KaniInstitutionId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-kani-institution-id"
+      },
+      "KaniApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-kani-api-key"
+      }
+    },
+    "parameters": {
+      "PaymentId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "AccountId": {
+        "name": "account_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "corpA": {
+            "value": "CORP_A"
+          }
+        }
+      },
+      "Asset": {
+        "name": "asset",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "testCad": {
+            "value": "KCAD_TEST"
+          }
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 100
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "EventType": {
+        "name": "event_type",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Decision": {
+        "name": "decision",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "ALLOWED",
+            "DENIED"
+          ]
+        }
+      },
+      "InstitutionIdQuery": {
+        "name": "institution_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CreatedFrom": {
+        "name": "created_from",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "CreatedTo": {
+        "name": "created_to",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid sandbox credentials",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Credential is not authorized for the requested resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Idempotency conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Internal": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "service",
+          "status",
+          "environment",
+          "real_value",
+          "redeemable"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "const": "kani-api"
+          },
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "environment": {
+            "type": "string",
+            "const": "SANDBOX"
+          },
+          "real_value": {
+            "type": "boolean",
+            "const": false
+          },
+          "redeemable": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      },
+      "CreatePaymentRequest": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "asset",
+          "amount"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "client_reference_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "idempotency_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SandboxMintRequest": {
+        "type": "object",
+        "required": [
+          "treasury",
+          "to",
+          "asset",
+          "amount"
+        ],
+        "properties": {
+          "treasury": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "required": [
+          "payment_id",
+          "transaction_id",
+          "status",
+          "block_height",
+          "block_hash",
+          "failure_reason",
+          "client_reference_id"
+        ],
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "transaction_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TransactionStatus"
+          },
+          "block_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "block_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "client_reference_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "BalanceResponse": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "asset",
+          "amount"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          }
+        }
+      },
+      "ValidatorResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "public_key",
+          "active",
+          "last_seen_at",
+          "last_finalized_height",
+          "last_finalized_hash",
+          "last_finalized_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "public_key": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "last_seen_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_finalized_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "last_finalized_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_finalized_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "PaginatedBlockResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PageMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "items"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Block"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedAuditEventResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PageMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "items"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AuditEvent"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PageMetadata": {
+        "type": "object",
+        "required": [
+          "limit",
+          "offset",
+          "count",
+          "next_offset"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "next_offset": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
+      "Block": {
+        "type": "object",
+        "required": [
+          "height",
+          "prev_hash",
+          "txs",
+          "validator",
+          "signature",
+          "hash",
+          "finalized_by",
+          "created_at"
+        ],
+        "properties": {
+          "height": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prev_hash": {
+            "type": "string"
+          },
+          "txs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
+            }
+          },
+          "validator": {
+            "type": "string"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/ByteArray"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "finalized_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Transaction": {
+        "type": "object",
+        "required": [
+          "id",
+          "from",
+          "to",
+          "asset",
+          "amount",
+          "nonce",
+          "signatures",
+          "kind",
+          "metadata",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "nonce": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "signatures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ByteArray"
+            }
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TransactionKind"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "required": [
+          "id",
+          "event_type",
+          "message",
+          "metadata",
+          "block_height",
+          "transaction_id",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "block_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "transaction_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TransactionStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "FINALIZED",
+          "REJECTED"
+        ]
+      },
+      "TransactionKind": {
+        "type": "string",
+        "enum": [
+          "MINT",
+          "BURN",
+          "TRANSFER"
+        ]
+      },
+      "ByteArray": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

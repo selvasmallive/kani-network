@@ -808,6 +808,7 @@ dependencies = [
  "kani-node",
  "kani-types",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

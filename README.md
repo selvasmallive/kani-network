@@ -9,6 +9,7 @@ Phase 1 local MVP for a private, permissioned settlement network. This implement
 - Transaction support for sandbox mint, burn, and transfer.
 - Proof-of-Authority block production with 3 validators, round-robin leadership, and 2-of-3 finality metadata.
 - Axum API for payments, payment lookup, balances, latest block, health, and sandbox minting.
+- OpenAPI 3.1 contract for the Phase 1 API, served from `/openapi.json`.
 - PostgreSQL migration schema for the production ledger tables.
 
 ## Sandbox Boundaries
@@ -100,6 +101,12 @@ Paginated admin reads return an envelope with page metadata. `next_offset` is po
   "count": 0,
   "next_offset": null
 }
+```
+
+The checked-in API contract is `openapi/kani-api.v1.json` and the running API serves the same contract at:
+
+```bash
+curl http://localhost:8080/openapi.json
 ```
 
 ```powershell

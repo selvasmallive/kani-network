@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -33,6 +33,7 @@ const DEFAULT_BLOCK_LIMIT: i64 = 100;
 const MAX_BLOCK_LIMIT: i64 = 500;
 const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
 const MAX_AUDIT_EVENT_LIMIT: i64 = 500;
+const OPENAPI_JSON: &str = include_str!("../../../openapi/kani-api.v1.json");
 
 #[derive(Clone)]
 struct AppState {
@@ -352,6 +353,7 @@ pub fn build_router(node: KaniNode) -> Router {
 pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/openapi.json", get(openapi_json))
         .route("/v1/payments", post(create_payment))
         .route("/v1/payments/:id", get(get_payment))
         .route("/v1/transactions/pending", get(get_pending_transactions))
@@ -372,6 +374,10 @@ async fn health() -> Json<HealthResponse> {
         real_value: false,
         redeemable: false,
     })
+}
+
+async fn openapi_json() -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "application/json")], OPENAPI_JSON)
 }
 
 async fn create_payment(
@@ -1221,6 +1227,49 @@ mod tests {
             authorize_admin(&institution),
             Err(ApiError::Forbidden(_))
         ));
+    }
+
+    #[test]
+    fn openapi_contract_declares_phase1_paths_and_schemas() {
+        let document: serde_json::Value = serde_json::from_str(OPENAPI_JSON).unwrap();
+        assert_eq!(document["openapi"], "3.1.0");
+
+        let paths = document["paths"].as_object().unwrap();
+        for path in [
+            "/health",
+            "/openapi.json",
+            "/v1/payments",
+            "/v1/payments/{id}",
+            "/v1/accounts/{account_id}/balances/{asset}",
+            "/v1/transactions/pending",
+            "/v1/blocks",
+            "/v1/blocks/latest",
+            "/v1/audit-events",
+            "/v1/validators",
+            "/v1/sandbox/mint",
+        ] {
+            assert!(paths.contains_key(path), "missing OpenAPI path {path}");
+        }
+
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+        for schema in [
+            "CreatePaymentRequest",
+            "SandboxMintRequest",
+            "PaymentResponse",
+            "BalanceResponse",
+            "PaginatedBlockResponse",
+            "PaginatedAuditEventResponse",
+            "Block",
+            "Transaction",
+            "AuditEvent",
+            "ValidatorResponse",
+            "ErrorResponse",
+        ] {
+            assert!(
+                schemas.contains_key(schema),
+                "missing OpenAPI schema {schema}"
+            );
+        }
     }
 
     #[test]
