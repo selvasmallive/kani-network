@@ -142,14 +142,22 @@ cargo test --workspace
 cargo test -p kani-api --test postgres_api -- --nocapture
 cargo clippy --workspace -- -D warnings
 docker build --file docker/Dockerfile.api --tag kani-api:ci .
+docker compose config
+.\scripts\smoke-test.ps1
 ```
 
-The CI job starts a Postgres 16 service for the API integration test and separately validates the API/validator container image build.
+The CI workflow starts a Postgres 16 service for the API integration test, separately validates the API/validator container image build, validates the Compose file, and runs the Phase 1 smoke test against the Docker stack.
 
-Run the same checks locally from PowerShell:
+Run the core checks locally from PowerShell:
 
 ```powershell
 .\scripts\ci-local.ps1
+```
+
+Include the full Docker smoke test with:
+
+```powershell
+.\scripts\ci-local.ps1 -RunSmoke
 ```
 
 ## Example Flow

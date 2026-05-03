@@ -63,3 +63,18 @@ jobs:
 
       - name: Build API and validator image
         run: docker build --file docker/Dockerfile.api --tag kani-api:ci .
+
+  compose-smoke:
+    name: Compose smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Compose file
+        run: docker compose config
+
+      - name: Run Phase 1 smoke test
+        shell: pwsh
+        run: ./scripts/smoke-test.ps1

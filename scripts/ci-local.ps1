@@ -2,7 +2,8 @@ param(
   [string]$DatabaseUrl = "postgres://kani:kani@localhost:5432/kani",
   [string]$DockerTag = "kani-api:ci",
   [switch]$SkipPostgresIntegration,
-  [switch]$SkipDockerBuild
+  [switch]$SkipDockerBuild,
+  [switch]$RunSmoke
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,6 +26,10 @@ try {
 
   if (-not $SkipDockerBuild) {
     docker build --file docker/Dockerfile.api --tag $DockerTag .
+  }
+
+  if ($RunSmoke) {
+    & (Join-Path $scriptRoot "smoke-test.ps1")
   }
 } finally {
   Pop-Location
