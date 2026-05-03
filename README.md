@@ -88,7 +88,7 @@ x-kani-api-key: sandbox-admin-token
 
 Override the local admin key with `KANI_SANDBOX_ADMIN_API_KEY` when needed.
 API authorization decisions are written to the audit log as `API_AUTHORIZATION_DECISION` events with structured metadata such as `decision`, `action`, `resource`, `institution_id`, `role`, and `status_code`. API keys are never written to audit events.
-Admin audit reads support filters: `event_type`, `decision`, `institution_id`, `created_from`, and `created_to`. Time filters must be RFC3339 timestamps.
+Admin audit reads support filters: `event_type`, `decision`, `institution_id`, `created_from`, and `created_to`. Time filters must be RFC3339 timestamps. Audit reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`.
 
 ```powershell
 cd C:\dev\kani
@@ -101,7 +101,7 @@ Run the repeatable smoke test:
 .\scripts\smoke-test.ps1
 ```
 
-The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies authorization audit events and filters, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
+The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies authorization audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
 ## Example Flow
 
@@ -140,11 +140,11 @@ curl http://127.0.0.1:8080/v1/blocks \
   -H "x-kani-institution-id: KANI_ADMIN" \
   -H "x-kani-api-key: sandbox-admin-token"
 
-curl http://127.0.0.1:8080/v1/audit-events \
+curl "http://127.0.0.1:8080/v1/audit-events?limit=100&offset=0" \
   -H "x-kani-institution-id: KANI_ADMIN" \
   -H "x-kani-api-key: sandbox-admin-token"
 
-curl "http://127.0.0.1:8080/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=1970-01-01T00%3A00%3A00Z" \
+curl "http://127.0.0.1:8080/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=1970-01-01T00%3A00%3A00Z&limit=100&offset=0" \
   -H "x-kani-institution-id: KANI_ADMIN" \
   -H "x-kani-api-key: sandbox-admin-token"
 

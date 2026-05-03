@@ -157,6 +157,7 @@ try {
   }
 
   Wait-KaniHealth -Url $base | Out-Null
+  $smokeStartedAt = (Get-Date).ToUniversalTime().AddMinutes(-1)
 
   $treasuryHeaders = @{
     "x-kani-institution-id" = "KANI_TREASURY"
@@ -241,15 +242,17 @@ try {
   $balanceBAfterRestart = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
   $latestAfterRestart = Invoke-KaniGet "$base/v1/blocks/latest" $adminHeaders
   $blocks = Invoke-KaniGet "$base/v1/blocks" $adminHeaders
-  $auditEvents = Invoke-KaniGet "$base/v1/audit-events" $adminHeaders
+  $createdFrom = [uri]::EscapeDataString($smokeStartedAt.ToString("o"))
+  $createdTo = [uri]::EscapeDataString((Get-Date).ToUniversalTime().AddMinutes(5).ToString("o"))
+  $auditEvents = Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
   $validators = Invoke-KaniGet "$base/v1/validators" $adminHeaders
   $pendingTransactions = Invoke-KaniGet "$base/v1/transactions/pending" $adminHeaders
   $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
   $deniedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "DENIED" })
   $allowedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "ALLOWED" })
-  $createdFrom = [uri]::EscapeDataString("1970-01-01T00:00:00Z")
-  $createdTo = [uri]::EscapeDataString((Get-Date).ToUniversalTime().AddMinutes(5).ToString("o"))
-  $filteredDeniedCorpBEvents = @(Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo" $adminHeaders)
+  $filteredDeniedCorpBEvents = @(Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders)
+  $pagedAuditEvents = @(Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=1&offset=1" $adminHeaders)
+  Assert-KaniStatusGet "$base/v1/audit-events?limit=501" $adminHeaders 400
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 
@@ -308,6 +311,10 @@ try {
     throw "filtered audit query returned events outside the requested event_type/decision/institution filters"
   }
 
+  if ($pagedAuditEvents.Count -ne 1) {
+    throw "expected audit pagination limit=1 to return one event, got $($pagedAuditEvents.Count)"
+  }
+
   [pscustomobject]@{
     asset                        = $Asset
     mint_payment_id              = $mint.payment_id
@@ -319,6 +326,7 @@ try {
     admin_authorization_checked  = $true
     authorization_audit_checked  = $true
     audit_filter_checked         = $true
+    audit_pagination_checked     = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     latest_height_before_restart = $latestBeforeRestart.height
@@ -330,6 +338,7 @@ try {
     authorization_audit_count    = $authorizationAuditEvents.Count
     denied_authorization_count   = $deniedAuthorizationAuditEvents.Count
     filtered_denied_corp_b_count = $filteredDeniedCorpBEvents.Count
+    paged_audit_event_count      = $pagedAuditEvents.Count
     validator_count              = @($validators).Count
     validator_heartbeat_count    = $validatorsWithHeartbeat.Count
     validator_finalized_count    = $validatorsWithFinalizedBlock.Count

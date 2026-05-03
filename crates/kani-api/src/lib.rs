@@ -28,6 +28,8 @@ const TREASURY_API_KEY_ENV: &str = "KANI_SANDBOX_TREASURY_API_KEY";
 const CORP_A_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_A_API_KEY";
 const CORP_B_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_B_API_KEY";
 const ADMIN_API_KEY_ENV: &str = "KANI_SANDBOX_ADMIN_API_KEY";
+const DEFAULT_AUDIT_EVENT_LIMIT: usize = 100;
+const MAX_AUDIT_EVENT_LIMIT: usize = 500;
 
 #[derive(Clone)]
 struct AppState {
@@ -222,6 +224,8 @@ pub struct AuditEventQuery {
     pub institution_id: Option<String>,
     pub created_from: Option<String>,
     pub created_to: Option<String>,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -602,6 +606,8 @@ struct AuditEventFilter {
     institution_id: Option<String>,
     created_from: Option<DateTime<Utc>>,
     created_to: Option<DateTime<Utc>>,
+    limit: usize,
+    offset: usize,
 }
 
 impl AuditEventFilter {
@@ -617,12 +623,21 @@ impl AuditEventFilter {
             }
         }
 
+        let limit = query.limit.unwrap_or(DEFAULT_AUDIT_EVENT_LIMIT);
+        if limit == 0 || limit > MAX_AUDIT_EVENT_LIMIT {
+            return Err(ApiError::BadRequest(format!(
+                "limit must be between 1 and {MAX_AUDIT_EVENT_LIMIT}"
+            )));
+        }
+
         Ok(Self {
             event_type: normalize_optional_filter(query.event_type),
             decision: normalize_optional_filter(query.decision),
             institution_id: normalize_optional_filter(query.institution_id),
             created_from,
             created_to,
+            limit,
+            offset: query.offset.unwrap_or(0),
         })
     }
 
@@ -630,6 +645,8 @@ impl AuditEventFilter {
         events
             .into_iter()
             .filter(|event| self.matches(event))
+            .skip(self.offset)
+            .take(self.limit)
             .collect()
     }
 
@@ -1162,6 +1179,7 @@ mod tests {
             institution_id: Some("CORP_B".to_string()),
             created_from: Some("2026-01-01T00:00:00Z".to_string()),
             created_to: Some("2026-12-31T23:59:59Z".to_string()),
+            ..AuditEventQuery::default()
         })
         .unwrap();
 
@@ -1216,6 +1234,59 @@ mod tests {
             ..AuditEventQuery::default()
         });
         assert!(matches!(inverted_window, Err(ApiError::BadRequest(_))));
+    }
+
+    #[test]
+    fn audit_event_filter_applies_limit_and_offset() {
+        let filter = AuditEventFilter::try_from_query(AuditEventQuery {
+            limit: Some(2),
+            offset: Some(1),
+            ..AuditEventQuery::default()
+        })
+        .unwrap();
+
+        let matched = filter.apply(vec![
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "DENIED",
+                "CORP_A",
+                "2026-05-02T10:00:00Z",
+            ),
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "DENIED",
+                "CORP_B",
+                "2026-05-02T10:00:01Z",
+            ),
+            audit_event_with_metadata(
+                "API_AUTHORIZATION_DECISION",
+                "DENIED",
+                "KANI_TREASURY",
+                "2026-05-02T10:00:02Z",
+            ),
+        ]);
+
+        assert_eq!(matched.len(), 2);
+        assert_eq!(matched[0].metadata.get("institution_id").unwrap(), "CORP_B");
+        assert_eq!(
+            matched[1].metadata.get("institution_id").unwrap(),
+            "KANI_TREASURY"
+        );
+    }
+
+    #[test]
+    fn audit_event_filter_rejects_invalid_limits() {
+        let zero_limit = AuditEventFilter::try_from_query(AuditEventQuery {
+            limit: Some(0),
+            ..AuditEventQuery::default()
+        });
+        assert!(matches!(zero_limit, Err(ApiError::BadRequest(_))));
+
+        let oversized_limit = AuditEventFilter::try_from_query(AuditEventQuery {
+            limit: Some(MAX_AUDIT_EVENT_LIMIT + 1),
+            ..AuditEventQuery::default()
+        });
+        assert!(matches!(oversized_limit, Err(ApiError::BadRequest(_))));
     }
 
     fn audit_event_with_metadata(
