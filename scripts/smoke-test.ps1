@@ -186,6 +186,7 @@ try {
     "/openapi.json",
     "/v1/payments",
     "/v1/payments/{id}",
+    "/v1/accounts",
     "/v1/accounts/{account_id}/balances/{asset}",
     "/v1/assets/{asset}/issued",
     "/v1/transactions/pending",
@@ -206,6 +207,7 @@ try {
     "CreatePaymentRequest",
     "SandboxMintRequest",
     "PaymentResponse",
+    "Account",
     "BalanceResponse",
     "IssuedResponse",
     "PaginatedBlockResponse",
@@ -295,6 +297,7 @@ try {
   $forbiddenPaymentRequest.client_reference_id = "smoke-$Asset-forbidden"
   Assert-KaniForbiddenPost "$base/v1/payments" $forbiddenPaymentRequest $corpBHeaders
   Assert-KaniForbiddenGet "$base/v1/payments/$($payment.payment_id)" $treasuryHeaders
+  Assert-KaniForbiddenGet "$base/v1/accounts" $corpAHeaders
   Assert-KaniForbiddenGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpBHeaders
   Assert-KaniForbiddenGet "$base/v1/blocks/latest" $corpAHeaders
   Assert-KaniForbiddenGet "$base/v1/blocks" $corpAHeaders
@@ -347,6 +350,7 @@ try {
   $createdTo = [uri]::EscapeDataString((Get-Date).ToUniversalTime().AddMinutes(5).ToString("o"))
   $auditEventPage = Invoke-KaniGet "$base/v1/audit-events?created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
   $auditEvents = @($auditEventPage.items)
+  $accounts = Invoke-KaniGet "$base/v1/accounts" $adminHeaders
   $validators = Invoke-KaniGet "$base/v1/validators" $adminHeaders
   $pendingTransactions = Invoke-KaniGet "$base/v1/transactions/pending" $adminHeaders
   $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
@@ -453,6 +457,21 @@ try {
     throw "expected block pagination limit=1 to return one block, got $($pagedBlocks.Count)"
   }
 
+  $accountsById = @{}
+  foreach ($account in @($accounts)) {
+    $accountsById[$account.id] = $account
+  }
+
+  foreach ($accountId in @("TREASURY_SANDBOX", "CORP_A", "CORP_B", "FEE_SANDBOX")) {
+    if (-not $accountsById.ContainsKey($accountId)) {
+      throw "expected account inventory to include $accountId"
+    }
+  }
+
+  if ($accountsById["CORP_A"].institution_id -ne "CORP_A") {
+    throw "expected CORP_A account to belong to CORP_A"
+  }
+
   [pscustomobject]@{
     asset                        = $Asset
     mint_payment_id              = $mint.payment_id
@@ -464,6 +483,7 @@ try {
     authorization_checked        = $true
     read_authorization_checked   = $true
     admin_authorization_checked  = $true
+    account_inventory_checked    = $true
     issued_supply_checked        = $true
     block_pagination_checked     = $true
     authorization_audit_checked  = $true
@@ -485,6 +505,7 @@ try {
     filtered_denied_corp_b_count = $filteredDeniedCorpBEvents.Count
     paged_audit_event_count      = $pagedAuditEvents.Count
     paged_audit_next_offset      = $pagedAuditEventPage.next_offset
+    account_count                = @($accounts).Count
     validator_count              = @($validators).Count
     validator_heartbeat_count    = $validatorsWithHeartbeat.Count
     validator_finalized_count    = $validatorsWithFinalizedBlock.Count

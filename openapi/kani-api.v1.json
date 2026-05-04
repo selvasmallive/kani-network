@@ -141,6 +141,36 @@
         }
       }
     },
+    "/v1/accounts": {
+      "get": {
+        "summary": "Read account inventory",
+        "description": "Sandbox admin credentials are required.",
+        "responses": {
+          "200": {
+            "description": "Account inventory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Account"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/v1/accounts/{account_id}/balances/{asset}": {
       "get": {
         "summary": "Read an account asset balance",
@@ -780,6 +810,39 @@
           },
           "amount": {
             "type": "integer"
+          }
+        }
+      },
+      "Account": {
+        "type": "object",
+        "required": [
+          "id",
+          "account_type",
+          "institution_id",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "TREASURY",
+              "INSTITUTION",
+              "SETTLEMENT",
+              "FEE"
+            ]
+          },
+          "institution_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

@@ -404,6 +404,7 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/openapi.json", get(openapi_json))
         .route("/v1/payments", post(create_payment))
         .route("/v1/payments/:id", get(get_payment))
+        .route("/v1/accounts", get(get_accounts))
         .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
         .route("/v1/assets/:asset/issued", get(get_issued))
@@ -908,6 +909,29 @@ async fn get_payment(
     audit_authorization_allowed(&state, &headers, &auth, "read_payment", &resource).await?;
 
     Ok(Json(record.into()))
+}
+
+async fn get_accounts(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<Account>>, ApiError> {
+    let resource = "network:accounts";
+    let auth = authenticate_request(&state, &headers, "read_accounts", resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_accounts",
+            resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_accounts", resource).await?;
+
+    Ok(Json(state.node.accounts().await?))
 }
 
 async fn get_balance(
@@ -1441,6 +1465,7 @@ mod tests {
             "/openapi.json",
             "/v1/payments",
             "/v1/payments/{id}",
+            "/v1/accounts",
             "/v1/accounts/{account_id}/balances/{asset}",
             "/v1/assets/{asset}/issued",
             "/v1/transactions/pending",
@@ -1458,6 +1483,7 @@ mod tests {
             "CreatePaymentRequest",
             "SandboxMintRequest",
             "PaymentResponse",
+            "Account",
             "BalanceResponse",
             "IssuedResponse",
             "PaginatedBlockResponse",

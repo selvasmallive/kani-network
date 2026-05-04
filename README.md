@@ -8,7 +8,7 @@ Phase 1 local MVP for a private, permissioned settlement network. This implement
 - In-memory Phase 1 ledger with accounts, balances, issuance tracking, journal entries, audit events, and immutable block append.
 - Transaction support for sandbox mint, burn, and transfer.
 - Proof-of-Authority block production with 3 validators, round-robin leadership, and 2-of-3 finality metadata.
-- Axum API for payments, payment lookup, balances, issued supply, latest block, health, and sandbox minting.
+- Axum API for payments, payment lookup, account inventory, balances, issued supply, latest block, health, and sandbox minting.
 - OpenAPI 3.1 contract for the Phase 1 API, served from `/openapi.json`.
 - PostgreSQL migration schema for the production ledger tables.
 
@@ -88,7 +88,7 @@ x-kani-api-key: sandbox-corp-a-token | sandbox-corp-b-token | sandbox-treasury-t
 
 These local keys are simulation-only. Override them with `KANI_SANDBOX_CORP_A_API_KEY`, `KANI_SANDBOX_CORP_B_API_KEY`, and `KANI_SANDBOX_TREASURY_API_KEY` when needed.
 Balance reads require the institution that owns the account. Payment lookup is visible to the sending or receiving institution.
-Network-wide read APIs such as blocks, audit events, validators, and pending transactions require sandbox admin headers:
+Network-wide read APIs such as accounts, blocks, audit events, validators, and pending transactions require sandbox admin headers:
 
 ```text
 x-kani-institution-id: KANI_ADMIN
@@ -216,6 +216,10 @@ curl "http://127.0.0.1:8080/v1/audit-events?limit=100&offset=0" \
   -H "x-kani-api-key: sandbox-admin-token"
 
 curl "http://127.0.0.1:8080/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=1970-01-01T00%3A00%3A00Z&limit=100&offset=0" \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl http://127.0.0.1:8080/v1/accounts \
   -H "x-kani-institution-id: KANI_ADMIN" \
   -H "x-kani-api-key: sandbox-admin-token"
 
