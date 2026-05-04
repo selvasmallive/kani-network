@@ -129,7 +129,15 @@ Run the repeatable smoke test:
 .\scripts\smoke-test.ps1
 ```
 
+Run a concise Phase 1 demo:
+
+```powershell
+.\scripts\demo-phase1.ps1
+```
+
 The smoke script defaults to `http://localhost:8080`, which is the most reliable Docker Desktop host route on Windows. Pass `-BaseUrl http://127.0.0.1:8080` if you want to force IPv4.
+
+The demo script starts the stack, mints a fresh sandbox asset, transfers from `CORP_A` to `CORP_B`, and prints a compact proof object with balances, issued supply, latest block finality, validator count, pending transaction count, and finalized audit event count.
 
 The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks rejected overdraw handling, request validation, and authorization failures, verifies block pagination plus authorization/rejection audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
@@ -235,8 +243,22 @@ curl http://127.0.0.1:8080/v1/transactions/pending \
 
 ## Phase 1 Acceptance Path
 
-1. Mint `1_000_000 KCAD_TEST` from `TREASURY_SANDBOX` to `CORP_A`.
-2. Transfer `100_000 KCAD_TEST` from `CORP_A` to `CORP_B`.
-3. Confirm `CORP_A = 900_000`, `CORP_B = 100_000`.
-4. Confirm the latest block is finalized with 2 validator votes.
-5. Confirm audit events are written for finalized transactions and blocks.
+Run:
+
+```powershell
+.\scripts\demo-phase1.ps1
+.\scripts\smoke-test.ps1
+```
+
+Phase 1 is accepted when the demo and smoke outputs prove:
+
+1. `ENV=SANDBOX`, `REAL_VALUE=false`, and `REDEEMABLE=false`.
+2. `1_000_000` units of a fresh test asset are minted from `TREASURY_SANDBOX` to `CORP_A`.
+3. `100_000` units transfer from `CORP_A` to `CORP_B`.
+4. `CORP_A` balance is `900_000`, `CORP_B` balance is `100_000`, and issued supply is `1_000_000`.
+5. The latest block has at least 2 finality votes from the validator set.
+6. All 3 validators are running and reporting heartbeat state.
+7. Pending transactions return to `0` after finality/rejection handling.
+8. Finalized transaction, block, authorization, and rejection audit events are readable through the admin API.
+9. Invalid payment input, authorization failures, idempotency conflicts, and overdrawn payments are rejected or denied without corrupting balances.
+10. API state survives a `kani-api` restart in PostgreSQL mode.
