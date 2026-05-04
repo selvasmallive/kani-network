@@ -245,19 +245,27 @@
       "get": {
         "summary": "Read pending transactions",
         "description": "Sandbox admin credentials are required.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Pending transactions",
+            "description": "Paginated pending transactions",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Transaction"
-                  }
+                  "$ref": "#/components/schemas/PaginatedTransactionResponse"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -926,6 +934,27 @@
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Block"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedTransactionResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PageMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "items"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Transaction"
                 }
               }
             }

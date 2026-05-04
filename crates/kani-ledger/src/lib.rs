@@ -715,6 +715,7 @@ impl PostgresLedgerStore {
     pub async fn pending_transactions(
         &self,
         limit: i64,
+        offset: i64,
     ) -> Result<Vec<Transaction>, LedgerStorageError> {
         let rows = sqlx::query(
             r#"
@@ -733,9 +734,11 @@ impl PostgresLedgerStore {
             WHERE status = 'PENDING'
             ORDER BY created_at, id
             LIMIT $1
+            OFFSET $2
             "#,
         )
         .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
 

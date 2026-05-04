@@ -992,7 +992,8 @@ async fn get_issued(
 async fn get_pending_transactions(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Json<Vec<Transaction>>, ApiError> {
+    Query(query): Query<BlockQuery>,
+) -> Result<Json<PaginatedResponse<Transaction>>, ApiError> {
     let resource = "network:pending_transactions";
     let auth =
         authenticate_request(&state, &headers, "read_pending_transactions", resource).await?;
@@ -1016,7 +1017,13 @@ async fn get_pending_transactions(
         resource,
     )
     .await?;
-    Ok(Json(state.node.pending_transactions().await?))
+    let filter = BlockFilter::try_from_query(query)?;
+    let limit = filter.limit;
+    let offset = filter.offset;
+    let items = state.node.pending_transactions(limit + 1, offset).await?;
+    Ok(Json(PaginatedResponse::from_limit_plus_one(
+        items, limit, offset,
+    )))
 }
 
 async fn get_latest_block(
@@ -1487,6 +1494,7 @@ mod tests {
             "BalanceResponse",
             "IssuedResponse",
             "PaginatedBlockResponse",
+            "PaginatedTransactionResponse",
             "PaginatedAuditEventResponse",
             "Block",
             "Transaction",

@@ -211,6 +211,7 @@ try {
     "BalanceResponse",
     "IssuedResponse",
     "PaginatedBlockResponse",
+    "PaginatedTransactionResponse",
     "PaginatedAuditEventResponse",
     "Block",
     "Transaction",
@@ -352,7 +353,8 @@ try {
   $auditEvents = @($auditEventPage.items)
   $accounts = Invoke-KaniGet "$base/v1/accounts" $adminHeaders
   $validators = Invoke-KaniGet "$base/v1/validators" $adminHeaders
-  $pendingTransactions = Invoke-KaniGet "$base/v1/transactions/pending" $adminHeaders
+  $pendingTransactionPage = Invoke-KaniGet "$base/v1/transactions/pending?limit=500&offset=0" $adminHeaders
+  $pendingTransactions = @($pendingTransactionPage.items)
   $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
   $deniedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "DENIED" })
   $allowedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "ALLOWED" })
@@ -363,6 +365,9 @@ try {
   Assert-KaniStatusGet "$base/v1/audit-events?limit=501" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/audit-events?limit=-1" $adminHeaders 400
   Assert-KaniStatusGet "$base/v1/audit-events?offset=-1" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/transactions/pending?limit=501" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/transactions/pending?limit=-1" $adminHeaders 400
+  Assert-KaniStatusGet "$base/v1/transactions/pending?offset=-1" $adminHeaders 400
   $validatorsWithHeartbeat = @($validators | Where-Object { $null -ne $_.last_seen_at })
   $validatorsWithFinalizedBlock = @($validators | Where-Object { $null -ne $_.last_finalized_height })
 
@@ -457,6 +462,10 @@ try {
     throw "expected block pagination limit=1 to return one block, got $($pagedBlocks.Count)"
   }
 
+  if ($pendingTransactionPage.limit -ne 500 -or $pendingTransactionPage.offset -ne 0 -or $pendingTransactionPage.count -ne $pendingTransactions.Count) {
+    throw "pending transaction page metadata did not match returned items"
+  }
+
   $accountsById = @{}
   foreach ($account in @($accounts)) {
     $accountsById[$account.id] = $account
@@ -489,6 +498,7 @@ try {
     authorization_audit_checked  = $true
     audit_filter_checked         = $true
     audit_pagination_checked     = $true
+    pending_pagination_checked   = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
     issued_supply                = $issued.amount
@@ -506,10 +516,12 @@ try {
     paged_audit_event_count      = $pagedAuditEvents.Count
     paged_audit_next_offset      = $pagedAuditEventPage.next_offset
     account_count                = @($accounts).Count
-    validator_count              = @($validators).Count
-    validator_heartbeat_count    = $validatorsWithHeartbeat.Count
-    validator_finalized_count    = $validatorsWithFinalizedBlock.Count
-    pending_transaction_count    = @($pendingTransactions).Count
+    pending_transaction_page_count  = $pendingTransactionPage.count
+    pending_transaction_next_offset = $pendingTransactionPage.next_offset
+    validator_count                 = @($validators).Count
+    validator_heartbeat_count       = $validatorsWithHeartbeat.Count
+    validator_finalized_count       = $validatorsWithFinalizedBlock.Count
+    pending_transaction_count       = @($pendingTransactions).Count
   }
 } finally {
   Pop-Location

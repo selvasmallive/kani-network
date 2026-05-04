@@ -328,9 +328,13 @@ impl KaniNode {
         Ok(())
     }
 
-    pub async fn pending_transactions(&self) -> Result<Vec<Transaction>, NodeError> {
+    pub async fn pending_transactions(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Transaction>, NodeError> {
         if let Some(storage) = &self.storage {
-            return Ok(storage.pending_transactions(100).await?);
+            return Ok(storage.pending_transactions(limit, offset).await?);
         }
 
         Ok(Vec::new())
@@ -536,7 +540,7 @@ impl ValidatorRuntime {
 
         let pending = self
             .storage
-            .pending_transactions(self.max_transactions_per_block)
+            .pending_transactions(self.max_transactions_per_block, 0)
             .await?;
         if pending.is_empty() {
             return Ok(None);

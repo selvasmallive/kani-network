@@ -100,6 +100,7 @@ API authorization decisions are written to the audit log as `API_AUTHORIZATION_D
 Admin block reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`. In PostgreSQL mode, block pagination runs in SQL and loads only transactions for the selected block page.
 Admin audit reads support filters: `event_type`, `decision`, `institution_id`, `created_from`, and `created_to`. Time filters must be RFC3339 timestamps. Audit reads are paginated with `limit` and `offset`; the default limit is `100` and the maximum limit is `500`. In PostgreSQL mode, audit filtering and pagination run in SQL with supporting indexes.
 Paginated admin reads return an envelope with page metadata. `next_offset` is populated only when another page is available.
+Pending transaction reads use the same envelope.
 
 ```json
 {
