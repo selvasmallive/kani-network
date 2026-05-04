@@ -433,6 +433,31 @@ impl InMemoryLedger {
         Ok(records)
     }
 
+    pub fn validate_transactions_for_next_block(
+        &self,
+        txs: &[Transaction],
+    ) -> Result<(), LedgerError> {
+        let mut working_balances = self.balances.clone();
+        let mut working_nonces = self.nonces.clone();
+        let mut working_issued = self.issued.clone();
+        let mut working_journal = self.journal_entries.clone();
+        let block_height = self.next_height();
+
+        for tx in txs {
+            self.validate_transaction(tx, &working_balances, &working_nonces, &working_issued)?;
+            apply_transaction(
+                tx,
+                block_height,
+                &mut working_balances,
+                &mut working_nonces,
+                &mut working_issued,
+                &mut working_journal,
+            )?;
+        }
+
+        Ok(())
+    }
+
     fn validate_transaction(
         &self,
         tx: &Transaction,
@@ -1726,5 +1751,41 @@ mod tests {
             Err(LedgerError::InsufficientFunds { .. })
         ));
         assert_eq!(ledger.blocks().len(), 0);
+    }
+
+    #[test]
+    fn next_block_validation_checks_batch_without_mutating_ledger() {
+        let mut ledger = InMemoryLedger::sandbox();
+        let mint = Transaction::new_mint(
+            SANDBOX_TREASURY_ACCOUNT,
+            SANDBOX_CORP_A_ACCOUNT,
+            KCAD_TEST,
+            100,
+            ledger.next_nonce(SANDBOX_TREASURY_ACCOUNT),
+        );
+        let block = seal_test_block(&ledger, vec![mint]);
+        ledger.apply_block(block).unwrap();
+
+        let valid = Transaction::new_transfer(
+            SANDBOX_CORP_A_ACCOUNT,
+            SANDBOX_CORP_B_ACCOUNT,
+            KCAD_TEST,
+            60,
+            ledger.next_nonce(SANDBOX_CORP_A_ACCOUNT),
+        );
+        let invalid = Transaction::new_transfer(
+            SANDBOX_CORP_A_ACCOUNT,
+            SANDBOX_CORP_B_ACCOUNT,
+            KCAD_TEST,
+            60,
+            ledger.next_nonce(SANDBOX_CORP_A_ACCOUNT) + 1,
+        );
+
+        assert!(matches!(
+            ledger.validate_transactions_for_next_block(&[valid, invalid]),
+            Err(LedgerError::InsufficientFunds { .. })
+        ));
+        assert_eq!(ledger.balance(SANDBOX_CORP_A_ACCOUNT, KCAD_TEST), 100);
+        assert_eq!(ledger.blocks().len(), 1);
     }
 }

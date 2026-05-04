@@ -173,6 +173,89 @@ async fn run_postgres_api_flow(database_url: &str, test_id: &str) -> Result<()> 
     );
     ensure!(balance_b["amount"] == 100_000, "unexpected CORP_B balance");
 
+    let overdraw_body = json!({
+        "from": CORP_A_ACCOUNT,
+        "to": CORP_B_ACCOUNT,
+        "asset": asset,
+        "amount": 2_000_000,
+        "client_reference_id": format!("{test_id}-overdraw")
+    });
+    let (status, overdraw) = post_json(
+        &reloaded_app,
+        "/v1/payments",
+        Headers::corp_a(),
+        overdraw_body,
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::CREATED,
+        "overdraw transfer returned {status}: {overdraw}"
+    );
+    ensure!(
+        overdraw["status"] == "PENDING",
+        "overdraw transfer was not queued: {overdraw}"
+    );
+    let overdraw_id = required_string(&overdraw, "payment_id")?;
+
+    run_validator_passes(database_url).await?;
+    let reloaded_app = build_router(KaniNode::postgres(database_url).await?);
+    let (status, rejected_overdraw) = get_json(
+        &reloaded_app,
+        &format!("/v1/payments/{overdraw_id}"),
+        Headers::corp_a(),
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::OK,
+        "overdraw lookup returned {status}: {rejected_overdraw}"
+    );
+    ensure!(
+        rejected_overdraw["status"] == "REJECTED",
+        "overdraw transfer was not rejected: {rejected_overdraw}"
+    );
+    ensure!(
+        rejected_overdraw["failure_reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("insufficient"),
+        "overdraw rejection reason was not persisted: {rejected_overdraw}"
+    );
+
+    let (status, pending_page) = get_json(
+        &reloaded_app,
+        "/v1/transactions/pending?limit=10&offset=0",
+        Headers::admin(),
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::OK,
+        "pending transaction page returned {status}: {pending_page}"
+    );
+    ensure!(
+        pending_page["count"] == 0,
+        "expected rejected overdraw to leave no pending transactions: {pending_page}"
+    );
+
+    let (status, rejection_audit_page) = get_json(
+        &reloaded_app,
+        "/v1/audit-events?event_type=TRANSACTION_REJECTED&limit=10&offset=0",
+        Headers::admin(),
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::OK,
+        "rejection audit page returned {status}: {rejection_audit_page}"
+    );
+    let rejection_audit_items = rejection_audit_page["items"]
+        .as_array()
+        .context("rejection audit page items must be an array")?;
+    ensure!(
+        rejection_audit_items
+            .iter()
+            .any(|event| event["transaction_id"].as_str() == Some(overdraw_id.as_str())),
+        "expected TRANSACTION_REJECTED audit event for {overdraw_id}: {rejection_audit_page}"
+    );
+
     let (status, block_page) = get_json(
         &reloaded_app,
         "/v1/blocks?limit=1&offset=1",
@@ -216,6 +299,15 @@ async fn finalize_next_block(database_url: &str) -> Result<i64> {
     }
 
     bail!("no validator finalized a pending block")
+}
+
+async fn run_validator_passes(database_url: &str) -> Result<()> {
+    for validator_id in ["validator-a", "validator-b", "validator-c"] {
+        let validator = ValidatorRuntime::connect(database_url, validator_id).await?;
+        validator.run_once().await?;
+    }
+
+    Ok(())
 }
 
 async fn post_json(

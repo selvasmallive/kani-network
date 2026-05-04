@@ -6,7 +6,11 @@ use kani_ledger::{
     PostgresLedgerStore, ValidatorStatus,
 };
 use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction, TransactionKind};
-use std::{collections::HashMap, env, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    env,
+    sync::Arc,
+};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -546,9 +550,26 @@ impl ValidatorRuntime {
             return Ok(None);
         }
 
+        let mut accepted = Vec::with_capacity(pending.len());
+        for tx in pending {
+            let mut candidate = accepted.clone();
+            candidate.push(tx.clone());
+            if let Err(error) = ledger.validate_transactions_for_next_block(&candidate) {
+                self.reject_pending_transaction(&tx, &error.to_string())
+                    .await?;
+                continue;
+            }
+
+            accepted.push(tx);
+        }
+
+        if accepted.is_empty() {
+            return Ok(None);
+        }
+
         let block = build_block_for_validator(
             &ledger,
-            pending,
+            accepted,
             &self.consensus,
             &self.crypto_profile,
             &self.validator_id,
@@ -556,10 +577,9 @@ impl ValidatorRuntime {
         let mut working_ledger = ledger;
 
         if let Err(error) = working_ledger.apply_block(block.clone()) {
-            if let Some(tx) = block.txs.first() {
-                self.storage
-                    .reject_transaction(&tx.id, &error.to_string())
-                    .await?;
+            let reason = error.to_string();
+            for tx in &block.txs {
+                self.reject_pending_transaction(tx, &reason).await?;
             }
             return Err(error.into());
         }
@@ -571,6 +591,40 @@ impl ValidatorRuntime {
             .record_validator_finalized_block(&self.validator_id, &block)
             .await?;
         Ok(Some(block))
+    }
+
+    async fn reject_pending_transaction(
+        &self,
+        tx: &Transaction,
+        reason: &str,
+    ) -> Result<(), NodeError> {
+        self.storage.reject_transaction(&tx.id, reason).await?;
+
+        let mut metadata = BTreeMap::new();
+        metadata.insert("asset".to_string(), tx.asset.clone());
+        metadata.insert("from".to_string(), tx.from.clone());
+        metadata.insert(
+            "kind".to_string(),
+            transaction_kind_fingerprint_value(tx.kind).to_string(),
+        );
+        metadata.insert("reason".to_string(), reason.to_string());
+        metadata.insert("to".to_string(), tx.to.clone());
+        metadata.insert("transaction_id".to_string(), tx.id.clone());
+        metadata.insert("validator".to_string(), self.validator_id.clone());
+
+        let event = AuditEvent::new(
+            "TRANSACTION_REJECTED",
+            format!(
+                "transaction {} rejected by validator {}: {}",
+                tx.id, self.validator_id, reason
+            ),
+            None,
+            Some(tx.id.clone()),
+        )
+        .with_metadata(metadata);
+
+        self.storage.insert_audit_event(&event).await?;
+        Ok(())
     }
 
     pub async fn run_forever(&self, poll_interval: std::time::Duration) -> Result<(), NodeError> {

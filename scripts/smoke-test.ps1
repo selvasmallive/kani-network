@@ -173,6 +173,29 @@ function Wait-KaniPaymentFinalized {
   throw "payment $PaymentId was not finalized in time"
 }
 
+function Wait-KaniPaymentRejected {
+  param(
+    [string]$Url,
+    [string]$PaymentId,
+    [hashtable]$Headers
+  )
+
+  for ($i = 0; $i -lt 90; $i++) {
+    $payment = Invoke-KaniGet "$Url/v1/payments/$PaymentId" $Headers
+    if ($payment.status -eq "REJECTED") {
+      return $payment
+    }
+
+    if ($payment.status -eq "FINALIZED") {
+      throw "payment $PaymentId finalized unexpectedly"
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  throw "payment $PaymentId was not rejected in time"
+}
+
 Push-Location $repoRoot
 try {
   if (-not $NoStartStack) {
@@ -315,6 +338,16 @@ try {
     throw "expected finalized idempotent retry to return payment $($payment.payment_id), got $($paymentRetryAfterFinality.payment_id)"
   }
 
+  $overdrawPaymentRequest = @{
+    from                = "CORP_A"
+    to                  = "CORP_B"
+    asset               = $Asset
+    amount              = 2000000
+    client_reference_id = "smoke-$Asset-overdraw"
+  }
+  $rejectedPayment = Invoke-KaniPost "$base/v1/payments" $overdrawPaymentRequest $corpAHeaders
+  $rejectedPayment = Wait-KaniPaymentRejected -Url $base -PaymentId $rejectedPayment.payment_id -Headers $corpAHeaders
+
   $balanceA = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
   $balanceB = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
   $issued = Invoke-KaniGet "$base/v1/assets/$Asset/issued" $adminHeaders
@@ -330,6 +363,10 @@ try {
 
   if ($issued.amount -ne 1000000) {
     throw "expected issued supply 1000000, got $($issued.amount)"
+  }
+
+  if (-not ($rejectedPayment.failure_reason -like "*insufficient*")) {
+    throw "expected rejected payment failure reason to mention insufficient funds, got $($rejectedPayment.failure_reason)"
   }
 
   if (-not $NoRestart) {
@@ -356,6 +393,7 @@ try {
   $pendingTransactionPage = Invoke-KaniGet "$base/v1/transactions/pending?limit=500&offset=0" $adminHeaders
   $pendingTransactions = @($pendingTransactionPage.items)
   $authorizationAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "API_AUTHORIZATION_DECISION" })
+  $rejectionAuditEvents = @($auditEvents | Where-Object { $_.event_type -eq "TRANSACTION_REJECTED" })
   $deniedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "DENIED" })
   $allowedAuthorizationAuditEvents = @($authorizationAuditEvents | Where-Object { $_.metadata.decision -eq "ALLOWED" })
   $filteredDeniedCorpBPage = Invoke-KaniGet "$base/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=$createdFrom&created_to=$createdTo&limit=500&offset=0" $adminHeaders
@@ -466,6 +504,15 @@ try {
     throw "pending transaction page metadata did not match returned items"
   }
 
+  $matchingRejectionAuditEvents = @($rejectionAuditEvents | Where-Object {
+      $_.transaction_id -eq $rejectedPayment.payment_id -and
+      $_.metadata.validator -ne $null -and
+      $_.metadata.reason -like "*insufficient*"
+    })
+  if ($matchingRejectionAuditEvents.Count -lt 1) {
+    throw "expected TRANSACTION_REJECTED audit event for rejected payment $($rejectedPayment.payment_id)"
+  }
+
   $accountsById = @{}
   foreach ($account in @($accounts)) {
     $accountsById[$account.id] = $account
@@ -486,6 +533,7 @@ try {
     mint_payment_id              = $mint.payment_id
     transfer_payment_id          = $payment.payment_id
     transfer_client_reference_id = $payment.client_reference_id
+    rejected_payment_id          = $rejectedPayment.payment_id
     openapi_checked              = $true
     request_validation_checked   = $true
     idempotency_conflict_checked = $true
@@ -493,6 +541,7 @@ try {
     read_authorization_checked   = $true
     admin_authorization_checked  = $true
     account_inventory_checked    = $true
+    rejection_audit_checked      = $true
     issued_supply_checked        = $true
     block_pagination_checked     = $true
     authorization_audit_checked  = $true
@@ -511,6 +560,7 @@ try {
     paged_block_next_offset      = $pagedBlockPage.next_offset
     audit_event_count            = @($auditEvents).Count
     authorization_audit_count    = $authorizationAuditEvents.Count
+    rejection_audit_count        = $rejectionAuditEvents.Count
     denied_authorization_count   = $deniedAuthorizationAuditEvents.Count
     filtered_denied_corp_b_count = $filteredDeniedCorpBEvents.Count
     paged_audit_event_count      = $pagedAuditEvents.Count
