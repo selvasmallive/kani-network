@@ -7,7 +7,7 @@ use kani_ledger::{
 };
 use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction, TransactionKind};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     env,
     sync::Arc,
 };
@@ -30,6 +30,18 @@ pub enum NodeError {
     EmptyBlock,
     #[error("block finality threshold not met: got {got}, required {required}")]
     InsufficientFinality { got: usize, required: usize },
+    #[error("block validator mismatch: expected {expected}, got {actual}")]
+    InvalidBlockValidator { expected: String, actual: String },
+    #[error("block finality vote from inactive or unknown validator {0}")]
+    UnknownFinalityValidator(String),
+    #[error("duplicate block finality vote from validator {0}")]
+    DuplicateFinalityVote(String),
+    #[error("block finality votes must include the block producer {0}")]
+    MissingProducerFinalityVote(String),
+    #[error("block hash mismatch: expected {expected}, got {actual}")]
+    InvalidBlockHash { expected: String, actual: String },
+    #[error("block signature mismatch for validator {validator} and hash {hash}")]
+    InvalidBlockSignature { validator: String, hash: String },
     #[error("idempotency key {client_reference_id} was already used for a different payment")]
     IdempotencyConflict { client_reference_id: String },
 }
@@ -382,6 +394,7 @@ impl KaniNode {
         }
 
         let block = self.build_block(ledger, txs)?;
+        verify_phase1_block(ledger, &block, &self.consensus, &self.crypto_profile)?;
         let mut working_ledger = ledger.clone();
         let records = working_ledger.apply_block(block.clone())?;
         *ledger = working_ledger;
@@ -409,7 +422,9 @@ impl KaniNode {
         let hash = hash_json(&self.crypto_profile.hash, &block)?;
         let signature = sandbox_validator_signature(&self.crypto_profile, &validator.id, &hash);
 
-        Ok(block.seal(hash, signature, votes))
+        let block = block.seal(hash, signature, votes);
+        verify_phase1_block(ledger, &block, &self.consensus, &self.crypto_profile)?;
+        Ok(block)
     }
 
     async fn enqueue_postgres_payment(
@@ -574,6 +589,7 @@ impl ValidatorRuntime {
             &self.crypto_profile,
             &self.validator_id,
         )?;
+        verify_phase1_block(&ledger, &block, &self.consensus, &self.crypto_profile)?;
         let mut working_ledger = ledger;
 
         if let Err(error) = working_ledger.apply_block(block.clone()) {
@@ -716,9 +732,6 @@ fn build_block_for_validator(
     }
 
     let height = ledger.next_height();
-    let leader = consensus.leader_for_height(height)?;
-    debug_assert_eq!(leader.id, validator_id);
-
     let votes = consensus.finality_votes_for_block(height)?;
     let required = consensus.finality_threshold();
     if votes.len() < required {
@@ -732,7 +745,82 @@ fn build_block_for_validator(
     let hash = hash_json(&crypto_profile.hash, &block)?;
     let signature = sandbox_validator_signature(crypto_profile, validator_id, &hash);
 
-    Ok(block.seal(hash, signature, votes))
+    let block = block.seal(hash, signature, votes);
+    verify_phase1_block(ledger, &block, consensus, crypto_profile)?;
+    Ok(block)
+}
+
+fn verify_phase1_block(
+    ledger: &InMemoryLedger,
+    block: &Block,
+    consensus: &PoAConsensus,
+    crypto_profile: &CryptoProfile,
+) -> Result<(), NodeError> {
+    if block.txs.is_empty() {
+        return Err(NodeError::EmptyBlock);
+    }
+
+    let leader = consensus.leader_for_height(block.height)?;
+    if block.validator != leader.id {
+        return Err(NodeError::InvalidBlockValidator {
+            expected: leader.id,
+            actual: block.validator.clone(),
+        });
+    }
+
+    let required = consensus.finality_threshold();
+    if block.finalized_by.len() < required {
+        return Err(NodeError::InsufficientFinality {
+            got: block.finalized_by.len(),
+            required,
+        });
+    }
+
+    let active_validators: BTreeSet<String> = consensus
+        .active_validators()
+        .into_iter()
+        .map(|validator| validator.id.clone())
+        .collect();
+    let mut seen = BTreeSet::new();
+    for validator_id in &block.finalized_by {
+        if !active_validators.contains(validator_id) {
+            return Err(NodeError::UnknownFinalityValidator(validator_id.clone()));
+        }
+
+        if !seen.insert(validator_id.clone()) {
+            return Err(NodeError::DuplicateFinalityVote(validator_id.clone()));
+        }
+    }
+
+    if !seen.contains(&block.validator) {
+        return Err(NodeError::MissingProducerFinalityVote(
+            block.validator.clone(),
+        ));
+    }
+
+    let mut unsealed = block.clone();
+    unsealed.hash.clear();
+    unsealed.signature.clear();
+    unsealed.finalized_by.clear();
+    let expected_hash = hash_json(&crypto_profile.hash, &unsealed)?;
+    if block.hash != expected_hash {
+        return Err(NodeError::InvalidBlockHash {
+            expected: expected_hash,
+            actual: block.hash.clone(),
+        });
+    }
+
+    let expected_signature =
+        sandbox_validator_signature(crypto_profile, &block.validator, &block.hash);
+    if block.signature != expected_signature {
+        return Err(NodeError::InvalidBlockSignature {
+            validator: block.validator.clone(),
+            hash: block.hash.clone(),
+        });
+    }
+
+    ledger.validate_transactions_for_next_block(&block.txs)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -885,5 +973,93 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(conflict, NodeError::IdempotencyConflict { .. }));
+    }
+
+    #[test]
+    fn phase1_block_integrity_rejects_tampered_hash_and_signature() {
+        let (ledger, mut block, consensus, crypto_profile) = integrity_fixture();
+        block.hash = "tampered-hash".to_string();
+
+        assert!(matches!(
+            verify_phase1_block(&ledger, &block, &consensus, &crypto_profile),
+            Err(NodeError::InvalidBlockHash { .. })
+        ));
+
+        let (ledger, mut block, consensus, crypto_profile) = integrity_fixture();
+        block.signature.push(0);
+
+        assert!(matches!(
+            verify_phase1_block(&ledger, &block, &consensus, &crypto_profile),
+            Err(NodeError::InvalidBlockSignature { .. })
+        ));
+    }
+
+    #[test]
+    fn phase1_block_integrity_rejects_invalid_validator_and_votes() {
+        let (ledger, tx, consensus, crypto_profile) = integrity_inputs();
+        let invalid_validator = build_block_for_validator(
+            &ledger,
+            vec![tx],
+            &consensus,
+            &crypto_profile,
+            "validator-b",
+        )
+        .unwrap_err();
+        assert!(matches!(
+            invalid_validator,
+            NodeError::InvalidBlockValidator { .. }
+        ));
+
+        let (ledger, mut block, consensus, crypto_profile) = integrity_fixture();
+        block.finalized_by = vec!["validator-a".to_string(), "validator-a".to_string()];
+        assert!(matches!(
+            verify_phase1_block(&ledger, &block, &consensus, &crypto_profile),
+            Err(NodeError::DuplicateFinalityVote(_))
+        ));
+
+        let (ledger, mut block, consensus, crypto_profile) = integrity_fixture();
+        block.finalized_by = vec!["validator-a".to_string(), "validator-x".to_string()];
+        assert!(matches!(
+            verify_phase1_block(&ledger, &block, &consensus, &crypto_profile),
+            Err(NodeError::UnknownFinalityValidator(_))
+        ));
+
+        let (ledger, mut block, consensus, crypto_profile) = integrity_fixture();
+        block.finalized_by = vec!["validator-b".to_string(), "validator-c".to_string()];
+        assert!(matches!(
+            verify_phase1_block(&ledger, &block, &consensus, &crypto_profile),
+            Err(NodeError::MissingProducerFinalityVote(_))
+        ));
+    }
+
+    fn integrity_fixture() -> (InMemoryLedger, Block, PoAConsensus, CryptoProfile) {
+        let (ledger, tx, consensus, crypto_profile) = integrity_inputs();
+        let block = build_block_for_validator(
+            &ledger,
+            vec![tx],
+            &consensus,
+            &crypto_profile,
+            "validator-a",
+        )
+        .unwrap();
+
+        (ledger, block, consensus, crypto_profile)
+    }
+
+    fn integrity_inputs() -> (InMemoryLedger, Transaction, PoAConsensus, CryptoProfile) {
+        let ledger = InMemoryLedger::sandbox();
+        let tx = Transaction::new_mint(
+            SANDBOX_TREASURY_ACCOUNT,
+            SANDBOX_CORP_A_ACCOUNT,
+            KCAD_TEST,
+            1_000,
+            ledger.next_nonce(SANDBOX_TREASURY_ACCOUNT),
+        );
+        (
+            ledger,
+            tx,
+            PoAConsensus::phase1_default(),
+            CryptoProfile::hybrid_pqc_v1(),
+        )
     }
 }

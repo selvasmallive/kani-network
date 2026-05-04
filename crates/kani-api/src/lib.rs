@@ -381,6 +381,24 @@ impl From<NodeError> for ApiError {
             NodeError::InsufficientFinality { got, required } => ApiError::Internal(format!(
                 "block finality threshold not met: got {got}, required {required}"
             )),
+            NodeError::InvalidBlockValidator { expected, actual } => ApiError::Internal(format!(
+                "block validator mismatch: expected {expected}, got {actual}"
+            )),
+            NodeError::UnknownFinalityValidator(validator) => ApiError::Internal(format!(
+                "block finality vote from inactive or unknown validator {validator}"
+            )),
+            NodeError::DuplicateFinalityVote(validator) => ApiError::Internal(format!(
+                "duplicate block finality vote from validator {validator}"
+            )),
+            NodeError::MissingProducerFinalityVote(validator) => ApiError::Internal(format!(
+                "block finality votes must include the block producer {validator}"
+            )),
+            NodeError::InvalidBlockHash { expected, actual } => ApiError::Internal(format!(
+                "block hash mismatch: expected {expected}, got {actual}"
+            )),
+            NodeError::InvalidBlockSignature { validator, hash } => ApiError::Internal(format!(
+                "block signature mismatch for validator {validator} and hash {hash}"
+            )),
         }
     }
 }
