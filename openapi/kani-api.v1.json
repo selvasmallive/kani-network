@@ -176,6 +176,41 @@
         }
       }
     },
+    "/v1/assets/{asset}/issued": {
+      "get": {
+        "summary": "Read issued asset supply",
+        "description": "Sandbox admin credentials are required.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Asset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issued asset supply",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/v1/transactions/pending": {
       "get": {
         "summary": "Read pending transactions",
@@ -426,7 +461,8 @@
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{3,32}$"
         },
         "examples": {
           "corpA": {
@@ -739,6 +775,21 @@
           "account_id": {
             "type": "string"
           },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          }
+        }
+      },
+      "IssuedResponse": {
+        "type": "object",
+        "required": [
+          "asset",
+          "amount"
+        ],
+        "properties": {
           "asset": {
             "type": "string"
           },

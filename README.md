@@ -8,7 +8,7 @@ Phase 1 local MVP for a private, permissioned settlement network. This implement
 - In-memory Phase 1 ledger with accounts, balances, issuance tracking, journal entries, audit events, and immutable block append.
 - Transaction support for sandbox mint, burn, and transfer.
 - Proof-of-Authority block production with 3 validators, round-robin leadership, and 2-of-3 finality metadata.
-- Axum API for payments, payment lookup, balances, latest block, health, and sandbox minting.
+- Axum API for payments, payment lookup, balances, issued supply, latest block, health, and sandbox minting.
 - OpenAPI 3.1 contract for the Phase 1 API, served from `/openapi.json`.
 - PostgreSQL migration schema for the production ledger tables.
 

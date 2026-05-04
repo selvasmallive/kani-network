@@ -244,6 +244,12 @@ pub struct BalanceResponse {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct IssuedResponse {
+    pub asset: String,
+    pub amount: i128,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct ValidatorResponse {
     pub id: String,
     pub public_key: String,
@@ -400,6 +406,7 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/v1/payments/:id", get(get_payment))
         .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
+        .route("/v1/assets/:asset/issued", get(get_issued))
         .route("/v1/blocks", get(get_blocks))
         .route("/v1/blocks/latest", get(get_latest_block))
         .route("/v1/audit-events", get(get_audit_events))
@@ -908,6 +915,7 @@ async fn get_balance(
     headers: HeaderMap,
     Path((account_id, asset)): Path<(String, String)>,
 ) -> Result<Json<BalanceResponse>, ApiError> {
+    let asset = normalize_asset_code(asset)?;
     let resource = format!("account:{account_id}:balance:{asset}");
     let auth = authenticate_request(&state, &headers, "read_balance", &resource).await?;
     if let Err(error) = authorize_account_read(&state.node, &auth, &account_id).await {
@@ -929,6 +937,32 @@ async fn get_balance(
         asset,
         amount,
     }))
+}
+
+async fn get_issued(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(asset): Path<String>,
+) -> Result<Json<IssuedResponse>, ApiError> {
+    let asset = normalize_asset_code(asset)?;
+    let resource = format!("asset:{asset}:issued");
+    let auth = authenticate_request(&state, &headers, "read_issued_supply", &resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_issued_supply",
+            &resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_issued_supply", &resource).await?;
+
+    let amount = state.node.issued(&asset).await?;
+    Ok(Json(IssuedResponse { asset, amount }))
 }
 
 async fn get_pending_transactions(
@@ -1408,6 +1442,7 @@ mod tests {
             "/v1/payments",
             "/v1/payments/{id}",
             "/v1/accounts/{account_id}/balances/{asset}",
+            "/v1/assets/{asset}/issued",
             "/v1/transactions/pending",
             "/v1/blocks",
             "/v1/blocks/latest",
@@ -1424,6 +1459,7 @@ mod tests {
             "SandboxMintRequest",
             "PaymentResponse",
             "BalanceResponse",
+            "IssuedResponse",
             "PaginatedBlockResponse",
             "PaginatedAuditEventResponse",
             "Block",

@@ -187,6 +187,7 @@ try {
     "/v1/payments",
     "/v1/payments/{id}",
     "/v1/accounts/{account_id}/balances/{asset}",
+    "/v1/assets/{asset}/issued",
     "/v1/transactions/pending",
     "/v1/blocks",
     "/v1/blocks/latest",
@@ -206,6 +207,7 @@ try {
     "SandboxMintRequest",
     "PaymentResponse",
     "BalanceResponse",
+    "IssuedResponse",
     "PaginatedBlockResponse",
     "PaginatedAuditEventResponse",
     "Block",
@@ -299,6 +301,7 @@ try {
   Assert-KaniForbiddenGet "$base/v1/audit-events" $corpAHeaders
   Assert-KaniForbiddenGet "$base/v1/validators" $corpAHeaders
   Assert-KaniForbiddenGet "$base/v1/transactions/pending" $corpAHeaders
+  Assert-KaniForbiddenGet "$base/v1/assets/$Asset/issued" $corpAHeaders
 
   $payment = Wait-KaniPaymentFinalized -Url $base -PaymentId $payment.payment_id -Headers $corpAHeaders
   Invoke-KaniGet "$base/v1/payments/$($payment.payment_id)" $corpBHeaders | Out-Null
@@ -310,6 +313,7 @@ try {
 
   $balanceA = Invoke-KaniGet "$base/v1/accounts/CORP_A/balances/$Asset" $corpAHeaders
   $balanceB = Invoke-KaniGet "$base/v1/accounts/CORP_B/balances/$Asset" $corpBHeaders
+  $issued = Invoke-KaniGet "$base/v1/assets/$Asset/issued" $adminHeaders
   $latestBeforeRestart = Invoke-KaniGet "$base/v1/blocks/latest" $adminHeaders
 
   if ($balanceA.amount -ne 900000) {
@@ -318,6 +322,10 @@ try {
 
   if ($balanceB.amount -ne 100000) {
     throw "expected CORP_B balance 100000, got $($balanceB.amount)"
+  }
+
+  if ($issued.amount -ne 1000000) {
+    throw "expected issued supply 1000000, got $($issued.amount)"
   }
 
   if (-not $NoRestart) {
@@ -456,12 +464,14 @@ try {
     authorization_checked        = $true
     read_authorization_checked   = $true
     admin_authorization_checked  = $true
+    issued_supply_checked        = $true
     block_pagination_checked     = $true
     authorization_audit_checked  = $true
     audit_filter_checked         = $true
     audit_pagination_checked     = $true
     balance_a_before_restart     = $balanceA.amount
     balance_b_before_restart     = $balanceB.amount
+    issued_supply                = $issued.amount
     latest_height_before_restart = $latestBeforeRestart.height
     balance_a_after_restart      = $balanceAAfterRestart.amount
     balance_b_after_restart      = $balanceBAfterRestart.amount
