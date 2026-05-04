@@ -37,7 +37,15 @@ async fn postgres_api_persists_finalized_payments_and_admin_reads() -> Result<()
 
 async fn run_postgres_api_flow(database_url: &str, test_id: &str) -> Result<()> {
     let app = build_router(KaniNode::postgres(database_url).await?);
-    let asset = format!("KCAD_{}", test_id.to_ascii_uppercase());
+    let asset_suffix: String = test_id
+        .chars()
+        .rev()
+        .take(20)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    let asset = format!("KCAD_{}", asset_suffix.to_ascii_uppercase());
 
     let (status, mint) = post_json(
         &app,

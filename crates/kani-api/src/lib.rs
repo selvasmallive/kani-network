@@ -161,12 +161,54 @@ pub struct CreatePaymentRequest {
     pub idempotency_key: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+struct ValidatedPaymentRequest {
+    from: String,
+    to: String,
+    asset: String,
+    amount: i128,
+    client_reference_id: Option<String>,
+    idempotency_key: Option<String>,
+}
+
+impl CreatePaymentRequest {
+    fn validate(self) -> Result<ValidatedPaymentRequest, ApiError> {
+        Ok(ValidatedPaymentRequest {
+            from: normalize_required_field("from", self.from)?,
+            to: normalize_required_field("to", self.to)?,
+            asset: normalize_asset_code(self.asset)?,
+            amount: validate_positive_amount(self.amount)?,
+            client_reference_id: self.client_reference_id,
+            idempotency_key: self.idempotency_key,
+        })
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct SandboxMintRequest {
     pub treasury: String,
     pub to: String,
     pub asset: String,
     pub amount: i128,
+}
+
+#[derive(Clone, Debug)]
+struct ValidatedSandboxMintRequest {
+    treasury: String,
+    to: String,
+    asset: String,
+    amount: i128,
+}
+
+impl SandboxMintRequest {
+    fn validate(self) -> Result<ValidatedSandboxMintRequest, ApiError> {
+        Ok(ValidatedSandboxMintRequest {
+            treasury: normalize_required_field("treasury", self.treasury)?,
+            to: normalize_required_field("to", self.to)?,
+            asset: normalize_asset_code(self.asset)?,
+            amount: validate_positive_amount(self.amount)?,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -385,6 +427,7 @@ async fn create_payment(
     headers: HeaderMap,
     Json(request): Json<CreatePaymentRequest>,
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
+    let request = request.validate()?;
     let resource = format!("account:{}", request.from);
     let auth = authenticate_request(&state, &headers, "create_payment", &resource).await?;
     if let Err(error) = authorize_account_control(&state.node, &auth, &request.from).await {
@@ -400,6 +443,7 @@ async fn create_payment(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "create_payment", &resource).await?;
+    ensure_account_exists(&state.node, &request.to).await?;
 
     let client_reference_id =
         normalized_client_reference_id(request.client_reference_id, request.idempotency_key)?;
@@ -446,6 +490,48 @@ fn normalize_optional_id(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn normalize_required_field(name: &str, value: String) -> Result<String, ApiError> {
+    let value = value.trim().to_string();
+    if value.is_empty() {
+        return Err(ApiError::BadRequest(format!("{name} is required")));
+    }
+
+    Ok(value)
+}
+
+fn normalize_asset_code(value: String) -> Result<String, ApiError> {
+    let asset = normalize_required_field("asset", value)?;
+    if asset.len() < 3 {
+        return Err(ApiError::BadRequest(
+            "asset must be at least 3 characters".to_string(),
+        ));
+    }
+
+    if asset.len() > 32 {
+        return Err(ApiError::BadRequest(
+            "asset must be 32 characters or fewer".to_string(),
+        ));
+    }
+
+    if !asset.chars().all(|character| {
+        character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
+    }) {
+        return Err(ApiError::BadRequest(
+            "asset must contain only uppercase letters, digits, or underscores".to_string(),
+        ));
+    }
+
+    Ok(asset)
+}
+
+fn validate_positive_amount(amount: i128) -> Result<i128, ApiError> {
+    if amount <= 0 {
+        return Err(ApiError::BadRequest("amount must be positive".to_string()));
+    }
+
+    Ok(amount)
+}
+
 async fn authorize_account_control(
     node: &KaniNode,
     auth: &AuthenticatedInstitution,
@@ -468,12 +554,7 @@ async fn authorize_account_access(
     account_id: &str,
     action: &str,
 ) -> Result<Account, ApiError> {
-    let account = node
-        .accounts()
-        .await?
-        .into_iter()
-        .find(|account| account.id == account_id)
-        .ok_or_else(|| ApiError::BadRequest(format!("account {account_id} does not exist")))?;
+    let account = ensure_account_exists(node, account_id).await?;
 
     if account.institution_id.as_deref() == Some(auth.institution_id.as_str()) {
         return Ok(account);
@@ -482,6 +563,14 @@ async fn authorize_account_access(
     Err(ApiError::Forbidden(format!(
         "institution is not authorized to {action} account {account_id}"
     )))
+}
+
+async fn ensure_account_exists(node: &KaniNode, account_id: &str) -> Result<Account, ApiError> {
+    node.accounts()
+        .await?
+        .into_iter()
+        .find(|account| account.id == account_id)
+        .ok_or_else(|| ApiError::BadRequest(format!("account {account_id} does not exist")))
 }
 
 async fn authorize_payment_read(
@@ -1002,6 +1091,7 @@ async fn sandbox_mint(
     headers: HeaderMap,
     Json(request): Json<SandboxMintRequest>,
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
+    let request = request.validate()?;
     let resource = format!("account:{}", request.treasury);
     let auth = authenticate_request(&state, &headers, "sandbox_mint", &resource).await?;
     let treasury_account =
@@ -1037,6 +1127,7 @@ async fn sandbox_mint(
         return Err(error);
     }
     audit_authorization_allowed(&state, &headers, &auth, "sandbox_mint", &resource).await?;
+    ensure_account_exists(&state.node, &request.to).await?;
 
     let response = state
         .node
@@ -1071,6 +1162,72 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, ApiError::Unauthorized(_)));
+    }
+
+    #[test]
+    fn create_payment_request_validation_normalizes_inputs() {
+        let request = CreatePaymentRequest {
+            from: " CORP_A ".to_string(),
+            to: " CORP_B ".to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 100,
+            client_reference_id: None,
+            idempotency_key: None,
+        };
+
+        let validated = request.validate().unwrap();
+
+        assert_eq!(validated.from, "CORP_A");
+        assert_eq!(validated.to, "CORP_B");
+        assert_eq!(validated.asset, "KCAD_TEST");
+        assert_eq!(validated.amount, 100);
+    }
+
+    #[test]
+    fn payment_request_validation_rejects_invalid_inputs() {
+        let missing_from = CreatePaymentRequest {
+            from: " ".to_string(),
+            to: "CORP_B".to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 100,
+            client_reference_id: None,
+            idempotency_key: None,
+        }
+        .validate();
+        assert!(matches!(missing_from, Err(ApiError::BadRequest(_))));
+
+        let invalid_asset = CreatePaymentRequest {
+            from: "CORP_A".to_string(),
+            to: "CORP_B".to_string(),
+            asset: "kcad-test".to_string(),
+            amount: 100,
+            client_reference_id: None,
+            idempotency_key: None,
+        }
+        .validate();
+        assert!(matches!(invalid_asset, Err(ApiError::BadRequest(_))));
+
+        let short_asset = CreatePaymentRequest {
+            from: "CORP_A".to_string(),
+            to: "CORP_B".to_string(),
+            asset: "KC".to_string(),
+            amount: 100,
+            client_reference_id: None,
+            idempotency_key: None,
+        }
+        .validate();
+        assert!(matches!(short_asset, Err(ApiError::BadRequest(_))));
+
+        let invalid_amount = CreatePaymentRequest {
+            from: "CORP_A".to_string(),
+            to: "CORP_B".to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 0,
+            client_reference_id: None,
+            idempotency_key: None,
+        }
+        .validate();
+        assert!(matches!(invalid_amount, Err(ApiError::BadRequest(_))));
     }
 
     #[tokio::test]
@@ -1197,6 +1354,16 @@ mod tests {
         assert_eq!(account.account_type, AccountType::Treasury);
     }
 
+    #[tokio::test]
+    async fn account_existence_validation_rejects_unknown_destination() {
+        let node = KaniNode::sandbox_default();
+        let error = ensure_account_exists(&node, "UNKNOWN_ACCOUNT")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, ApiError::BadRequest(_)));
+    }
+
     #[test]
     fn sandbox_admin_auth_accepts_admin_credentials() {
         let config = SandboxAuthConfig::new_with_admins(
@@ -1270,6 +1437,15 @@ mod tests {
                 "missing OpenAPI schema {schema}"
             );
         }
+
+        assert_eq!(
+            schemas["CreatePaymentRequest"]["properties"]["amount"]["minimum"],
+            1
+        );
+        assert_eq!(
+            schemas["SandboxMintRequest"]["properties"]["asset"]["pattern"],
+            "^[A-Z0-9_]{3,32}$"
+        );
     }
 
     #[test]

@@ -620,16 +620,20 @@
         ],
         "properties": {
           "from": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "to": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "asset": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,32}$"
           },
           "amount": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           },
           "client_reference_id": {
             "type": [
@@ -656,16 +660,20 @@
         ],
         "properties": {
           "treasury": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "to": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "asset": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,32}$"
           },
           "amount": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           }
         },
         "additionalProperties": false
