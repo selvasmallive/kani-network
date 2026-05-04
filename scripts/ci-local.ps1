@@ -1,6 +1,7 @@
 param(
   [string]$DatabaseUrl = "postgres://kani:kani@localhost:5432/kani",
   [string]$DockerTag = "kani-api:ci",
+  [switch]$Clean,
   [switch]$SkipPostgresIntegration,
   [switch]$SkipDockerBuild,
   [switch]$RunSmoke
@@ -26,6 +27,10 @@ function Invoke-KaniNative {
 
 Push-Location $repoRoot
 try {
+  if ($Clean) {
+    Invoke-KaniNative cargo @("clean")
+  }
+
   Invoke-KaniNative cargo @("fmt", "--check")
   Invoke-KaniNative cargo @("test", "--workspace")
 

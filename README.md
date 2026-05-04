@@ -162,6 +162,12 @@ Run the core checks locally from PowerShell:
 .\scripts\ci-local.ps1
 ```
 
+If Windows reports a locked Rust test binary, rerun with a clean target directory:
+
+```powershell
+.\scripts\ci-local.ps1 -Clean
+```
+
 Include the full Docker smoke test with:
 
 ```powershell
