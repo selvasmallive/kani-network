@@ -6,7 +6,7 @@ use kani_ledger::{
     PostgresLedgerStore, ValidatorStatus,
 };
 use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction, TransactionKind};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, env, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -28,6 +28,82 @@ pub enum NodeError {
     InsufficientFinality { got: usize, required: usize },
     #[error("idempotency key {client_reference_id} was already used for a different payment")]
     IdempotencyConflict { client_reference_id: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SandboxRuntimeConfig {
+    environment: String,
+    real_value: bool,
+    redeemable: bool,
+}
+
+#[derive(Debug, Error, Eq, PartialEq)]
+pub enum SandboxRuntimeConfigError {
+    #[error("Phase 1 runtime requires ENV=SANDBOX, got {actual}")]
+    InvalidEnvironment { actual: String },
+    #[error("Phase 1 runtime requires REAL_VALUE=FALSE, got {actual}")]
+    RealValueEnabled { actual: String },
+    #[error("Phase 1 runtime requires REDEEMABLE=FALSE, got {actual}")]
+    RedeemableEnabled { actual: String },
+}
+
+impl SandboxRuntimeConfig {
+    pub fn from_env() -> Result<Self, SandboxRuntimeConfigError> {
+        Self::from_values(
+            env::var("ENV").ok(),
+            env::var("REAL_VALUE").ok(),
+            env::var("REDEEMABLE").ok(),
+        )
+    }
+
+    pub fn from_values(
+        environment: Option<String>,
+        real_value: Option<String>,
+        redeemable: Option<String>,
+    ) -> Result<Self, SandboxRuntimeConfigError> {
+        let environment =
+            environment.ok_or_else(|| SandboxRuntimeConfigError::InvalidEnvironment {
+                actual: "<unset>".to_string(),
+            })?;
+        if !environment.eq_ignore_ascii_case("SANDBOX") {
+            return Err(SandboxRuntimeConfigError::InvalidEnvironment {
+                actual: environment,
+            });
+        }
+
+        let real_value = real_value.ok_or_else(|| SandboxRuntimeConfigError::RealValueEnabled {
+            actual: "<unset>".to_string(),
+        })?;
+        if !real_value.eq_ignore_ascii_case("FALSE") {
+            return Err(SandboxRuntimeConfigError::RealValueEnabled { actual: real_value });
+        }
+
+        let redeemable =
+            redeemable.ok_or_else(|| SandboxRuntimeConfigError::RedeemableEnabled {
+                actual: "<unset>".to_string(),
+            })?;
+        if !redeemable.eq_ignore_ascii_case("FALSE") {
+            return Err(SandboxRuntimeConfigError::RedeemableEnabled { actual: redeemable });
+        }
+
+        Ok(Self {
+            environment: "SANDBOX".to_string(),
+            real_value: false,
+            redeemable: false,
+        })
+    }
+
+    pub fn environment(&self) -> &str {
+        &self.environment
+    }
+
+    pub fn real_value(&self) -> bool {
+        self.real_value
+    }
+
+    pub fn redeemable(&self) -> bool {
+        self.redeemable
+    }
 }
 
 #[derive(Clone)]
@@ -608,6 +684,56 @@ mod tests {
         TransactionStatus, KCAD_TEST, SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT,
         SANDBOX_TREASURY_ACCOUNT,
     };
+
+    #[test]
+    fn sandbox_runtime_config_accepts_phase1_flags() {
+        let config = SandboxRuntimeConfig::from_values(
+            Some("SANDBOX".to_string()),
+            Some("FALSE".to_string()),
+            Some("FALSE".to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(config.environment(), "SANDBOX");
+        assert!(!config.real_value());
+        assert!(!config.redeemable());
+    }
+
+    #[test]
+    fn sandbox_runtime_config_rejects_unsafe_flags() {
+        let missing_env = SandboxRuntimeConfig::from_values(
+            None,
+            Some("FALSE".to_string()),
+            Some("FALSE".to_string()),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            missing_env,
+            SandboxRuntimeConfigError::InvalidEnvironment { .. }
+        ));
+
+        let real_value_enabled = SandboxRuntimeConfig::from_values(
+            Some("SANDBOX".to_string()),
+            Some("TRUE".to_string()),
+            Some("FALSE".to_string()),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            real_value_enabled,
+            SandboxRuntimeConfigError::RealValueEnabled { .. }
+        ));
+
+        let redeemable_enabled = SandboxRuntimeConfig::from_values(
+            Some("SANDBOX".to_string()),
+            Some("FALSE".to_string()),
+            Some("TRUE".to_string()),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            redeemable_enabled,
+            SandboxRuntimeConfigError::RedeemableEnabled { .. }
+        ));
+    }
 
     #[tokio::test]
     async fn node_processes_sandbox_payment_end_to_end() {

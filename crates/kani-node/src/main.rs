@@ -1,4 +1,4 @@
-use kani_node::ValidatorRuntime;
+use kani_node::{SandboxRuntimeConfig, ValidatorRuntime};
 use std::time::Duration;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -11,6 +11,14 @@ async fn main() -> anyhow::Result<()> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    let sandbox_runtime = SandboxRuntimeConfig::from_env()?;
+    tracing::info!(
+        environment = %sandbox_runtime.environment(),
+        real_value = sandbox_runtime.real_value(),
+        redeemable = sandbox_runtime.redeemable(),
+        "validated Phase 1 sandbox runtime flags"
+    );
 
     let database_url = std::env::var("DATABASE_URL")?;
     let validator_id =

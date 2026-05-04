@@ -1,5 +1,5 @@
 use kani_api::build_router;
-use kani_node::KaniNode;
+use kani_node::{KaniNode, SandboxRuntimeConfig};
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -12,6 +12,14 @@ async fn main() -> anyhow::Result<()> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    let sandbox_runtime = SandboxRuntimeConfig::from_env()?;
+    tracing::info!(
+        environment = %sandbox_runtime.environment(),
+        real_value = sandbox_runtime.real_value(),
+        redeemable = sandbox_runtime.redeemable(),
+        "validated Phase 1 sandbox runtime flags"
+    );
 
     let addr: SocketAddr = std::env::var("KANI_API_ADDR")
         .unwrap_or_else(|_| "127.0.0.1:8080".to_string())
