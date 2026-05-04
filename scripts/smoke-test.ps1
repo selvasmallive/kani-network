@@ -121,6 +121,16 @@ function Assert-KaniConflictPost {
   Assert-KaniStatusPost $Url $Body $Headers 409
 }
 
+function Assert-KaniBadRequestPost {
+  param(
+    [string]$Url,
+    [hashtable]$Body,
+    [hashtable]$Headers
+  )
+
+  Assert-KaniStatusPost $Url $Body $Headers 400
+}
+
 function Assert-KaniForbiddenPost {
   param(
     [string]$Url,
@@ -233,6 +243,25 @@ try {
     "x-kani-institution-id" = "KANI_ADMIN"
     "x-kani-api-key"        = "sandbox-admin-token"
   }
+
+  Assert-KaniBadRequestPost "$base/v1/sandbox/mint" @{
+    treasury = "TREASURY_SANDBOX"
+    to       = "CORP_A"
+    asset    = "bad-asset"
+    amount   = 1000000
+  } $treasuryHeaders
+  Assert-KaniBadRequestPost "$base/v1/payments" @{
+    from   = "CORP_A"
+    to     = "CORP_B"
+    asset  = $Asset
+    amount = 0
+  } $corpAHeaders
+  Assert-KaniBadRequestPost "$base/v1/payments" @{
+    from   = "CORP_A"
+    to     = "UNKNOWN_ACCOUNT"
+    asset  = $Asset
+    amount = 100000
+  } $corpAHeaders
 
   $mint = Invoke-KaniPost "$base/v1/sandbox/mint" @{
     treasury = "TREASURY_SANDBOX"
@@ -422,6 +451,7 @@ try {
     transfer_payment_id          = $payment.payment_id
     transfer_client_reference_id = $payment.client_reference_id
     openapi_checked              = $true
+    request_validation_checked   = $true
     idempotency_conflict_checked = $true
     authorization_checked        = $true
     read_authorization_checked   = $true

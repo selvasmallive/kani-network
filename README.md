@@ -130,7 +130,7 @@ Run the repeatable smoke test:
 
 The smoke script defaults to `http://localhost:8080`, which is the most reliable Docker Desktop host route on Windows. Pass `-BaseUrl http://127.0.0.1:8080` if you want to force IPv4.
 
-The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks authorization failures, verifies block pagination plus authorization audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
+The smoke test mints a fresh test asset, waits for validator finality, transfers from `CORP_A` to `CORP_B`, verifies balances, checks request validation and authorization failures, verifies block pagination plus authorization audit events, filters, and pagination, restarts `kani-api`, verifies persisted balances, and reads block/audit/validator listings.
 
 To run the faster Postgres-backed API integration test, keep the compose Postgres service running and provide a test database URL. The test creates and drops an isolated temporary database on the same Postgres server, so the configured user must be allowed to create databases.
 
