@@ -11,21 +11,34 @@ $ErrorActionPreference = "Stop"
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 $repoRoot = Split-Path -Parent $scriptRoot
 
+function Invoke-KaniNative {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FilePath,
+    [string[]]$Arguments = @()
+  )
+
+  & $FilePath @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+  }
+}
+
 Push-Location $repoRoot
 try {
-  cargo fmt --check
-  cargo test --workspace
+  Invoke-KaniNative cargo @("fmt", "--check")
+  Invoke-KaniNative cargo @("test", "--workspace")
 
   if (-not $SkipPostgresIntegration) {
-    docker compose up -d postgres
+    Invoke-KaniNative docker @("compose", "up", "-d", "postgres")
     $env:KANI_TEST_DATABASE_URL = $DatabaseUrl
-    cargo test -p kani-api --test postgres_api -- --nocapture
+    Invoke-KaniNative cargo @("test", "-p", "kani-api", "--test", "postgres_api", "--", "--nocapture")
   }
 
-  cargo clippy --workspace -- -D warnings
+  Invoke-KaniNative cargo @("clippy", "--workspace", "--", "-D", "warnings")
 
   if (-not $SkipDockerBuild) {
-    docker build --file docker/Dockerfile.api --tag $DockerTag .
+    Invoke-KaniNative docker @("build", "--file", "docker/Dockerfile.api", "--tag", $DockerTag, ".")
   }
 
   if ($RunSmoke) {

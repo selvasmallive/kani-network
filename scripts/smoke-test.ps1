@@ -25,6 +25,19 @@ function Wait-KaniHealth {
   throw "kani-api did not become healthy at $Url"
 }
 
+function Invoke-KaniNative {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FilePath,
+    [string[]]$Arguments = @()
+  )
+
+  & $FilePath @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+  }
+}
+
 function Invoke-KaniPost {
   param(
     [string]$Url,
@@ -153,7 +166,7 @@ function Wait-KaniPaymentFinalized {
 Push-Location $repoRoot
 try {
   if (-not $NoStartStack) {
-    docker compose up -d --build
+    Invoke-KaniNative docker @("compose", "up", "-d", "--build")
   }
 
   Wait-KaniHealth -Url $base | Out-Null
@@ -279,7 +292,7 @@ try {
   }
 
   if (-not $NoRestart) {
-    docker compose restart kani-api | Out-Null
+    Invoke-KaniNative docker @("compose", "restart", "kani-api")
     Wait-KaniHealth -Url $base | Out-Null
   }
 
