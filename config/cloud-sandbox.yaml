@@ -1,0 +1,46 @@
+environment:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+
+gcp:
+  project_id: REPLACE_WITH_GCP_PROJECT_ID
+  region: northamerica-northeast1
+  gke_location: northamerica-northeast1
+
+artifact_registry:
+  repository: kani
+  image: kani-api
+
+cloud_run:
+  service: kani-sandbox-api
+  ingress: internal-and-cloud-load-balancing
+  port: 8080
+  ledger_mode: postgres
+  database_url_secret: kani-sandbox-database-url
+
+gke:
+  cluster: kani-sandbox-validators
+  namespace: kani-system
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+cloud_sql:
+  instance: kani-sandbox-ledger
+  database: kani
+  user: kani
+  database_url_secret: kani-sandbox-database-url
+
+storage:
+  block_archive_bucket: kani-sandbox-block-archive
+
+kms:
+  key_ring: kani-sandbox
+  signing_key: validator-signing-sandbox
+
+phase_gate:
+  sandbox_only: true
+  production_value_movement_allowed: false
+  requires_legal_review_before_real_value: true

@@ -1,0 +1,16 @@
+project_id = "REPLACE_WITH_GCP_PROJECT_ID"
+region     = "northamerica-northeast1"
+gke_location = "northamerica-northeast1"
+name_prefix = "kani-sandbox"
+
+api_image = "northamerica-northeast1-docker.pkg.dev/REPLACE_WITH_GCP_PROJECT_ID/kani/kani-api:latest"
+
+# Sandbox only. Terraform state will contain this value.
+# For production, populate Secret Manager outside Terraform and lock down state.
+database_url = "postgres://kani:REPLACE_WITH_PASSWORD@REPLACE_WITH_HOST:5432/kani"
+
+deletion_protection = true
+
+labels = {
+  owner = "kani"
+}

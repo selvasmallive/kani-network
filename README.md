@@ -1,6 +1,6 @@
 # KANI Private Settlement Network
 
-Phase 1 local MVP for a private, permissioned settlement network. This implementation is sandbox-only and intentionally does not move real value.
+Phase 1 local MVP for a private, permissioned settlement network. Phase 2 cloud MVP scaffolding has started on a sandbox-only path. This implementation is sandbox-only and intentionally does not move real value.
 
 ## What Is Implemented
 
@@ -12,6 +12,29 @@ Phase 1 local MVP for a private, permissioned settlement network. This implement
 - Axum API for payments, payment lookup, account inventory, balances, issued supply, latest block, health, and sandbox minting.
 - OpenAPI 3.1 contract for the Phase 1 API, served from `/openapi.json`.
 - PostgreSQL migration schema for the production ledger tables.
+
+## Phase 2 Cloud MVP
+
+Phase 2 starts the Google Cloud sandbox deployment path while keeping real value disabled.
+
+The starter cloud files are:
+
+```text
+PHASE2_CLOUD_MVP.md
+cloudbuild.yaml
+config/cloud-sandbox.yaml
+infra/terraform/
+k8s/
+scripts/phase2-validate.ps1
+```
+
+The intended Phase 2 topology is Cloud Run for `kani-api`, GKE for the three validator nodes, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for runtime secrets, Cloud Storage for future block/audit archives, and KMS for future production key work.
+
+Run the static Phase 2 scaffold check from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\phase2-validate.ps1
+```
 
 ## Sandbox Boundaries
 

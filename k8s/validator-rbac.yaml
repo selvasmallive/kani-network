@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kani-validator
+  namespace: kani-system
+  annotations:
+    iam.gke.io/gcp-service-account: REPLACE_WITH_VALIDATOR_GSA_EMAIL
+  labels:
+    app.kubernetes.io/name: kani-validator
+    app.kubernetes.io/part-of: kani-network
+    kani.phase: "phase-2"

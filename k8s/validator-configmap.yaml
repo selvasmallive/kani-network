@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kani-validator-config
+  namespace: kani-system
+  labels:
+    app.kubernetes.io/name: kani-validator
+    app.kubernetes.io/part-of: kani-network
+data:
+  ENV: SANDBOX
+  REAL_VALUE: "FALSE"
+  REDEEMABLE: "FALSE"
+  KANI_VALIDATOR_POLL_MS: "750"
+  KANI_MAX_TXS_PER_BLOCK: "25"
+  RUST_LOG: kani_node=info
+  CLOUD_SQL_CONNECTION_NAME: REPLACE_WITH_CLOUD_SQL_CONNECTION_NAME
