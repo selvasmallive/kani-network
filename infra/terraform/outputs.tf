@@ -66,6 +66,11 @@ output "budget_notification_channel_names" {
   value       = [for channel in google_monitoring_notification_channel.budget_email : channel.name]
 }
 
+output "phase2_alert_policy_names" {
+  description = "Cloud Monitoring alert policy names for Phase 2 sandbox operations."
+  value       = [for policy in google_monitoring_alert_policy.phase2_log_alert : policy.name]
+}
+
 output "budget_notification_topic" {
   description = "Pub/Sub topic receiving programmatic Cloud Billing budget updates."
   value       = try(google_pubsub_topic.budget_notifications[0].id, null)

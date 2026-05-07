@@ -14,6 +14,10 @@ locals {
   budget_brake_enabled                   = local.budget_guardrail_enabled && var.budget_brake_enabled
   budget_pubsub_topic_attachment_enabled = local.budget_brake_enabled && var.budget_pubsub_topic_attachment_enabled
   budget_alert_emails                    = toset([for email in var.budget_alert_emails : trimspace(email) if trimspace(email) != ""])
+  monitoring_alert_notification_channels = distinct(concat(
+    [for channel in google_monitoring_notification_channel.budget_email : channel.name],
+    var.monitoring_alert_notification_channels
+  ))
 
   required_services = toset([
     "artifactregistry.googleapis.com",
@@ -49,6 +53,64 @@ locals {
       secret_suffix = "admin-api-key"
     }
   }
+
+  monitoring_log_alerts = var.monitoring_alerts_enabled ? {
+    api_error_logs = {
+      display_name           = "${var.name_prefix} API error logs"
+      condition_display_name = "Cloud Run API emitted errors"
+      filter                 = <<-EOT
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="${google_cloud_run_v2_service.api.name}"
+        (severity>=ERROR OR httpRequest.status>=500)
+      EOT
+      documentation          = "Cloud Run API emitted an error log or returned a 5xx response. Check the `kani-api` revision logs and recent `/health` and payment requests."
+    }
+
+    validator_job_error_logs = {
+      display_name           = "${var.name_prefix} validator job error logs"
+      condition_display_name = "Validator Cloud Run Job emitted errors"
+      filter                 = <<-EOT
+        resource.type="cloud_run_job"
+        resource.labels.job_name="${google_cloud_run_v2_job.validator.name}"
+        severity>=ERROR
+      EOT
+      documentation          = "The validator Cloud Run Job emitted an error. Inspect the latest job execution and verify pending transactions, latest block, and finality votes."
+    }
+
+    scheduler_error_logs = {
+      display_name           = "${var.name_prefix} validator scheduler error logs"
+      condition_display_name = "Validator Cloud Scheduler job emitted errors"
+      filter                 = <<-EOT
+        resource.type="cloud_scheduler_job"
+        resource.labels.job_id="${try(google_cloud_scheduler_job.validator[0].name, "${var.name_prefix}-validator-schedule")}"
+        severity>=ERROR
+      EOT
+      documentation          = "The validator Scheduler job emitted an error. Confirm the schedule is enabled, the target Cloud Run Job exists, and scheduler IAM can invoke it."
+    }
+
+    cloud_sql_error_logs = {
+      display_name           = "${var.name_prefix} Cloud SQL error logs"
+      condition_display_name = "Cloud SQL ledger emitted errors"
+      filter                 = <<-EOT
+        resource.type="cloudsql_database"
+        (resource.labels.database_id="${google_sql_database_instance.ledger.name}" OR resource.labels.database_id="${var.project_id}:${google_sql_database_instance.ledger.name}")
+        severity>=ERROR
+      EOT
+      documentation          = "Cloud SQL emitted an error for the sandbox ledger. Check instance health, storage, connections, backups, and recent restore activity."
+    }
+
+    budget_brake_activity_logs = {
+      display_name           = "${var.name_prefix} budget brake activity"
+      condition_display_name = "Budget brake emitted warning or error activity"
+      filter                 = <<-EOT
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="${var.name_prefix}-cost-guard"
+        severity>=WARNING
+        ("budget brake threshold crossed" OR "paused validator scheduler after budget brake threshold was crossed" OR "failed to process budget event")
+      EOT
+      documentation          = "The budget brake crossed its threshold, paused the validator schedule, or failed while processing a budget event. Inspect cost-guard logs and the Cloud Scheduler job state."
+    }
+  } : {}
 }
 
 data "google_project" "current" {
@@ -757,4 +819,36 @@ resource "google_billing_budget" "sandbox" {
       enable_project_level_recipients = true
     }
   }
+}
+
+resource "google_monitoring_alert_policy" "phase2_log_alert" {
+  for_each = local.monitoring_log_alerts
+
+  project      = var.project_id
+  display_name = each.value.display_name
+  combiner     = "OR"
+  enabled      = true
+
+  notification_channels = local.monitoring_alert_notification_channels
+
+  conditions {
+    display_name = each.value.condition_display_name
+
+    condition_matched_log {
+      filter = each.value.filter
+    }
+  }
+
+  alert_strategy {
+    notification_rate_limit {
+      period = var.monitoring_alert_log_notification_rate_limit
+    }
+  }
+
+  documentation {
+    content   = each.value.documentation
+    mime_type = "text/markdown"
+  }
+
+  depends_on = [google_project_service.required]
 }
