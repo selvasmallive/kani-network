@@ -84,6 +84,20 @@ function Invoke-KaniJson {
     return Invoke-RestMethod -Method $Method -Uri $uri -Headers $requestHeaders -ContentType "application/json" -Body $json
 }
 
+function Invoke-KaniXml {
+    param(
+        [string]$Method,
+        [string]$Path,
+        [hashtable]$Headers,
+        [string]$Body
+    )
+
+    $uri = "$BaseUrl$Path"
+    $requestHeaders = Join-Headers $Headers
+
+    return Invoke-RestMethod -Method $Method -Uri $uri -Headers $requestHeaders -ContentType "application/xml" -Body $Body
+}
+
 function Invoke-ValidatorJob {
     if ($SkipValidatorJob) {
         return
@@ -156,16 +170,58 @@ $transfer = Invoke-KaniJson -Method Post -Path "/v1/payments" -Headers $corpAHea
 }
 Invoke-ValidatorJob
 
+$isoMessageId = "phase2-cloud-iso-$asset"
+$isoEndToEndId = "phase2-cloud-iso-e2e-$asset"
+$isoXml = @"
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>
+      <MsgId>$isoMessageId</MsgId>
+    </GrpHdr>
+    <CdtTrfTxInf>
+      <PmtId>
+        <InstrId>instr-$asset</InstrId>
+        <EndToEndId>$isoEndToEndId</EndToEndId>
+      </PmtId>
+      <IntrBkSttlmAmt Ccy="$asset">25000</IntrBkSttlmAmt>
+      <DbtrAcct>
+        <Id>
+          <Othr>
+            <Id>CORP_A</Id>
+          </Othr>
+        </Id>
+      </DbtrAcct>
+      <CdtrAcct>
+        <Id>
+          <Othr>
+            <Id>CORP_B</Id>
+          </Othr>
+        </Id>
+      </CdtrAcct>
+    </CdtTrfTxInf>
+  </FIToFICstmrCdtTrf>
+</Document>
+"@
+$isoTransfer = Invoke-KaniXml -Method Post -Path "/v1/iso20022/pacs008" -Headers $corpAHeaders -Body $isoXml
+if ($isoTransfer.message_type -ne "pacs.008") {
+    throw "Expected ISO response message_type pacs.008"
+}
+$expectedIsoReferenceId = "pacs.008:${isoMessageId}:${isoEndToEndId}"
+if ($isoTransfer.payment.client_reference_id -ne $expectedIsoReferenceId) {
+    throw "Expected ISO payment client_reference_id $expectedIsoReferenceId, got $($isoTransfer.payment.client_reference_id)"
+}
+Invoke-ValidatorJob
+
 $balanceA = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_A/balances/$asset" -Headers $corpAHeaders
 $balanceB = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_B/balances/$asset" -Headers $corpBHeaders
 $latestBlock = Invoke-KaniJson -Method Get -Path "/v1/blocks/latest" -Headers $adminHeaders
 $pending = Invoke-KaniJson -Method Get -Path "/v1/transactions/pending?limit=100&offset=0" -Headers $adminHeaders
 
-if ([int64]$balanceA.amount -ne 900000) {
-    throw "Expected CORP_A balance 900000, got $($balanceA.amount)"
+if ([int64]$balanceA.amount -ne 875000) {
+    throw "Expected CORP_A balance 875000, got $($balanceA.amount)"
 }
-if ([int64]$balanceB.amount -ne 100000) {
-    throw "Expected CORP_B balance 100000, got $($balanceB.amount)"
+if ([int64]$balanceB.amount -ne 125000) {
+    throw "Expected CORP_B balance 125000, got $($balanceB.amount)"
 }
 if ([int64]$pending.count -ne 0) {
     throw "Expected no pending transactions, got $($pending.count)"
@@ -176,8 +232,10 @@ if ([int64]$pending.count -ne 0) {
     base_url = $BaseUrl
     health = $health.status
     asset = $asset
-    mint_transaction = $mint.transaction.id
-    transfer_transaction = $transfer.transaction.id
+    mint_transaction = $mint.transaction_id
+    transfer_transaction = $transfer.transaction_id
+    iso_transaction = $isoTransfer.payment.transaction_id
+    iso_message_id = $isoTransfer.message_id
     corp_a_balance = $balanceA.amount
     corp_b_balance = $balanceB.amount
     latest_block_height = $latestBlock.height

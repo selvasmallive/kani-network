@@ -6,6 +6,7 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
+use kani_iso20022::{parse_pacs008_credit_transfer, Iso20022Error, Pacs008CreditTransfer};
 use kani_ledger::{AuditEventSearch, BlockSearch};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
@@ -280,6 +281,15 @@ pub struct PaymentResponse {
     pub client_reference_id: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct IsoPacs008PaymentResponse {
+    pub message_type: &'static str,
+    pub message_id: String,
+    pub instruction_id: Option<String>,
+    pub end_to_end_id: String,
+    pub payment: PaymentResponse,
+}
+
 impl From<PaymentRecord> for PaymentResponse {
     fn from(record: PaymentRecord) -> Self {
         Self {
@@ -461,6 +471,12 @@ impl From<NodeError> for ApiError {
     }
 }
 
+impl From<Iso20022Error> for ApiError {
+    fn from(error: Iso20022Error) -> Self {
+        ApiError::BadRequest(error.to_string())
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = self.status_code();
@@ -480,6 +496,7 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/openapi.json", get(openapi_json))
         .route("/v1/payments", post(create_payment))
         .route("/v1/payments/:id", get(get_payment))
+        .route("/v1/iso20022/pacs008", post(create_pacs008_payment))
         .route("/v1/accounts", get(get_accounts))
         .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
@@ -512,21 +529,46 @@ async fn create_payment(
     Json(request): Json<CreatePaymentRequest>,
 ) -> Result<(StatusCode, Json<PaymentResponse>), ApiError> {
     let request = request.validate()?;
+    let response = submit_validated_payment(&state, &headers, request, "create_payment").await?;
+
+    Ok((StatusCode::CREATED, Json(response)))
+}
+
+async fn create_pacs008_payment(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: String,
+) -> Result<(StatusCode, Json<IsoPacs008PaymentResponse>), ApiError> {
+    let transfer = parse_pacs008_credit_transfer(&body)?;
+    let request = pacs008_transfer_request(&transfer)?;
+    let payment =
+        submit_validated_payment(&state, &headers, request, "submit_iso20022_pacs008").await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(IsoPacs008PaymentResponse {
+            message_type: "pacs.008",
+            message_id: transfer.message_id,
+            instruction_id: transfer.instruction_id,
+            end_to_end_id: transfer.end_to_end_id,
+            payment,
+        }),
+    ))
+}
+
+async fn submit_validated_payment(
+    state: &AppState,
+    headers: &HeaderMap,
+    request: ValidatedPaymentRequest,
+    action: &'static str,
+) -> Result<PaymentResponse, ApiError> {
     let resource = format!("account:{}", request.from);
-    let auth = authenticate_request(&state, &headers, "create_payment", &resource).await?;
+    let auth = authenticate_request(state, headers, action, &resource).await?;
     if let Err(error) = authorize_account_control(&state.node, &auth, &request.from).await {
-        audit_authorization_denied(
-            &state,
-            &headers,
-            Some(&auth),
-            "create_payment",
-            &resource,
-            &error,
-        )
-        .await?;
+        audit_authorization_denied(state, headers, Some(&auth), action, &resource, &error).await?;
         return Err(error);
     }
-    audit_authorization_allowed(&state, &headers, &auth, "create_payment", &resource).await?;
+    audit_authorization_allowed(state, headers, &auth, action, &resource).await?;
     ensure_account_exists(&state.node, &request.to).await?;
 
     let client_reference_id =
@@ -543,7 +585,28 @@ async fn create_payment(
         .await
         .map(PaymentResponse::from)?;
 
-    Ok((StatusCode::CREATED, Json(response)))
+    Ok(response)
+}
+
+fn pacs008_transfer_request(
+    transfer: &Pacs008CreditTransfer,
+) -> Result<ValidatedPaymentRequest, ApiError> {
+    Ok(ValidatedPaymentRequest {
+        from: normalize_required_field("debtor_account", transfer.debtor_account.clone())?,
+        to: normalize_required_field("creditor_account", transfer.creditor_account.clone())?,
+        asset: normalize_asset_code(transfer.asset.clone())?,
+        amount: validate_positive_amount(transfer.amount)?,
+        client_reference_id: Some(pacs008_client_reference_id(transfer)),
+        idempotency_key: None,
+    })
+}
+
+fn pacs008_client_reference_id(transfer: &Pacs008CreditTransfer) -> String {
+    format!(
+        "pacs.008:{}:{}",
+        transfer.message_id.trim(),
+        transfer.end_to_end_id.trim()
+    )
 }
 
 fn normalized_client_reference_id(
@@ -1399,6 +1462,30 @@ mod tests {
         assert!(matches!(invalid_amount, Err(ApiError::BadRequest(_))));
     }
 
+    #[test]
+    fn pacs008_transfer_request_maps_to_payment_request() {
+        let transfer = Pacs008CreditTransfer {
+            message_id: " msg-001 ".to_string(),
+            instruction_id: Some("instr-001".to_string()),
+            end_to_end_id: "e2e-001".to_string(),
+            debtor_account: " CORP_A ".to_string(),
+            creditor_account: " CORP_B ".to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 100000,
+        };
+
+        let request = pacs008_transfer_request(&transfer).unwrap();
+
+        assert_eq!(request.from, "CORP_A");
+        assert_eq!(request.to, "CORP_B");
+        assert_eq!(request.asset, "KCAD_TEST");
+        assert_eq!(request.amount, 100000);
+        assert_eq!(
+            request.client_reference_id.as_deref(),
+            Some("pacs.008:msg-001:e2e-001")
+        );
+    }
+
     #[tokio::test]
     async fn institution_can_authorize_own_account() {
         let node = KaniNode::sandbox_default();
@@ -1566,7 +1653,7 @@ mod tests {
     }
 
     #[test]
-    fn openapi_contract_declares_phase1_paths_and_schemas() {
+    fn openapi_contract_declares_phase1_and_phase2_paths_and_schemas() {
         let document: serde_json::Value = serde_json::from_str(OPENAPI_JSON).unwrap();
         assert_eq!(document["openapi"], "3.1.0");
 
@@ -1576,6 +1663,7 @@ mod tests {
             "/openapi.json",
             "/v1/payments",
             "/v1/payments/{id}",
+            "/v1/iso20022/pacs008",
             "/v1/accounts",
             "/v1/accounts/{account_id}/balances/{asset}",
             "/v1/assets/{asset}/issued",
@@ -1594,6 +1682,7 @@ mod tests {
             "CreatePaymentRequest",
             "SandboxMintRequest",
             "PaymentResponse",
+            "IsoPacs008PaymentResponse",
             "Account",
             "BalanceResponse",
             "IssuedResponse",

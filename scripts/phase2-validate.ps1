@@ -157,6 +157,12 @@ foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_config
     }
 }
 
+foreach ($expected in @("iso20022:", "pacs\.008", "/v1/iso20022/pacs008", "single CdtTrfTxInf")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox ISO 20022 setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 foreach ($expected in @("backups_enabled:\s*true", "backup_start_time_utc:\s*`"07:00`"", "retained_backups:\s*7", "point_in_time_recovery_enabled:\s*true", "transaction_log_retention_days:\s*7")) {
     if ($cloudSandbox -notmatch $expected) {
         throw "Expected cloud sandbox recovery setting in config/cloud-sandbox.yaml: $expected"
@@ -167,6 +173,12 @@ $cloudSmokeScript = Get-Content "scripts/phase2-cloud-smoke.ps1" -Raw
 foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-api-key", "KANI_SANDBOX_TREASURY_API_KEY")) {
     if ($cloudSmokeScript -notmatch $expected) {
         throw "Expected cloud smoke test to read sandbox API keys from Secret Manager or env: $expected"
+    }
+}
+
+foreach ($expected in @("Invoke-KaniXml", "/v1/iso20022/pacs008", "pacs.008:", "875000", "125000")) {
+    if ($cloudSmokeScript -notmatch $expected) {
+        throw "Expected cloud smoke test to exercise ISO 20022 pacs.008 flow: $expected"
     }
 }
 
@@ -182,6 +194,7 @@ foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-a
     budget_brake_enabled = $true
     budget_pubsub_topic_attachment_configurable = $true
     api_keys_source = "secret-manager"
+    iso20022_pacs008_enabled = $true
     cloud_sql_backups_enabled = $true
     cloud_sql_point_in_time_recovery_enabled = $true
     monitoring_alerts_enabled = $true

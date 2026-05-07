@@ -106,6 +106,56 @@
         }
       }
     },
+    "/v1/iso20022/pacs008": {
+      "post": {
+        "summary": "Submit a sandbox ISO 20022 pacs.008 payment",
+        "description": "Parses a single-credit-transfer pacs.008 XML document and submits it through the sandbox payment ledger. Amounts are KANI minor units and the caller must control the debtor account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "pacs.008 XML document"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "type": "string",
+                "description": "pacs.008 XML document"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ISO 20022 payment accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IsoPacs008PaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/v1/payments/{id}": {
       "get": {
         "summary": "Read a payment by id",
@@ -801,6 +851,38 @@
             ]
           }
         }
+      },
+      "IsoPacs008PaymentResponse": {
+        "type": "object",
+        "required": [
+          "message_type",
+          "message_id",
+          "instruction_id",
+          "end_to_end_id",
+          "payment"
+        ],
+        "properties": {
+          "message_type": {
+            "type": "string",
+            "const": "pacs.008"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "instruction_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end_to_end_id": {
+            "type": "string"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentResponse"
+          }
+        },
+        "additionalProperties": false
       },
       "BalanceResponse": {
         "type": "object",
