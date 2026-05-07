@@ -1,0 +1,218 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: validator-a
+  labels:
+    app.kubernetes.io/name: kani-validator
+    app.kubernetes.io/instance: validator-a
+    app.kubernetes.io/part-of: kani-network
+    kani.phase: "phase-2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kani-validator
+      app.kubernetes.io/instance: validator-a
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kani-validator
+        app.kubernetes.io/instance: validator-a
+        app.kubernetes.io/part-of: kani-network
+        kani.phase: "phase-2"
+    spec:
+      serviceAccountName: kani-validator
+      containers:
+        - name: kani-node
+          image: kani-validator-image
+          command: ["kani-node"]
+          envFrom:
+            - configMapRef:
+                name: kani-validator-config
+            - secretRef:
+                name: kani-ledger-database
+          env:
+            - name: KANI_VALIDATOR_ID
+              value: validator-a
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
+          args:
+            - --structured-logs
+            - --port=5432
+            - $(CLOUD_SQL_CONNECTION_NAME)
+          env:
+            - name: CLOUD_SQL_CONNECTION_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: kani-validator-config
+                  key: CLOUD_SQL_CONNECTION_NAME
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: validator-b
+  labels:
+    app.kubernetes.io/name: kani-validator
+    app.kubernetes.io/instance: validator-b
+    app.kubernetes.io/part-of: kani-network
+    kani.phase: "phase-2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kani-validator
+      app.kubernetes.io/instance: validator-b
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kani-validator
+        app.kubernetes.io/instance: validator-b
+        app.kubernetes.io/part-of: kani-network
+        kani.phase: "phase-2"
+    spec:
+      serviceAccountName: kani-validator
+      containers:
+        - name: kani-node
+          image: kani-validator-image
+          command: ["kani-node"]
+          envFrom:
+            - configMapRef:
+                name: kani-validator-config
+            - secretRef:
+                name: kani-ledger-database
+          env:
+            - name: KANI_VALIDATOR_ID
+              value: validator-b
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
+          args:
+            - --structured-logs
+            - --port=5432
+            - $(CLOUD_SQL_CONNECTION_NAME)
+          env:
+            - name: CLOUD_SQL_CONNECTION_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: kani-validator-config
+                  key: CLOUD_SQL_CONNECTION_NAME
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: validator-c
+  labels:
+    app.kubernetes.io/name: kani-validator
+    app.kubernetes.io/instance: validator-c
+    app.kubernetes.io/part-of: kani-network
+    kani.phase: "phase-2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kani-validator
+      app.kubernetes.io/instance: validator-c
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kani-validator
+        app.kubernetes.io/instance: validator-c
+        app.kubernetes.io/part-of: kani-network
+        kani.phase: "phase-2"
+    spec:
+      serviceAccountName: kani-validator
+      containers:
+        - name: kani-node
+          image: kani-validator-image
+          command: ["kani-node"]
+          envFrom:
+            - configMapRef:
+                name: kani-validator-config
+            - secretRef:
+                name: kani-ledger-database
+          env:
+            - name: KANI_VALIDATOR_ID
+              value: validator-c
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
+          args:
+            - --structured-logs
+            - --port=5432
+            - $(CLOUD_SQL_CONNECTION_NAME)
+          env:
+            - name: CLOUD_SQL_CONNECTION_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: kani-validator-config
+                  key: CLOUD_SQL_CONNECTION_NAME
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

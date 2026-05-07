@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kani-system
+  labels:
+    app.kubernetes.io/name: kani
+    app.kubernetes.io/part-of: kani-network
+    kani.phase: "phase-2"
+    kani.environment: sandbox

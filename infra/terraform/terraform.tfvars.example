@@ -1,0 +1,46 @@
+project_id  = "REPLACE_WITH_GCP_PROJECT_ID"
+region      = "northamerica-northeast1"
+name_prefix = "kani-sandbox"
+
+api_image = "northamerica-northeast1-docker.pkg.dev/REPLACE_WITH_GCP_PROJECT_ID/kani/kani-api:latest"
+
+# Keep false in the free-trial sandbox so resources can be destroyed after testing.
+deletion_protection = false
+
+# phase2-lean-no-gke sandbox profile. This is intentionally not production HA.
+database_tier                                = "db-g1-small"
+cloud_sql_disk_size_gb                       = 10
+cloud_sql_disk_type                          = "PD_HDD"
+cloud_sql_backups_enabled                    = false
+cloud_sql_point_in_time_recovery_enabled     = false
+cloud_run_max_instances                      = 1
+cloud_run_ingress                            = "INGRESS_TRAFFIC_ALL"
+validator_ids                                = ["validator-a", "validator-b", "validator-c"]
+validator_job_max_transactions_per_block     = 25
+validator_job_timeout_seconds                = 300
+validator_scheduler_enabled                  = true
+validator_schedule                           = "*/15 * * * *"
+validator_scheduler_time_zone                = "America/Toronto"
+validator_scheduler_attempt_deadline_seconds = 180
+validator_scheduler_paused                   = false
+
+# Set this before apply if you want Terraform to create the budget guardrail.
+# You can use either 000000-000000-000000 or billingAccounts/000000-000000-000000.
+budget_guardrail_enabled  = true
+budget_billing_account_id = "REPLACE_WITH_BILLING_ACCOUNT_ID"
+budget_amount_units       = 50
+budget_alert_thresholds   = [0.5, 0.8, 1.0]
+budget_alert_emails       = ["REPLACE_WITH_ALERT_EMAIL"]
+budget_brake_enabled      = true
+
+# Keep true for normal projects. Set false when domain-restricted sharing blocks
+# Cloud Billing from attaching the budget to the Pub/Sub topic; the cost guard
+# resources are still created and can be attached after an org-policy exception.
+budget_pubsub_topic_attachment_enabled = true
+
+budget_brake_threshold    = 0.8
+budget_brake_dry_run      = false
+
+labels = {
+  owner = "kani"
+}

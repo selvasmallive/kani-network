@@ -29,6 +29,7 @@ const TREASURY_API_KEY_ENV: &str = "KANI_SANDBOX_TREASURY_API_KEY";
 const CORP_A_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_A_API_KEY";
 const CORP_B_API_KEY_ENV: &str = "KANI_SANDBOX_CORP_B_API_KEY";
 const ADMIN_API_KEY_ENV: &str = "KANI_SANDBOX_ADMIN_API_KEY";
+const REQUIRE_CONFIGURED_SANDBOX_API_KEYS_ENV: &str = "KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS";
 const DEFAULT_BLOCK_LIMIT: i64 = 100;
 const MAX_BLOCK_LIMIT: i64 = 500;
 const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
@@ -86,27 +87,41 @@ impl SandboxAuthConfig {
     }
 
     pub fn sandbox_defaults() -> Self {
+        let require_configured_keys = env_flag(REQUIRE_CONFIGURED_SANDBOX_API_KEYS_ENV);
         Self::new_with_admins(
             vec![
                 (
                     SANDBOX_TREASURY_INSTITUTION_ID.to_string(),
-                    env::var(TREASURY_API_KEY_ENV)
-                        .unwrap_or_else(|_| DEFAULT_TREASURY_API_KEY.to_string()),
+                    sandbox_api_key(
+                        TREASURY_API_KEY_ENV,
+                        DEFAULT_TREASURY_API_KEY,
+                        require_configured_keys,
+                    ),
                 ),
                 (
                     SANDBOX_CORP_A_INSTITUTION_ID.to_string(),
-                    env::var(CORP_A_API_KEY_ENV)
-                        .unwrap_or_else(|_| DEFAULT_CORP_A_API_KEY.to_string()),
+                    sandbox_api_key(
+                        CORP_A_API_KEY_ENV,
+                        DEFAULT_CORP_A_API_KEY,
+                        require_configured_keys,
+                    ),
                 ),
                 (
                     SANDBOX_CORP_B_INSTITUTION_ID.to_string(),
-                    env::var(CORP_B_API_KEY_ENV)
-                        .unwrap_or_else(|_| DEFAULT_CORP_B_API_KEY.to_string()),
+                    sandbox_api_key(
+                        CORP_B_API_KEY_ENV,
+                        DEFAULT_CORP_B_API_KEY,
+                        require_configured_keys,
+                    ),
                 ),
             ],
             vec![(
                 SANDBOX_ADMIN_ID.to_string(),
-                env::var(ADMIN_API_KEY_ENV).unwrap_or_else(|_| DEFAULT_ADMIN_API_KEY.to_string()),
+                sandbox_api_key(
+                    ADMIN_API_KEY_ENV,
+                    DEFAULT_ADMIN_API_KEY,
+                    require_configured_keys,
+                ),
             )],
         )
     }
@@ -130,6 +145,49 @@ impl SandboxAuthConfig {
             "invalid sandbox credentials".to_string(),
         ))
     }
+}
+
+fn env_flag(name: &str) -> bool {
+    env::var(name)
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "y"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn sandbox_api_key(env_name: &str, default_api_key: &str, require_configured: bool) -> String {
+    sandbox_api_key_from_value(
+        env_name,
+        env::var(env_name).ok(),
+        default_api_key,
+        require_configured,
+    )
+    .unwrap_or_else(|error| panic!("{error}"))
+}
+
+fn sandbox_api_key_from_value(
+    env_name: &str,
+    configured_value: Option<String>,
+    default_api_key: &str,
+    require_configured: bool,
+) -> Result<String, String> {
+    if let Some(value) = configured_value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        return Ok(value);
+    }
+
+    if require_configured {
+        return Err(format!(
+            "{env_name} must be set when {REQUIRE_CONFIGURED_SANDBOX_API_KEYS_ENV}=TRUE"
+        ));
+    }
+
+    Ok(default_api_key.to_string())
 }
 
 #[derive(Clone, Debug)]
@@ -1245,6 +1303,34 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, ApiError::Unauthorized(_)));
+    }
+
+    #[test]
+    fn sandbox_api_key_requires_configured_value_when_enabled() {
+        let required = sandbox_api_key_from_value(
+            "KANI_SANDBOX_CORP_A_API_KEY",
+            None,
+            "sandbox-corp-a-token",
+            true,
+        );
+        let configured = sandbox_api_key_from_value(
+            "KANI_SANDBOX_CORP_A_API_KEY",
+            Some(" configured-key ".to_string()),
+            "sandbox-corp-a-token",
+            true,
+        )
+        .unwrap();
+        let defaulted = sandbox_api_key_from_value(
+            "KANI_SANDBOX_CORP_A_API_KEY",
+            None,
+            "sandbox-corp-a-token",
+            false,
+        )
+        .unwrap();
+
+        assert!(required.is_err());
+        assert_eq!(configured, "configured-key");
+        assert_eq!(defaulted, "sandbox-corp-a-token");
     }
 
     #[test]

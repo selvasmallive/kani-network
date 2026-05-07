@@ -1,4 +1,9 @@
 /target/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
 /.env
 /.env.*
 !/config/*.yaml

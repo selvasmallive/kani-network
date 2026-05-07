@@ -1,0 +1,106 @@
+environment:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  cost_profile: phase2-lean-no-gke
+
+gcp:
+  project_id: kani-network-sandbox
+  region: northamerica-northeast1
+
+artifact_registry:
+  repository: kani
+  image: kani-api
+
+cloud_run:
+  service: kani-sandbox-api
+  ingress: all-with-iam
+  port: 8080
+  ledger_mode: postgres
+  database_url_secret: kani-sandbox-database-url
+  min_instances: 0
+  max_instances: 1
+  unauthenticated_invocation: false
+
+api_auth:
+  require_configured_keys: true
+  source: secret-manager
+  secrets:
+    treasury: kani-sandbox-treasury-api-key
+    corp_a: kani-sandbox-corp-a-api-key
+    corp_b: kani-sandbox-corp-b-api-key
+    admin: kani-sandbox-admin-api-key
+
+validator_job:
+  job: kani-sandbox-validator
+  runtime: cloud-run-job
+  run_mode: sweep
+  max_transactions_per_block: 25
+  timeout_seconds: 300
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+validator_scheduler:
+  enabled: true
+  job: kani-sandbox-validator-schedule
+  schedule: "*/15 * * * *"
+  time_zone: America/Toronto
+  attempt_deadline_seconds: 180
+  paused: false
+  target: kani-sandbox-validator
+
+budget_guardrail:
+  enabled: true
+  scope: project
+  amount_units: 50
+  currency: CAD
+  alert_thresholds:
+    - 0.5
+    - 0.8
+    - 1.0
+  notification_emails:
+    - selva@kani.network
+  programmatic_notifications:
+    enabled: true
+    terraform_topic_attachment_enabled: true
+    attachment_note: "Cloud Billing is attached to Pub/Sub. The initial attachment required a temporary project-level Domain Restricted Sharing override so Google could grant its billing-budget-alert publisher."
+    topic: kani-sandbox-budget-notifications
+    push_subscription: kani-sandbox-budget-brake-push
+  automated_brake:
+    enabled: true
+    service: kani-sandbox-cost-guard
+    action: pause-validator-scheduler
+    threshold: 0.8
+    dry_run: false
+    target_scheduler: kani-sandbox-validator-schedule
+  hard_cap: false
+
+gke:
+  enabled: false
+  deferred_until: validator_operations_testing
+
+cloud_sql:
+  instance: kani-sandbox-ledger
+  database: kani
+  user: kani
+  database_url_secret: kani-sandbox-database-url
+  tier: db-g1-small
+  disk_size_gb: 10
+  disk_type: PD_HDD
+  backups_enabled: false
+  point_in_time_recovery_enabled: false
+
+storage:
+  enabled: false
+  deferred_until: block_archive_testing
+
+kms:
+  enabled: false
+  deferred_until: key_ceremony_testing
+
+phase_gate:
+  sandbox_only: true
+  production_value_movement_allowed: false
+  requires_legal_review_before_real_value: true
