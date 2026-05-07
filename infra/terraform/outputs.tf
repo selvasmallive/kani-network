@@ -18,6 +18,17 @@ output "cloud_sql_connection_name" {
   value       = google_sql_database_instance.ledger.connection_name
 }
 
+output "cloud_sql_recovery_settings" {
+  description = "Cloud SQL backup and point-in-time recovery settings for the sandbox ledger."
+  value = {
+    backups_enabled                = var.cloud_sql_backups_enabled
+    backup_start_time_utc          = var.cloud_sql_backups_enabled ? var.cloud_sql_backup_start_time : null
+    retained_backups               = var.cloud_sql_backups_enabled ? var.cloud_sql_backup_retained_count : 0
+    point_in_time_recovery         = var.cloud_sql_backups_enabled && var.cloud_sql_point_in_time_recovery_enabled
+    transaction_log_retention_days = var.cloud_sql_backups_enabled && var.cloud_sql_point_in_time_recovery_enabled ? var.cloud_sql_transaction_log_retention_days : 0
+  }
+}
+
 output "database_url_secret_id" {
   description = "Secret Manager secret containing DATABASE_URL."
   value       = google_secret_manager_secret.database_url.secret_id

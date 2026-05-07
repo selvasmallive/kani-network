@@ -43,8 +43,11 @@ $terraformVariables = Get-Content "infra/terraform/variables.tf" -Raw
 $leanExpectations = @{
     "database_tier small default" = '(?s)variable\s+"database_tier".*?default\s*=\s*"db-g1-small"'
     "Cloud SQL 10 GB disk default" = '(?s)variable\s+"cloud_sql_disk_size_gb".*?default\s*=\s*10'
-    "Cloud SQL backups disabled" = '(?s)variable\s+"cloud_sql_backups_enabled".*?default\s*=\s*false'
-    "Cloud SQL PITR disabled" = '(?s)variable\s+"cloud_sql_point_in_time_recovery_enabled".*?default\s*=\s*false'
+    "Cloud SQL backups enabled" = '(?s)variable\s+"cloud_sql_backups_enabled".*?default\s*=\s*true'
+    "Cloud SQL PITR enabled" = '(?s)variable\s+"cloud_sql_point_in_time_recovery_enabled".*?default\s*=\s*true'
+    "Cloud SQL backup start time" = '(?s)variable\s+"cloud_sql_backup_start_time".*?default\s*=\s*"07:00"'
+    "Cloud SQL retained backups" = '(?s)variable\s+"cloud_sql_backup_retained_count".*?default\s*=\s*7'
+    "Cloud SQL transaction log retention" = '(?s)variable\s+"cloud_sql_transaction_log_retention_days".*?default\s*=\s*7'
     "Cloud Run max instance cap" = '(?s)variable\s+"cloud_run_max_instances".*?default\s*=\s*1'
     "Cloud Run direct IAM ingress" = '(?s)variable\s+"cloud_run_ingress".*?default\s*=\s*"INGRESS_TRAFFIC_ALL"'
     "Validator job timeout" = '(?s)variable\s+"validator_job_timeout_seconds".*?default\s*=\s*300'
@@ -91,6 +94,9 @@ foreach ($expected in @(
     "KANI_SANDBOX_TREASURY_API_KEY",
     "google_secret_manager_secret.sandbox_api_key",
     "api_sandbox_api_key",
+    "transaction_log_retention_days",
+    "backup_retention_settings",
+    "cloud_sql_backup_retained_count",
     "google_cloud_scheduler_job",
     "run.googleapis.com/v2/projects",
     "roles/run.invoker",
@@ -136,6 +142,12 @@ foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_config
     }
 }
 
+foreach ($expected in @("backups_enabled:\s*true", "backup_start_time_utc:\s*`"07:00`"", "retained_backups:\s*7", "point_in_time_recovery_enabled:\s*true", "transaction_log_retention_days:\s*7")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox recovery setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 $cloudSmokeScript = Get-Content "scripts/phase2-cloud-smoke.ps1" -Raw
 foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-api-key", "KANI_SANDBOX_TREASURY_API_KEY")) {
     if ($cloudSmokeScript -notmatch $expected) {
@@ -155,6 +167,8 @@ foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-a
     budget_brake_enabled = $true
     budget_pubsub_topic_attachment_configurable = $true
     api_keys_source = "secret-manager"
+    cloud_sql_backups_enabled = $true
+    cloud_sql_point_in_time_recovery_enabled = $true
     gke_enabled = $false
     status = "ok"
 }

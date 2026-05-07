@@ -89,8 +89,11 @@ cloud_sql:
   tier: db-g1-small
   disk_size_gb: 10
   disk_type: PD_HDD
-  backups_enabled: false
-  point_in_time_recovery_enabled: false
+  backups_enabled: true
+  backup_start_time_utc: "07:00"
+  retained_backups: 7
+  point_in_time_recovery_enabled: true
+  transaction_log_retention_days: 7
 
 storage:
   enabled: false

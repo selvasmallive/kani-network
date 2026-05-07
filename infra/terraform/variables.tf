@@ -44,15 +44,48 @@ variable "cloud_sql_disk_type" {
 }
 
 variable "cloud_sql_backups_enabled" {
-  description = "Enable Cloud SQL automated backups. Disabled by default in the lean free-trial sandbox."
+  description = "Enable Cloud SQL automated backups for the sandbox ledger."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "cloud_sql_point_in_time_recovery_enabled" {
-  description = "Enable Cloud SQL point-in-time recovery. Requires backups and adds storage cost."
+  description = "Enable Cloud SQL point-in-time recovery. Requires backups and adds transaction log storage cost."
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "cloud_sql_backup_start_time" {
+  description = "UTC start time for Cloud SQL automated backups, in HH:MM format."
+  type        = string
+  default     = "07:00"
+
+  validation {
+    condition     = can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", var.cloud_sql_backup_start_time))
+    error_message = "cloud_sql_backup_start_time must use HH:MM in UTC, for example 07:00."
+  }
+}
+
+variable "cloud_sql_backup_retained_count" {
+  description = "Number of automated Cloud SQL backups to retain."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.cloud_sql_backup_retained_count >= 1 && var.cloud_sql_backup_retained_count <= 365 && floor(var.cloud_sql_backup_retained_count) == var.cloud_sql_backup_retained_count
+    error_message = "cloud_sql_backup_retained_count must be a whole number between 1 and 365."
+  }
+}
+
+variable "cloud_sql_transaction_log_retention_days" {
+  description = "Number of days of Cloud SQL transaction logs retained for point-in-time recovery."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.cloud_sql_transaction_log_retention_days >= 1 && var.cloud_sql_transaction_log_retention_days <= 7 && floor(var.cloud_sql_transaction_log_retention_days) == var.cloud_sql_transaction_log_retention_days
+    error_message = "cloud_sql_transaction_log_retention_days must be a whole number between 1 and 7 for Enterprise edition."
+  }
 }
 
 variable "cloud_run_max_instances" {
