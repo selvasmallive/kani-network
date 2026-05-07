@@ -87,7 +87,7 @@ Terraform now plans only the minimum resources needed for the end-to-end cloud M
 
 - Required Google APIs: Artifact Registry, Billing Budgets, Cloud Build, Cloud Resource Manager, Cloud Scheduler, IAM, Cloud Monitoring, Cloud Run, Pub/Sub, Secret Manager, Cloud SQL Admin.
 - Artifact Registry Docker repository: stores the shared `kani-api` / `kani-node` image tagged as `latest` and by Cloud Build ID.
-- Cloud SQL PostgreSQL instance: Enterprise edition, `db-g1-small`, `10 GB` HDD, zonal, backups disabled, PITR disabled.
+- Cloud SQL PostgreSQL instance: Enterprise edition, `db-g1-small`, `10 GB` HDD, zonal, automated backups enabled, PITR enabled.
 - Secret Manager secrets: store the generated Cloud SQL socket `DATABASE_URL` and generated sandbox API keys.
 - Cloud Run service: `kani-sandbox-api`, scale-to-zero, max `1` instance.
 - Cloud Run job: `kani-sandbox-validator`, one task, `sweep` mode, max `25` transactions per block.
@@ -120,8 +120,11 @@ The default Terraform variables are tuned for a free-trial sandbox:
 - `database_tier = "db-g1-small"`.
 - `cloud_sql_disk_size_gb = 10`.
 - `cloud_sql_disk_type = "PD_HDD"`.
-- `cloud_sql_backups_enabled = false`.
-- `cloud_sql_point_in_time_recovery_enabled = false`.
+- `cloud_sql_backups_enabled = true`.
+- `cloud_sql_point_in_time_recovery_enabled = true`.
+- `cloud_sql_backup_start_time = "07:00"` for a UTC backup window.
+- `cloud_sql_backup_retained_count = 7`.
+- `cloud_sql_transaction_log_retention_days = 7`.
 - `KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS = TRUE` in Cloud Run so the cloud API fails startup if Secret Manager keys are not injected.
 - `validator_schedule = "*/15 * * * *"` so the validator job is not running constantly.
 - `budget_amount_units = 50` with alert thresholds at `0.5`, `0.8`, and `1.0`.
@@ -137,6 +140,7 @@ The current sandbox billing account reports currency `CAD`, so the live guardrai
 Google may send a verification email for the Cloud Monitoring notification channel. Budget emails might not deliver to that explicit channel until the recipient verifies it.
 The `kani.network` organization enforces legacy domain-restricted sharing. The initial budget-to-topic attachment required a temporary project-level override so Google could grant `billing-budget-alert@system.gserviceaccount.com` Pub/Sub Publisher on the budget notification topic; the override should remain reset after attachment.
 The automated brake only pauses the validator Scheduler job. It does not stop Cloud SQL, Cloud Run API traffic, Artifact Registry storage, or all possible Google Cloud charges.
+Cloud SQL backups and PITR add backup and transaction-log storage cost, but they are now enabled because the ledger is stateful even in sandbox.
 
 ## Included In This Starter
 
@@ -200,6 +204,44 @@ Run the cloud smoke test after apply and image deployment:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
+```
+
+## Cloud SQL Recovery Runbook
+
+Use this path for sandbox recovery drills and operator mistakes. This system still must not move real value.
+
+Verify recovery settings:
+
+```powershell
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' sql instances describe kani-sandbox-ledger --project kani-network-sandbox --format "yaml(settings.backupConfiguration)"
+```
+
+List available automated backups:
+
+```powershell
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' sql backups list --instance=kani-sandbox-ledger --project kani-network-sandbox
+```
+
+Preferred drill: clone the ledger to a temporary PITR instance, verify the clone, then delete the clone after the drill.
+
+```powershell
+$RestoreTime = "2026-05-07T12:00:00.000Z"
+$CloneName = "kani-sandbox-ledger-restore-$(Get-Date -Format yyyyMMddHHmmss)"
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' sql instances clone kani-sandbox-ledger $CloneName --point-in-time $RestoreTime --project kani-network-sandbox
+```
+
+Emergency overwrite path for the sandbox only:
+
+```powershell
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' scheduler jobs pause kani-sandbox-validator-schedule --location northamerica-northeast1 --project kani-network-sandbox
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' sql backups restore BACKUP_ID --backup-instance=kani-sandbox-ledger --restore-instance=kani-sandbox-ledger --project kani-network-sandbox
+powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
+```
+
+After an emergency overwrite, inspect latest block and balances, then resume the Scheduler only if the ledger is coherent:
+
+```powershell
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' scheduler jobs resume kani-sandbox-validator-schedule --location northamerica-northeast1 --project kani-network-sandbox
 ```
 
 Destroy sandbox resources after testing:

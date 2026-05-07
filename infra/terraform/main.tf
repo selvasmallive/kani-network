@@ -121,11 +121,29 @@ resource "google_sql_database_instance" "ledger" {
 
     backup_configuration {
       enabled                        = var.cloud_sql_backups_enabled
-      point_in_time_recovery_enabled = var.cloud_sql_point_in_time_recovery_enabled
+      start_time                     = var.cloud_sql_backups_enabled ? var.cloud_sql_backup_start_time : null
+      point_in_time_recovery_enabled = var.cloud_sql_backups_enabled && var.cloud_sql_point_in_time_recovery_enabled
+      transaction_log_retention_days = var.cloud_sql_backups_enabled && var.cloud_sql_point_in_time_recovery_enabled ? var.cloud_sql_transaction_log_retention_days : null
+
+      dynamic "backup_retention_settings" {
+        for_each = var.cloud_sql_backups_enabled ? [1] : []
+
+        content {
+          retained_backups = var.cloud_sql_backup_retained_count
+          retention_unit   = "COUNT"
+        }
+      }
     }
 
     ip_configuration {
       ipv4_enabled = true
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !var.cloud_sql_point_in_time_recovery_enabled || var.cloud_sql_backups_enabled
+      error_message = "cloud_sql_point_in_time_recovery_enabled requires cloud_sql_backups_enabled."
     }
   }
 
