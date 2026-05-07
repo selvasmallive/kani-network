@@ -28,14 +28,20 @@ k8s/
 scripts/phase2-validate.ps1
 ```
 
-The intended Phase 2 topology is Cloud Run for `kani-api`, GKE for the three validator nodes, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for runtime secrets, Cloud Storage for future block/audit archives, and KMS for future production key work.
+The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, and Secret Manager for the generated database URL.
 
-The default Phase 2 Terraform settings use a lean free-trial profile: Cloud Run scales to zero and is capped at one instance, GKE is a single zonal `e2-small` node running all three validator pods, and Cloud SQL is `db-f1-micro` with a 10 GB HDD disk and backups/PITR disabled. This is the minimum useful sandbox profile, not a production or high-availability profile.
+This skips GKE for now to minimize free-trial cost. The validator job runs `kani-node` in `sweep` mode across `validator-a`, `validator-b`, and `validator-c`, so the cloud MVP can still prove payment queueing, block finalization, balances, and audit persistence end to end. GKE manifests remain in `k8s/` for later validator operations testing.
 
 Run the static Phase 2 scaffold check from PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase2-validate.ps1
+```
+
+After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
 ```
 
 ## Sandbox Boundaries

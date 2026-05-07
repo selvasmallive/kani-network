@@ -23,17 +23,12 @@ output "database_url_secret_id" {
   value       = google_secret_manager_secret.database_url.secret_id
 }
 
-output "gke_cluster_name" {
-  description = "GKE cluster for validator nodes."
-  value       = google_container_cluster.validators.name
-}
-
 output "validator_service_account" {
-  description = "Google service account intended for validator Workload Identity."
+  description = "Google service account used by the Cloud Run validator job."
   value       = google_service_account.validator.email
 }
 
-output "block_archive_bucket" {
-  description = "Cloud Storage bucket for future block archive writes."
-  value       = google_storage_bucket.block_archive.name
+output "validator_job_name" {
+  description = "Cloud Run job that sweeps sandbox validator identities and finalizes pending transactions."
+  value       = google_cloud_run_v2_job.validator.name
 }

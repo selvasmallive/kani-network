@@ -11,15 +11,13 @@ locals {
   required_services = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
-    "cloudkms.googleapis.com",
-    "compute.googleapis.com",
-    "container.googleapis.com",
     "iam.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
-    "sqladmin.googleapis.com",
-    "storage.googleapis.com"
+    "sqladmin.googleapis.com"
   ])
+
+  database_url = "postgres://kani:${urlencode(random_password.database_user.result)}@/kani?host=/cloudsql/${google_sql_database_instance.ledger.connection_name}"
 }
 
 resource "google_project_service" "required" {
@@ -30,31 +28,6 @@ resource "google_project_service" "required" {
   disable_on_destroy = false
 }
 
-resource "google_compute_network" "kani" {
-  name                    = "${var.name_prefix}-network"
-  auto_create_subnetworks = false
-
-  depends_on = [google_project_service.required]
-}
-
-resource "google_compute_subnetwork" "kani" {
-  name                     = "${var.name_prefix}-subnet"
-  ip_cidr_range            = var.network_cidr
-  region                   = var.region
-  network                  = google_compute_network.kani.id
-  private_ip_google_access = true
-
-  secondary_ip_range {
-    range_name    = "pods"
-    ip_cidr_range = var.pods_cidr
-  }
-
-  secondary_ip_range {
-    range_name    = "services"
-    ip_cidr_range = var.services_cidr
-  }
-}
-
 resource "google_artifact_registry_repository" "kani" {
   location      = var.region
   repository_id = "kani"
@@ -63,36 +36,6 @@ resource "google_artifact_registry_repository" "kani" {
   labels        = local.labels
 
   depends_on = [google_project_service.required]
-}
-
-resource "google_storage_bucket" "block_archive" {
-  name                        = "${var.project_id}-${var.name_prefix}-block-archive"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-  labels                      = local.labels
-
-  versioning {
-    enabled = true
-  }
-
-  depends_on = [google_project_service.required]
-}
-
-resource "google_kms_key_ring" "kani" {
-  name     = var.name_prefix
-  location = var.region
-
-  depends_on = [google_project_service.required]
-}
-
-resource "google_kms_crypto_key" "validator_signing" {
-  name            = "validator-signing-sandbox"
-  key_ring        = google_kms_key_ring.kani.id
-  rotation_period = "7776000s"
-
-  labels = local.labels
 }
 
 resource "google_service_account" "api" {
@@ -142,7 +85,7 @@ resource "google_sql_database" "ledger" {
 
 resource "random_password" "database_user" {
   length  = 32
-  special = true
+  special = false
 }
 
 resource "google_sql_user" "ledger" {
@@ -164,7 +107,9 @@ resource "google_secret_manager_secret" "database_url" {
 
 resource "google_secret_manager_secret_version" "database_url" {
   secret      = google_secret_manager_secret.database_url.id
-  secret_data = var.database_url
+  secret_data = local.database_url
+
+  depends_on = [google_sql_user.ledger]
 }
 
 resource "google_secret_manager_secret_iam_member" "api_database_url" {
@@ -191,23 +136,12 @@ resource "google_project_iam_member" "validator_cloud_sql_client" {
   member  = "serviceAccount:${google_service_account.validator.email}"
 }
 
-resource "google_project_iam_member" "validator_artifact_reader" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${google_service_account.validator.email}"
-}
-
-resource "google_service_account_iam_member" "validator_workload_identity" {
-  service_account_id = google_service_account.validator.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[kani-system/kani-validator]"
-}
-
 resource "google_cloud_run_v2_service" "api" {
-  name     = "${var.name_prefix}-api"
-  location = var.region
-  ingress  = var.cloud_run_ingress
-  labels   = local.labels
+  name                = "${var.name_prefix}-api"
+  location            = var.region
+  ingress             = var.cloud_run_ingress
+  deletion_protection = var.deletion_protection
+  labels              = local.labels
 
   template {
     service_account = google_service_account.api.email
@@ -300,53 +234,91 @@ resource "google_cloud_run_v2_service" "api" {
   ]
 }
 
-resource "google_container_cluster" "validators" {
-  name                     = "${var.name_prefix}-validators"
-  location                 = var.gke_location
-  remove_default_node_pool = true
-  initial_node_count       = 1
-  deletion_protection      = var.deletion_protection
-  network                  = google_compute_network.kani.id
-  subnetwork               = google_compute_subnetwork.kani.id
-  networking_mode          = "VPC_NATIVE"
+resource "google_cloud_run_v2_job" "validator" {
+  name                = "${var.name_prefix}-validator"
+  location            = var.region
+  deletion_protection = var.deletion_protection
+  labels              = local.labels
 
-  ip_allocation_policy {
-    cluster_secondary_range_name  = "pods"
-    services_secondary_range_name = "services"
-  }
+  template {
+    task_count  = 1
+    parallelism = 1
 
-  private_cluster_config {
-    enable_private_nodes    = true
-    enable_private_endpoint = false
-    master_ipv4_cidr_block  = var.master_ipv4_cidr_block
-  }
+    template {
+      service_account = google_service_account.validator.email
+      max_retries     = 0
+      timeout         = "${var.validator_job_timeout_seconds}s"
 
-  workload_identity_config {
-    workload_pool = "${var.project_id}.svc.id.goog"
-  }
+      volumes {
+        name = "cloudsql"
 
-  depends_on = [google_project_service.required]
-}
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.ledger.connection_name]
+        }
+      }
 
-resource "google_container_node_pool" "validators" {
-  name       = "validators"
-  location   = google_container_cluster.validators.location
-  cluster    = google_container_cluster.validators.name
-  node_count = var.gke_node_count
+      containers {
+        image   = var.api_image
+        command = ["kani-node"]
 
-  node_config {
-    machine_type    = var.gke_machine_type
-    disk_size_gb    = var.gke_disk_size_gb
-    disk_type       = var.gke_disk_type
-    service_account = google_service_account.validator.email
-    labels          = local.labels
+        env {
+          name  = "KANI_VALIDATOR_RUN_MODE"
+          value = "sweep"
+        }
 
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
+        env {
+          name  = "KANI_VALIDATOR_IDS"
+          value = join(",", var.validator_ids)
+        }
 
-    workload_metadata_config {
-      mode = "GKE_METADATA"
+        env {
+          name  = "KANI_MAX_TXS_PER_BLOCK"
+          value = tostring(var.validator_job_max_transactions_per_block)
+        }
+
+        env {
+          name  = "ENV"
+          value = "SANDBOX"
+        }
+
+        env {
+          name  = "REAL_VALUE"
+          value = "FALSE"
+        }
+
+        env {
+          name  = "REDEEMABLE"
+          value = "FALSE"
+        }
+
+        env {
+          name = "DATABASE_URL"
+
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.database_url.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
     }
   }
+
+  depends_on = [
+    google_project_service.required,
+    google_secret_manager_secret_iam_member.validator_database_url
+  ]
 }

@@ -1,27 +1,23 @@
 project_id = "REPLACE_WITH_GCP_PROJECT_ID"
 region     = "northamerica-northeast1"
-gke_location = "northamerica-northeast1-a"
 name_prefix  = "kani-sandbox"
 
 api_image = "northamerica-northeast1-docker.pkg.dev/REPLACE_WITH_GCP_PROJECT_ID/kani/kani-api:latest"
 
-# Sandbox only. Terraform state will contain this value.
-# For production, populate Secret Manager outside Terraform and lock down state.
-database_url = "postgres://kani:REPLACE_WITH_PASSWORD@REPLACE_WITH_HOST:5432/kani"
+# Keep false in the free-trial sandbox so resources can be destroyed after testing.
+deletion_protection = false
 
-deletion_protection = true
-
-# Lean free-trial sandbox profile. This is intentionally not production HA.
+# phase2-lean-no-gke sandbox profile. This is intentionally not production HA.
 database_tier                                = "db-f1-micro"
 cloud_sql_disk_size_gb                       = 10
 cloud_sql_disk_type                          = "PD_HDD"
 cloud_sql_backups_enabled                    = false
 cloud_sql_point_in_time_recovery_enabled     = false
 cloud_run_max_instances                      = 1
-gke_node_count                               = 1
-gke_machine_type                             = "e2-small"
-gke_disk_size_gb                             = 20
-gke_disk_type                                = "pd-standard"
+cloud_run_ingress                            = "INGRESS_TRAFFIC_ALL"
+validator_ids                                = ["validator-a", "validator-b", "validator-c"]
+validator_job_max_transactions_per_block     = 25
+validator_job_timeout_seconds                = 300
 
 labels = {
   owner = "kani"

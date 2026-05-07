@@ -9,12 +9,6 @@ variable "region" {
   default     = "northamerica-northeast1"
 }
 
-variable "gke_location" {
-  description = "Zonal location for the lean validator GKE cluster. Use a regional location only when you intentionally accept higher cost."
-  type        = string
-  default     = "northamerica-northeast1-a"
-}
-
 variable "name_prefix" {
   description = "Prefix used for Phase 2 sandbox resources."
   type        = string
@@ -22,14 +16,8 @@ variable "name_prefix" {
 }
 
 variable "api_image" {
-  description = "Artifact Registry image for kani-api and kani-node."
+  description = "Artifact Registry image for kani-api and the Cloud Run validator job."
   type        = string
-}
-
-variable "database_url" {
-  description = "Sandbox PostgreSQL DATABASE_URL stored in Secret Manager. For production, populate secrets outside Terraform state."
-  type        = string
-  sensitive   = true
 }
 
 variable "database_tier" {
@@ -67,40 +55,34 @@ variable "cloud_sql_point_in_time_recovery_enabled" {
   default     = false
 }
 
-variable "gke_node_count" {
-  description = "Number of nodes for the validator pool."
-  type        = number
-  default     = 1
-}
-
-variable "gke_machine_type" {
-  description = "Machine type for validator nodes."
-  type        = string
-  default     = "e2-small"
-}
-
-variable "gke_disk_size_gb" {
-  description = "Boot disk size in GiB for validator nodes."
-  type        = number
-  default     = 20
-}
-
-variable "gke_disk_type" {
-  description = "Boot disk type for validator nodes."
-  type        = string
-  default     = "pd-standard"
-}
-
 variable "cloud_run_max_instances" {
   description = "Maximum Cloud Run instances for kani-api in the lean sandbox."
   type        = number
   default     = 1
 }
 
+variable "validator_ids" {
+  description = "Sandbox validator identities swept by the Cloud Run validator job."
+  type        = list(string)
+  default     = ["validator-a", "validator-b", "validator-c"]
+}
+
+variable "validator_job_max_transactions_per_block" {
+  description = "Maximum pending transactions the validator job will include in one block."
+  type        = number
+  default     = 25
+}
+
+variable "validator_job_timeout_seconds" {
+  description = "Cloud Run validator job task timeout in seconds."
+  type        = number
+  default     = 300
+}
+
 variable "cloud_run_ingress" {
   description = "Cloud Run ingress setting for kani-api."
   type        = string
-  default     = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  default     = "INGRESS_TRAFFIC_ALL"
 
   validation {
     condition = contains([
@@ -112,34 +94,10 @@ variable "cloud_run_ingress" {
   }
 }
 
-variable "network_cidr" {
-  description = "Primary subnet CIDR for the sandbox network."
-  type        = string
-  default     = "10.20.0.0/20"
-}
-
-variable "pods_cidr" {
-  description = "Secondary CIDR for GKE pods."
-  type        = string
-  default     = "10.24.0.0/14"
-}
-
-variable "services_cidr" {
-  description = "Secondary CIDR for GKE services."
-  type        = string
-  default     = "10.28.0.0/20"
-}
-
-variable "master_ipv4_cidr_block" {
-  description = "Private GKE control plane CIDR. Must be a /28."
-  type        = string
-  default     = "172.16.0.0/28"
-}
-
 variable "deletion_protection" {
   description = "Enable deletion protection on stateful or expensive cloud resources."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "labels" {
