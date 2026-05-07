@@ -52,6 +52,7 @@ $leanExpectations = @{
     "Validator scheduler cadence" = '(?s)variable\s+"validator_schedule".*?default\s*=\s*"\*/15 \* \* \* \*"'
     "Budget guardrail enabled" = '(?s)variable\s+"budget_guardrail_enabled".*?default\s*=\s*true'
     "Budget guardrail amount" = '(?s)variable\s+"budget_amount_units".*?default\s*=\s*50'
+    "Budget Pub/Sub attachment switch" = '(?s)variable\s+"budget_pubsub_topic_attachment_enabled".*?default\s*=\s*true'
     "Deletion protection disabled" = '(?s)variable\s+"deletion_protection".*?default\s*=\s*false'
 }
 
@@ -79,8 +80,13 @@ foreach ($expected in @(
     "billingbudgets.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "monitoring.googleapis.com",
+    "pubsub.googleapis.com",
     "google_monitoring_notification_channel",
     "monitoring_notification_channels",
+    "google_pubsub_topic",
+    "google_pubsub_subscription",
+    "google_cloud_run_v2_service.cost_guard",
+    "KANI_BUDGET_BRAKE_THRESHOLD",
     "google_cloud_scheduler_job",
     "run.googleapis.com/v2/projects",
     "roles/run.invoker",
@@ -114,6 +120,12 @@ foreach ($expected in @("validator_scheduler:", "budget_guardrail:", "hard_cap:\
     }
 }
 
+foreach ($expected in @("programmatic_notifications:", "automated_brake:", "pause-validator-scheduler")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox automated brake setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 [pscustomobject]@{
     phase = "phase-2-cloud-mvp"
     cost_profile = "phase2-lean-no-gke"
@@ -123,6 +135,8 @@ foreach ($expected in @("validator_scheduler:", "budget_guardrail:", "hard_cap:\
     validator_runtime = "cloud-run-job"
     validator_scheduler_enabled = $true
     budget_guardrail_enabled = $true
+    budget_brake_enabled = $true
+    budget_pubsub_topic_attachment_configurable = $true
     gke_enabled = $false
     status = "ok"
 }

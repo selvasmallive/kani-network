@@ -44,7 +44,7 @@ After cloud resources are applied and the image is deployed, run the no-GKE clou
 powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
 ```
 
-The lean cloud guardrails use a 15-minute validator schedule and a `50` unit monthly budget alert in the billing account currency. The current sandbox billing account reports `CAD`, and the budget is an alerting guardrail, not a hard cap. The budget also links an explicit Cloud Monitoring email notification channel for `selva@kani.network`; Google may require the recipient to verify that email channel before it can receive alerts.
+The lean cloud guardrails use a 15-minute validator schedule and a `50` unit monthly budget alert in the billing account currency. The current sandbox billing account reports `CAD`, and the budget is an alerting guardrail, not a hard cap. The budget also links an explicit Cloud Monitoring email notification channel for `selva@kani.network`; Google may require the recipient to verify that email channel before it can receive alerts. Pub/Sub and the `kani-cost-guard` Cloud Run service are provisioned for programmatic budget notifications; if domain-restricted sharing blocks the budget-to-topic attachment, set `budget_pubsub_topic_attachment_enabled = false` and have an org-policy admin attach it after a temporary exception.
 
 ## Sandbox Boundaries
 

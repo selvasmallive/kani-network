@@ -162,6 +162,35 @@ variable "budget_alert_emails" {
   }
 }
 
+variable "budget_brake_enabled" {
+  description = "Create Pub/Sub and Cloud Run resources that pause the validator Scheduler job when budget spend crosses the brake threshold."
+  type        = bool
+  default     = true
+}
+
+variable "budget_pubsub_topic_attachment_enabled" {
+  description = "Attach the Cloud Billing budget to the Pub/Sub budget notification topic. Set false if domain-restricted sharing blocks the attachment; the topic, subscription, and cost guard service are still created."
+  type        = bool
+  default     = true
+}
+
+variable "budget_brake_threshold" {
+  description = "Decimal budget threshold that triggers the automated brake. For example, 0.8 pauses the validator schedule at 80 percent of budget."
+  type        = number
+  default     = 0.8
+
+  validation {
+    condition     = var.budget_brake_threshold > 0 && var.budget_brake_threshold <= 10
+    error_message = "budget_brake_threshold must be greater than 0 and no more than 10."
+  }
+}
+
+variable "budget_brake_dry_run" {
+  description = "When true, budget brake events are acknowledged and logged without pausing the validator Scheduler job."
+  type        = bool
+  default     = false
+}
+
 variable "cloud_run_ingress" {
   description = "Cloud Run ingress setting for kani-api."
   type        = string

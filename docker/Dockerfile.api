@@ -12,6 +12,7 @@ RUN apt-get update \
     && useradd --create-home --shell /usr/sbin/nologin kani
 WORKDIR /app
 COPY --from=builder /app/target/release/kani-api /usr/local/bin/kani-api
+COPY --from=builder /app/target/release/kani-cost-guard /usr/local/bin/kani-cost-guard
 COPY --from=builder /app/target/release/kani-node /usr/local/bin/kani-node
 COPY --from=builder /app/migrations ./migrations
 USER kani

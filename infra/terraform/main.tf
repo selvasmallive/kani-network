@@ -8,10 +8,12 @@ locals {
     var.labels
   )
 
-  cloud_build_runtime_service_account = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
-  budget_billing_account_id           = replace(trimspace(nonsensitive(var.budget_billing_account_id)), "billingAccounts/", "")
-  budget_guardrail_enabled            = var.budget_guardrail_enabled && local.budget_billing_account_id != ""
-  budget_alert_emails                 = toset([for email in var.budget_alert_emails : trimspace(email) if trimspace(email) != ""])
+  cloud_build_runtime_service_account    = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+  budget_billing_account_id              = replace(trimspace(nonsensitive(var.budget_billing_account_id)), "billingAccounts/", "")
+  budget_guardrail_enabled               = var.budget_guardrail_enabled && local.budget_billing_account_id != ""
+  budget_brake_enabled                   = local.budget_guardrail_enabled && var.budget_brake_enabled
+  budget_pubsub_topic_attachment_enabled = local.budget_brake_enabled && var.budget_pubsub_topic_attachment_enabled
+  budget_alert_emails                    = toset([for email in var.budget_alert_emails : trimspace(email) if trimspace(email) != ""])
 
   required_services = toset([
     "artifactregistry.googleapis.com",
@@ -21,6 +23,7 @@ locals {
     "cloudscheduler.googleapis.com",
     "iam.googleapis.com",
     "monitoring.googleapis.com",
+    "pubsub.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "sqladmin.googleapis.com"
@@ -70,6 +73,15 @@ resource "google_service_account" "scheduler" {
 
   account_id   = "${var.name_prefix}-scheduler"
   display_name = "KANI sandbox validator scheduler"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_service_account" "cost_guard" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  account_id   = "${var.name_prefix}-cost-guard"
+  display_name = "KANI sandbox cost guard"
 
   depends_on = [google_project_service.required]
 }
@@ -424,6 +436,175 @@ resource "google_cloud_scheduler_job" "validator" {
   ]
 }
 
+resource "google_pubsub_topic" "budget_notifications" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  project = var.project_id
+  name    = "${var.name_prefix}-budget-notifications"
+  labels  = local.labels
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_cloud_run_v2_service" "cost_guard" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  name                = "${var.name_prefix}-cost-guard"
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_ALL"
+  deletion_protection = var.deletion_protection
+  labels              = local.labels
+
+  template {
+    service_account = google_service_account.cost_guard[0].email
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 1
+    }
+
+    containers {
+      image   = var.api_image
+      command = ["kani-cost-guard"]
+
+      ports {
+        container_port = 8080
+      }
+
+      env {
+        name  = "ENV"
+        value = "SANDBOX"
+      }
+
+      env {
+        name  = "REAL_VALUE"
+        value = "FALSE"
+      }
+
+      env {
+        name  = "REDEEMABLE"
+        value = "FALSE"
+      }
+
+      env {
+        name  = "KANI_SCHEDULER_PROJECT"
+        value = var.project_id
+      }
+
+      env {
+        name  = "KANI_SCHEDULER_REGION"
+        value = var.region
+      }
+
+      env {
+        name  = "KANI_SCHEDULER_JOB"
+        value = google_cloud_scheduler_job.validator[0].name
+      }
+
+      env {
+        name  = "KANI_BUDGET_ID"
+        value = google_billing_budget.sandbox[0].name
+      }
+
+      env {
+        name  = "KANI_BUDGET_BRAKE_THRESHOLD"
+        value = tostring(var.budget_brake_threshold)
+      }
+
+      env {
+        name  = "KANI_COST_GUARD_DRY_RUN"
+        value = tostring(var.budget_brake_dry_run)
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+
+      startup_probe {
+        initial_delay_seconds = 2
+        timeout_seconds       = 3
+        period_seconds        = 10
+        failure_threshold     = 6
+
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    google_project_service.required,
+    google_cloud_scheduler_job.validator,
+    google_billing_budget.sandbox
+  ]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "cost_guard_pubsub_invoker" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.cost_guard[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.cost_guard[0].email}"
+}
+
+resource "google_project_iam_member" "cost_guard_scheduler_admin" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  project = var.project_id
+  role    = "roles/cloudscheduler.admin"
+  member  = "serviceAccount:${google_service_account.cost_guard[0].email}"
+}
+
+resource "google_service_account_iam_member" "pubsub_can_mint_cost_guard_token" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  service_account_id = google_service_account.cost_guard[0].name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_pubsub_subscription" "budget_notifications_push" {
+  count = local.budget_brake_enabled ? 1 : 0
+
+  project              = var.project_id
+  name                 = "${var.name_prefix}-budget-brake-push"
+  topic                = google_pubsub_topic.budget_notifications[0].id
+  ack_deadline_seconds = 30
+  labels               = local.labels
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.cost_guard[0].uri}/v1/budget-events"
+
+    oidc_token {
+      service_account_email = google_service_account.cost_guard[0].email
+      audience              = google_cloud_run_v2_service.cost_guard[0].uri
+    }
+  }
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "300s"
+  }
+
+  depends_on = [
+    google_cloud_run_v2_service_iam_member.cost_guard_pubsub_invoker,
+    google_service_account_iam_member.pubsub_can_mint_cost_guard_token
+  ]
+}
+
 resource "google_monitoring_notification_channel" "budget_email" {
   for_each = local.budget_guardrail_enabled ? local.budget_alert_emails : toset([])
 
@@ -470,9 +651,12 @@ resource "google_billing_budget" "sandbox" {
   }
 
   dynamic "all_updates_rule" {
-    for_each = length(google_monitoring_notification_channel.budget_email) > 0 ? [1] : []
+    for_each = length(google_monitoring_notification_channel.budget_email) > 0 || local.budget_pubsub_topic_attachment_enabled ? [1] : []
 
     content {
+      pubsub_topic   = local.budget_pubsub_topic_attachment_enabled ? google_pubsub_topic.budget_notifications[0].id : null
+      schema_version = local.budget_pubsub_topic_attachment_enabled ? "1.0" : null
+
       monitoring_notification_channels = [
         for channel in google_monitoring_notification_channel.budget_email : channel.name
       ]

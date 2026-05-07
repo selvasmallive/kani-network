@@ -47,3 +47,23 @@ output "budget_notification_channel_names" {
   description = "Cloud Monitoring email notification channels linked to the sandbox budget."
   value       = [for channel in google_monitoring_notification_channel.budget_email : channel.name]
 }
+
+output "budget_notification_topic" {
+  description = "Pub/Sub topic receiving programmatic Cloud Billing budget updates."
+  value       = try(google_pubsub_topic.budget_notifications[0].id, null)
+}
+
+output "budget_pubsub_topic_attachment_enabled" {
+  description = "Whether Terraform is attaching the Cloud Billing budget to the Pub/Sub notification topic."
+  value       = local.budget_pubsub_topic_attachment_enabled
+}
+
+output "cost_guard_service_name" {
+  description = "Cloud Run service that applies the automated budget brake."
+  value       = try(google_cloud_run_v2_service.cost_guard[0].name, null)
+}
+
+output "cost_guard_service_uri" {
+  description = "Cloud Run URI for the automated budget brake service."
+  value       = try(google_cloud_run_v2_service.cost_guard[0].uri, null)
+}

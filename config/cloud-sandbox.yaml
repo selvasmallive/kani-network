@@ -53,6 +53,19 @@ budget_guardrail:
     - 1.0
   notification_emails:
     - selva@kani.network
+  programmatic_notifications:
+    enabled: true
+    terraform_topic_attachment_enabled: false
+    attachment_note: "Domain-restricted sharing can block Cloud Billing from attaching to Pub/Sub until an org-policy admin temporarily allows the Google-managed publisher."
+    topic: kani-sandbox-budget-notifications
+    push_subscription: kani-sandbox-budget-brake-push
+  automated_brake:
+    enabled: true
+    service: kani-sandbox-cost-guard
+    action: pause-validator-scheduler
+    threshold: 0.8
+    dry_run: false
+    target_scheduler: kani-sandbox-validator-schedule
   hard_cap: false
 
 gke:
