@@ -157,7 +157,7 @@ foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_config
     }
 }
 
-foreach ($expected in @("iso20022:", "pacs\.008", "/v1/iso20022/pacs008", "single CdtTrfTxInf")) {
+foreach ($expected in @("iso20022:", "pacs\.008", "pacs\.002", "/v1/iso20022/pacs008", "/v1/iso20022/pacs002/\{payment_id\}", "single CdtTrfTxInf", "ACSC", "ACSP", "RJCT")) {
     if ($cloudSandbox -notmatch $expected) {
         throw "Expected cloud sandbox ISO 20022 setting in config/cloud-sandbox.yaml: $expected"
     }
@@ -176,9 +176,9 @@ foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-a
     }
 }
 
-foreach ($expected in @("Invoke-KaniXml", "/v1/iso20022/pacs008", "pacs.008:", "875000", "125000")) {
+foreach ($expected in @("Invoke-KaniXml", "Invoke-KaniRaw", "/v1/iso20022/pacs008", "/v1/iso20022/pacs002/", "pacs.008:", "pacs.002.001.10", "<TxSts>ACSC</TxSts>", "875000", "125000")) {
     if ($cloudSmokeScript -notmatch $expected) {
-        throw "Expected cloud smoke test to exercise ISO 20022 pacs.008 flow: $expected"
+        throw "Expected cloud smoke test to exercise ISO 20022 pacs.008/pacs.002 flow: $expected"
     }
 }
 
@@ -195,6 +195,7 @@ foreach ($expected in @("Invoke-KaniXml", "/v1/iso20022/pacs008", "pacs.008:", "
     budget_pubsub_topic_attachment_configurable = $true
     api_keys_source = "secret-manager"
     iso20022_pacs008_enabled = $true
+    iso20022_pacs002_enabled = $true
     cloud_sql_backups_enabled = $true
     cloud_sql_point_in_time_recovery_enabled = $true
     monitoring_alerts_enabled = $true

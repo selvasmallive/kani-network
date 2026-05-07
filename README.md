@@ -50,7 +50,7 @@ The lean cloud guardrails use a 15-minute validator schedule and a `50` unit mon
 
 Cloud Run sets `KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS=TRUE` and loads all sandbox API keys from Secret Manager. The checked-in default keys remain only for local simulation; the cloud smoke test reads the live keys from Secret Manager.
 
-The initial ISO 20022 endpoint is `POST /v1/iso20022/pacs008`. It accepts a single-transfer `pacs.008` XML document, maps debtor and creditor account identifiers to sandbox accounts, and submits the payment through the same ledger path as `POST /v1/payments`.
+The initial ISO 20022 endpoints are `POST /v1/iso20022/pacs008` and `GET /v1/iso20022/pacs002/{payment_id}`. They accept a single-transfer `pacs.008` XML document, map debtor and creditor account identifiers to sandbox accounts, submit the payment through the same ledger path as `POST /v1/payments`, and return a basic `pacs.002` XML status report.
 
 ## Sandbox Boundaries
 

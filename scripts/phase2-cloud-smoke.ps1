@@ -98,6 +98,19 @@ function Invoke-KaniXml {
     return Invoke-RestMethod -Method $Method -Uri $uri -Headers $requestHeaders -ContentType "application/xml" -Body $Body
 }
 
+function Invoke-KaniRaw {
+    param(
+        [string]$Method,
+        [string]$Path,
+        [hashtable]$Headers
+    )
+
+    $uri = "$BaseUrl$Path"
+    $requestHeaders = Join-Headers $Headers
+
+    return (Invoke-WebRequest -UseBasicParsing -Method $Method -Uri $uri -Headers $requestHeaders).Content
+}
+
 function Invoke-ValidatorJob {
     if ($SkipValidatorJob) {
         return
@@ -212,6 +225,19 @@ if ($isoTransfer.payment.client_reference_id -ne $expectedIsoReferenceId) {
 }
 Invoke-ValidatorJob
 
+$isoStatusXml = Invoke-KaniRaw -Method Get -Path "/v1/iso20022/pacs002/$($isoTransfer.payment.payment_id)" -Headers $corpAHeaders
+foreach ($expected in @(
+    "pacs.002.001.10",
+    "<OrgnlMsgId>$isoMessageId</OrgnlMsgId>",
+    "<OrgnlEndToEndId>$isoEndToEndId</OrgnlEndToEndId>",
+    "<TxSts>ACSC</TxSts>",
+    "<TxId>$($isoTransfer.payment.transaction_id)</TxId>"
+)) {
+    if ($isoStatusXml -notmatch [regex]::Escape($expected)) {
+        throw "Expected pacs.002 XML to contain $expected"
+    }
+}
+
 $balanceA = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_A/balances/$asset" -Headers $corpAHeaders
 $balanceB = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_B/balances/$asset" -Headers $corpBHeaders
 $latestBlock = Invoke-KaniJson -Method Get -Path "/v1/blocks/latest" -Headers $adminHeaders
@@ -236,6 +262,7 @@ if ([int64]$pending.count -ne 0) {
     transfer_transaction = $transfer.transaction_id
     iso_transaction = $isoTransfer.payment.transaction_id
     iso_message_id = $isoTransfer.message_id
+    iso_status = "ACSC"
     corp_a_balance = $balanceA.amount
     corp_b_balance = $balanceB.amount
     latest_block_height = $latestBlock.height

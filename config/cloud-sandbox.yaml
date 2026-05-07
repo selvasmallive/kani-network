@@ -35,12 +35,18 @@ iso20022:
   enabled: true
   supported_messages:
     - pacs.008
+    - pacs.002
   ingest_endpoint: /v1/iso20022/pacs008
+  status_endpoint: /v1/iso20022/pacs002/{payment_id}
   sandbox_mapping:
     debtor_account: DbtrAcct/Id/Othr/Id
     creditor_account: CdtrAcct/Id/Othr/Id
     asset: IntrBkSttlmAmt/@Ccy
     amount: IntrBkSttlmAmt
+    status:
+      pending: ACSP
+      finalized: ACSC
+      rejected: RJCT
   restrictions:
     - single CdtTrfTxInf per message
     - amount must be a positive integer in KANI minor units

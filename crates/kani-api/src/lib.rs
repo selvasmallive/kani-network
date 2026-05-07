@@ -6,7 +6,10 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
-use kani_iso20022::{parse_pacs008_credit_transfer, Iso20022Error, Pacs008CreditTransfer};
+use kani_iso20022::{
+    build_pacs002_status_report, parse_pacs008_credit_transfer, Iso20022Error,
+    Pacs002PaymentStatus, Pacs002TransactionStatus, Pacs008CreditTransfer,
+};
 use kani_ledger::{AuditEventSearch, BlockSearch};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
@@ -497,6 +500,7 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/v1/payments", post(create_payment))
         .route("/v1/payments/:id", get(get_payment))
         .route("/v1/iso20022/pacs008", post(create_pacs008_payment))
+        .route("/v1/iso20022/pacs002/:payment_id", get(get_pacs002_status))
         .route("/v1/accounts", get(get_accounts))
         .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
@@ -607,6 +611,66 @@ fn pacs008_client_reference_id(transfer: &Pacs008CreditTransfer) -> String {
         transfer.message_id.trim(),
         transfer.end_to_end_id.trim()
     )
+}
+
+fn pacs002_status_from_payment(record: &PaymentRecord) -> Pacs002PaymentStatus {
+    let transaction = &record.transaction;
+    let (original_message_id, original_end_to_end_id) = original_pacs008_ids(record)
+        .unwrap_or_else(|| {
+            (
+                record
+                    .client_reference_id
+                    .clone()
+                    .unwrap_or_else(|| transaction.id.clone()),
+                transaction.id.clone(),
+            )
+        });
+
+    Pacs002PaymentStatus {
+        message_id: format!(
+            "pacs.002:{}:{}",
+            transaction.id,
+            pacs002_status_code(record.status.clone())
+        ),
+        created_at: Utc::now().to_rfc3339(),
+        original_message_id,
+        original_message_name_id: "pacs.008.001.08".to_string(),
+        original_instruction_id: transaction.id.clone(),
+        original_end_to_end_id,
+        transaction_id: transaction.id.clone(),
+        status: pacs002_transaction_status(record.status.clone()),
+        status_reason: record.failure_reason.clone(),
+        asset: transaction.asset.clone(),
+        amount: transaction.amount,
+        debtor_account: transaction.from.clone(),
+        creditor_account: transaction.to.clone(),
+    }
+}
+
+fn original_pacs008_ids(record: &PaymentRecord) -> Option<(String, String)> {
+    let reference_id = record.client_reference_id.as_deref()?;
+    let payload = reference_id.strip_prefix("pacs.008:")?;
+    let (message_id, end_to_end_id) = payload.rsplit_once(':')?;
+    if message_id.trim().is_empty() || end_to_end_id.trim().is_empty() {
+        return None;
+    }
+
+    Some((
+        message_id.trim().to_string(),
+        end_to_end_id.trim().to_string(),
+    ))
+}
+
+fn pacs002_transaction_status(status: TransactionStatus) -> Pacs002TransactionStatus {
+    match status {
+        TransactionStatus::Pending => Pacs002TransactionStatus::AcceptedSettlementInProcess,
+        TransactionStatus::Finalized => Pacs002TransactionStatus::AcceptedSettlementCompleted,
+        TransactionStatus::Rejected => Pacs002TransactionStatus::Rejected,
+    }
+}
+
+fn pacs002_status_code(status: TransactionStatus) -> &'static str {
+    pacs002_transaction_status(status).code()
 }
 
 fn normalized_client_reference_id(
@@ -1021,11 +1085,35 @@ async fn get_payment(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<PaymentResponse>, ApiError> {
+    let record = read_authorized_payment(&state, &headers, &id, "read_payment").await?;
+
+    Ok(Json(record.into()))
+}
+
+async fn get_pacs002_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(payment_id): Path<String>,
+) -> Result<Response, ApiError> {
+    let record =
+        read_authorized_payment(&state, &headers, &payment_id, "read_iso20022_pacs002").await?;
+    let status = pacs002_status_from_payment(&record);
+    let xml = build_pacs002_status_report(&status);
+
+    Ok(([(header::CONTENT_TYPE, "application/xml")], xml).into_response())
+}
+
+async fn read_authorized_payment(
+    state: &AppState,
+    headers: &HeaderMap,
+    id: &str,
+    action: &'static str,
+) -> Result<PaymentRecord, ApiError> {
     let resource = format!("payment:{id}");
-    let auth = authenticate_request(&state, &headers, "read_payment", &resource).await?;
+    let auth = authenticate_request(state, headers, action, &resource).await?;
     let record = state
         .node
-        .get_payment(&id)
+        .get_payment(id)
         .await
         .map_err(|error| match error {
             NodeError::Ledger(kani_ledger::LedgerError::UnknownPayment(_)) => {
@@ -1034,20 +1122,12 @@ async fn get_payment(
             other => ApiError::from(other),
         })?;
     if let Err(error) = authorize_payment_read(&state.node, &auth, &record).await {
-        audit_authorization_denied(
-            &state,
-            &headers,
-            Some(&auth),
-            "read_payment",
-            &resource,
-            &error,
-        )
-        .await?;
+        audit_authorization_denied(state, headers, Some(&auth), action, &resource, &error).await?;
         return Err(error);
     }
-    audit_authorization_allowed(&state, &headers, &auth, "read_payment", &resource).await?;
+    audit_authorization_allowed(state, headers, &auth, action, &resource).await?;
 
-    Ok(Json(record.into()))
+    Ok(record)
 }
 
 async fn get_accounts(
@@ -1486,6 +1566,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn pacs002_status_maps_finalized_iso_payment() {
+        let mut tx =
+            kani_types::Transaction::new_transfer("CORP_A", "CORP_B", "KCAD_TEST", 25000, 1);
+        tx.id = "payment-001".to_string();
+        tx.metadata.insert(
+            "client_reference_id".to_string(),
+            "pacs.008:msg-001:e2e-001".to_string(),
+        );
+        let record = PaymentRecord::finalized(tx, 2, "block-hash".to_string());
+
+        let status = pacs002_status_from_payment(&record);
+
+        assert_eq!(status.message_id, "pacs.002:payment-001:ACSC");
+        assert_eq!(status.original_message_id, "msg-001");
+        assert_eq!(status.original_message_name_id, "pacs.008.001.08");
+        assert_eq!(status.original_instruction_id, "payment-001");
+        assert_eq!(status.original_end_to_end_id, "e2e-001");
+        assert_eq!(status.transaction_id, "payment-001");
+        assert_eq!(
+            status.status,
+            Pacs002TransactionStatus::AcceptedSettlementCompleted
+        );
+        assert_eq!(status.asset, "KCAD_TEST");
+        assert_eq!(status.amount, 25000);
+        assert_eq!(status.debtor_account, "CORP_A");
+        assert_eq!(status.creditor_account, "CORP_B");
+    }
+
+    #[test]
+    fn pacs002_status_maps_pending_and_rejected_payments() {
+        let mut pending_tx =
+            kani_types::Transaction::new_transfer("CORP_A", "CORP_B", "KCAD_TEST", 25000, 1);
+        pending_tx.id = "pending-payment".to_string();
+        let pending = PaymentRecord::pending(pending_tx);
+        let pending_status = pacs002_status_from_payment(&pending);
+        assert_eq!(
+            pending_status.status,
+            Pacs002TransactionStatus::AcceptedSettlementInProcess
+        );
+        assert_eq!(pending_status.original_message_id, pending.transaction.id);
+
+        let mut rejected_tx =
+            kani_types::Transaction::new_transfer("CORP_A", "CORP_B", "KCAD_TEST", 25000, 1);
+        rejected_tx.id = "rejected-payment".to_string();
+        let rejected = PaymentRecord::rejected(rejected_tx, "insufficient funds");
+        let rejected_status = pacs002_status_from_payment(&rejected);
+        assert_eq!(rejected_status.status, Pacs002TransactionStatus::Rejected);
+        assert_eq!(
+            rejected_status.status_reason.as_deref(),
+            Some("insufficient funds")
+        );
+    }
+
     #[tokio::test]
     async fn institution_can_authorize_own_account() {
         let node = KaniNode::sandbox_default();
@@ -1664,6 +1798,7 @@ mod tests {
             "/v1/payments",
             "/v1/payments/{id}",
             "/v1/iso20022/pacs008",
+            "/v1/iso20022/pacs002/{payment_id}",
             "/v1/accounts",
             "/v1/accounts/{account_id}/balances/{asset}",
             "/v1/assets/{asset}/issued",
