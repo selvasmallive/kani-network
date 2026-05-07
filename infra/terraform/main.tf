@@ -8,6 +8,8 @@ locals {
     var.labels
   )
 
+  cloud_build_runtime_service_account = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+
   required_services = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
@@ -17,7 +19,11 @@ locals {
     "sqladmin.googleapis.com"
   ])
 
-  database_url = "postgres://kani:${urlencode(random_password.database_user.result)}@/kani?host=/cloudsql/${google_sql_database_instance.ledger.connection_name}"
+  database_url = "postgres://kani:${urlencode(random_password.database_user.result)}@localhost/kani?host=/cloudsql/${google_sql_database_instance.ledger.connection_name}"
+}
+
+data "google_project" "current" {
+  project_id = var.project_id
 }
 
 resource "google_project_service" "required" {
@@ -64,6 +70,7 @@ resource "google_sql_database_instance" "ledger" {
     disk_autoresize   = true
     disk_size         = var.cloud_sql_disk_size_gb
     disk_type         = var.cloud_sql_disk_type
+    edition           = "ENTERPRISE"
 
     backup_configuration {
       enabled                        = var.cloud_sql_backups_enabled
@@ -136,6 +143,24 @@ resource "google_project_iam_member" "validator_cloud_sql_client" {
   member  = "serviceAccount:${google_service_account.validator.email}"
 }
 
+resource "google_project_iam_member" "cloud_build_artifact_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${local.cloud_build_runtime_service_account}"
+}
+
+resource "google_project_iam_member" "cloud_build_source_reader" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${local.cloud_build_runtime_service_account}"
+}
+
+resource "google_project_iam_member" "cloud_build_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${local.cloud_build_runtime_service_account}"
+}
+
 resource "google_cloud_run_v2_service" "api" {
   name                = "${var.name_prefix}-api"
   location            = var.region
@@ -197,7 +222,7 @@ resource "google_cloud_run_v2_service" "api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.database_url.secret_id
-            version = "latest"
+            version = google_secret_manager_secret_version.database_url.version
           }
         }
       }
@@ -297,7 +322,7 @@ resource "google_cloud_run_v2_job" "validator" {
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.database_url.secret_id
-              version = "latest"
+              version = google_secret_manager_secret_version.database_url.version
             }
           }
         }

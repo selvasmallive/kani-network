@@ -39,7 +39,13 @@ if (-not $BaseUrl) {
 
 $authorizationHeaders = @{}
 if (-not $SkipIdentityToken) {
-    $token = (& $gcloud auth print-identity-token "--audiences=$BaseUrl").Trim()
+    $activeAccount = (& $gcloud config get-value account 2>$null).Trim()
+    if ($activeAccount -match "gserviceaccount\.com$") {
+        $token = (& $gcloud auth print-identity-token "--audiences=$BaseUrl").Trim()
+    } else {
+        $token = (& $gcloud auth print-identity-token)
+        $token = $token.Trim()
+    }
     if ($token) {
         $authorizationHeaders["Authorization"] = "Bearer $token"
     }

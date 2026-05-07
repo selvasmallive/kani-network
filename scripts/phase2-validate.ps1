@@ -70,6 +70,16 @@ foreach ($expected in @("google_cloud_run_v2_job", "KANI_VALIDATOR_RUN_MODE", "K
     }
 }
 
+if ($terraformMain -notmatch 'edition\s*=\s*"ENTERPRISE"') {
+    throw "Expected Cloud SQL Enterprise edition pin for db-g1-small in infra/terraform/main.tf"
+}
+
+foreach ($expected in @("cloud_build_artifact_writer", "cloud_build_source_reader", "cloud_build_log_writer")) {
+    if ($terraformMain -notmatch $expected) {
+        throw "Expected Cloud Build IAM grant in infra/terraform/main.tf: $expected"
+    }
+}
+
 $cloudSandbox = Get-Content "config/cloud-sandbox.yaml" -Raw
 if ($cloudSandbox -notmatch "cost_profile:\s*phase2-lean-no-gke") {
     throw "Expected phase2-lean-no-gke cost profile in config/cloud-sandbox.yaml"

@@ -70,12 +70,13 @@ This preserves the Phase 1 PoA/finality model for MVP testing without paying for
 Terraform now plans only the minimum resources needed for the end-to-end cloud MVP:
 
 - Required Google APIs: Artifact Registry, Cloud Build, IAM, Cloud Run, Secret Manager, Cloud SQL Admin.
-- Artifact Registry Docker repository: stores the shared `kani-api` / `kani-node` image.
-- Cloud SQL PostgreSQL instance: `db-g1-small`, `10 GB` HDD, zonal, backups disabled, PITR disabled.
+- Artifact Registry Docker repository: stores the shared `kani-api` / `kani-node` image tagged as `latest` and by Cloud Build ID.
+- Cloud SQL PostgreSQL instance: Enterprise edition, `db-g1-small`, `10 GB` HDD, zonal, backups disabled, PITR disabled.
 - Secret Manager secret: stores the generated Cloud SQL socket `DATABASE_URL`.
 - Cloud Run service: `kani-sandbox-api`, scale-to-zero, max `1` instance.
 - Cloud Run job: `kani-sandbox-validator`, one task, `sweep` mode, max `25` transactions per block.
 - IAM service accounts and minimum runtime permissions for Cloud SQL and Secret Manager.
+- Cloud Build runtime IAM grants for source archive reads, Artifact Registry writes, and build logging.
 
 Skipped for this profile:
 
