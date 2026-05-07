@@ -33,6 +33,26 @@ validator_job:
     - validator-b
     - validator-c
 
+validator_scheduler:
+  enabled: true
+  job: kani-sandbox-validator-schedule
+  schedule: "*/15 * * * *"
+  time_zone: America/Toronto
+  attempt_deadline_seconds: 180
+  paused: false
+  target: kani-sandbox-validator
+
+budget_guardrail:
+  enabled: true
+  scope: project
+  amount_units: 50
+  currency: CAD
+  alert_thresholds:
+    - 0.5
+    - 0.8
+    - 1.0
+  hard_cap: false
+
 gke:
   enabled: false
   deferred_until: validator_operations_testing

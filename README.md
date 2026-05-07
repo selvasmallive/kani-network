@@ -28,7 +28,7 @@ k8s/
 scripts/phase2-validate.ps1
 ```
 
-The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, and Secret Manager for the generated database URL.
+The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL, and a project-scoped Cloud Billing budget alert.
 
 This skips GKE for now to minimize free-trial cost. The validator job runs `kani-node` in `sweep` mode across `validator-a`, `validator-b`, and `validator-c`, so the cloud MVP can still prove payment queueing, block finalization, balances, and audit persistence end to end. GKE manifests remain in `k8s/` for later validator operations testing.
 
@@ -43,6 +43,8 @@ After cloud resources are applied and the image is deployed, run the no-GKE clou
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
 ```
+
+The lean cloud guardrails use a 15-minute validator schedule and a `50` unit monthly budget alert in the billing account currency. The current sandbox billing account reports `CAD`, and the budget is an alerting guardrail, not a hard cap.
 
 ## Sandbox Boundaries
 

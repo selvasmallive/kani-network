@@ -48,6 +48,10 @@ $leanExpectations = @{
     "Cloud Run max instance cap" = '(?s)variable\s+"cloud_run_max_instances".*?default\s*=\s*1'
     "Cloud Run direct IAM ingress" = '(?s)variable\s+"cloud_run_ingress".*?default\s*=\s*"INGRESS_TRAFFIC_ALL"'
     "Validator job timeout" = '(?s)variable\s+"validator_job_timeout_seconds".*?default\s*=\s*300'
+    "Validator scheduler enabled" = '(?s)variable\s+"validator_scheduler_enabled".*?default\s*=\s*true'
+    "Validator scheduler cadence" = '(?s)variable\s+"validator_schedule".*?default\s*=\s*"\*/15 \* \* \* \*"'
+    "Budget guardrail enabled" = '(?s)variable\s+"budget_guardrail_enabled".*?default\s*=\s*true'
+    "Budget guardrail amount" = '(?s)variable\s+"budget_amount_units".*?default\s*=\s*50'
     "Deletion protection disabled" = '(?s)variable\s+"deletion_protection".*?default\s*=\s*false'
 }
 
@@ -70,6 +74,22 @@ foreach ($expected in @("google_cloud_run_v2_job", "KANI_VALIDATOR_RUN_MODE", "K
     }
 }
 
+foreach ($expected in @(
+    "cloudscheduler.googleapis.com",
+    "billingbudgets.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "google_cloud_scheduler_job",
+    "run.googleapis.com/v2/projects",
+    "roles/run.invoker",
+    "google_billing_budget",
+    "budget_filter",
+    "threshold_rules"
+)) {
+    if ($terraformMain -notmatch $expected) {
+        throw "Expected Scheduler/Budget guardrail setting in infra/terraform/main.tf: $expected"
+    }
+}
+
 if ($terraformMain -notmatch 'edition\s*=\s*"ENTERPRISE"') {
     throw "Expected Cloud SQL Enterprise edition pin for db-g1-small in infra/terraform/main.tf"
 }
@@ -85,6 +105,12 @@ if ($cloudSandbox -notmatch "cost_profile:\s*phase2-lean-no-gke") {
     throw "Expected phase2-lean-no-gke cost profile in config/cloud-sandbox.yaml"
 }
 
+foreach ($expected in @("validator_scheduler:", "budget_guardrail:", "hard_cap:\s*false")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox guardrail setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 [pscustomobject]@{
     phase = "phase-2-cloud-mvp"
     cost_profile = "phase2-lean-no-gke"
@@ -92,6 +118,8 @@ if ($cloudSandbox -notmatch "cost_profile:\s*phase2-lean-no-gke") {
     sandbox_boundary_checked = $true
     validator_count = 3
     validator_runtime = "cloud-run-job"
+    validator_scheduler_enabled = $true
+    budget_guardrail_enabled = $true
     gke_enabled = $false
     status = "ok"
 }

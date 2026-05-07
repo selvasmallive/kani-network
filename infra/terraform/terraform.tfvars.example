@@ -1,6 +1,6 @@
-project_id = "REPLACE_WITH_GCP_PROJECT_ID"
-region     = "northamerica-northeast1"
-name_prefix  = "kani-sandbox"
+project_id  = "REPLACE_WITH_GCP_PROJECT_ID"
+region      = "northamerica-northeast1"
+name_prefix = "kani-sandbox"
 
 api_image = "northamerica-northeast1-docker.pkg.dev/REPLACE_WITH_GCP_PROJECT_ID/kani/kani-api:latest"
 
@@ -18,6 +18,18 @@ cloud_run_ingress                            = "INGRESS_TRAFFIC_ALL"
 validator_ids                                = ["validator-a", "validator-b", "validator-c"]
 validator_job_max_transactions_per_block     = 25
 validator_job_timeout_seconds                = 300
+validator_scheduler_enabled                  = true
+validator_schedule                           = "*/15 * * * *"
+validator_scheduler_time_zone                = "America/Toronto"
+validator_scheduler_attempt_deadline_seconds = 180
+validator_scheduler_paused                   = false
+
+# Set this before apply if you want Terraform to create the budget guardrail.
+# You can use either 000000-000000-000000 or billingAccounts/000000-000000-000000.
+budget_guardrail_enabled  = true
+budget_billing_account_id = "REPLACE_WITH_BILLING_ACCOUNT_ID"
+budget_amount_units       = 50
+budget_alert_thresholds   = [0.5, 0.8, 1.0]
 
 labels = {
   owner = "kani"

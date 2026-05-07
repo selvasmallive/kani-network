@@ -32,3 +32,13 @@ output "validator_job_name" {
   description = "Cloud Run job that sweeps sandbox validator identities and finalizes pending transactions."
   value       = google_cloud_run_v2_job.validator.name
 }
+
+output "validator_scheduler_job_name" {
+  description = "Cloud Scheduler job that periodically executes the sandbox validator job."
+  value       = try(google_cloud_scheduler_job.validator[0].name, null)
+}
+
+output "budget_guardrail_name" {
+  description = "Cloud Billing budget resource name for the sandbox project guardrail."
+  value       = try(google_billing_budget.sandbox[0].name, null)
+}

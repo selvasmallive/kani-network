@@ -9,10 +9,15 @@ locals {
   )
 
   cloud_build_runtime_service_account = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+  budget_billing_account_id           = replace(trimspace(var.budget_billing_account_id), "billingAccounts/", "")
+  budget_guardrail_enabled            = var.budget_guardrail_enabled && local.budget_billing_account_id != ""
 
   required_services = toset([
     "artifactregistry.googleapis.com",
+    "billingbudgets.googleapis.com",
     "cloudbuild.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "cloudscheduler.googleapis.com",
     "iam.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
@@ -54,6 +59,15 @@ resource "google_service_account" "api" {
 resource "google_service_account" "validator" {
   account_id   = "${var.name_prefix}-validator"
   display_name = "KANI sandbox validator"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_service_account" "scheduler" {
+  count = var.validator_scheduler_enabled ? 1 : 0
+
+  account_id   = "${var.name_prefix}-scheduler"
+  display_name = "KANI sandbox validator scheduler"
 
   depends_on = [google_project_service.required]
 }
@@ -346,4 +360,92 @@ resource "google_cloud_run_v2_job" "validator" {
     google_project_service.required,
     google_secret_manager_secret_iam_member.validator_database_url
   ]
+}
+
+resource "google_cloud_run_v2_job_iam_member" "scheduler_run_validator" {
+  count = var.validator_scheduler_enabled ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_job.validator.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.scheduler[0].email}"
+}
+
+resource "google_service_account_iam_member" "scheduler_can_act_as_validator" {
+  count = var.validator_scheduler_enabled ? 1 : 0
+
+  service_account_id = google_service_account.validator.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.scheduler[0].email}"
+}
+
+resource "google_cloud_scheduler_job" "validator" {
+  count = var.validator_scheduler_enabled ? 1 : 0
+
+  project          = var.project_id
+  region           = var.region
+  name             = "${var.name_prefix}-validator-schedule"
+  description      = "Runs the KANI sandbox validator sweep job on a lean no-GKE cadence."
+  schedule         = var.validator_schedule
+  time_zone        = var.validator_scheduler_time_zone
+  attempt_deadline = "${var.validator_scheduler_attempt_deadline_seconds}s"
+  paused           = var.validator_scheduler_paused
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.validator.name}:run"
+    body        = base64encode("{}")
+
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler[0].email
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
+    }
+  }
+
+  retry_config {
+    retry_count          = 1
+    min_backoff_duration = "30s"
+    max_backoff_duration = "300s"
+    max_retry_duration   = "300s"
+    max_doublings        = 1
+  }
+
+  depends_on = [
+    google_project_service.required,
+    google_cloud_run_v2_job_iam_member.scheduler_run_validator,
+    google_service_account_iam_member.scheduler_can_act_as_validator
+  ]
+}
+
+resource "google_billing_budget" "sandbox" {
+  count = local.budget_guardrail_enabled ? 1 : 0
+
+  billing_account = local.budget_billing_account_id
+  display_name    = "${var.name_prefix}-monthly-budget"
+
+  amount {
+    specified_amount {
+      units = tostring(var.budget_amount_units)
+    }
+  }
+
+  budget_filter {
+    calendar_period        = "MONTH"
+    credit_types_treatment = "INCLUDE_ALL_CREDITS"
+    projects               = ["projects/${data.google_project.current.number}"]
+  }
+
+  dynamic "threshold_rules" {
+    for_each = var.budget_alert_thresholds
+
+    content {
+      threshold_percent = threshold_rules.value
+      spend_basis       = "CURRENT_SPEND"
+    }
+  }
 }
