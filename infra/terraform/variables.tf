@@ -23,7 +23,7 @@ variable "api_image" {
 variable "database_tier" {
   description = "Cloud SQL machine tier for the sandbox ledger."
   type        = string
-  default     = "db-f1-micro"
+  default     = "db-g1-small"
 }
 
 variable "cloud_sql_disk_size_gb" {

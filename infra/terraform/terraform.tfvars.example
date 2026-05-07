@@ -8,7 +8,7 @@ api_image = "northamerica-northeast1-docker.pkg.dev/REPLACE_WITH_GCP_PROJECT_ID/
 deletion_protection = false
 
 # phase2-lean-no-gke sandbox profile. This is intentionally not production HA.
-database_tier                                = "db-f1-micro"
+database_tier                                = "db-g1-small"
 cloud_sql_disk_size_gb                       = 10
 cloud_sql_disk_type                          = "PD_HDD"
 cloud_sql_backups_enabled                    = false

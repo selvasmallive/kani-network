@@ -71,7 +71,7 @@ Terraform now plans only the minimum resources needed for the end-to-end cloud M
 
 - Required Google APIs: Artifact Registry, Cloud Build, IAM, Cloud Run, Secret Manager, Cloud SQL Admin.
 - Artifact Registry Docker repository: stores the shared `kani-api` / `kani-node` image.
-- Cloud SQL PostgreSQL instance: `db-f1-micro`, `10 GB` HDD, zonal, backups disabled, PITR disabled.
+- Cloud SQL PostgreSQL instance: `db-g1-small`, `10 GB` HDD, zonal, backups disabled, PITR disabled.
 - Secret Manager secret: stores the generated Cloud SQL socket `DATABASE_URL`.
 - Cloud Run service: `kani-sandbox-api`, scale-to-zero, max `1` instance.
 - Cloud Run job: `kani-sandbox-validator`, one task, `sweep` mode, max `25` transactions per block.
@@ -95,7 +95,7 @@ The default Terraform variables are tuned for a free-trial sandbox:
 - `deletion_protection = false` so you can destroy resources after testing.
 - `cloud_run_max_instances = 1`.
 - `cloud_run_ingress = "INGRESS_TRAFFIC_ALL"` so direct Cloud Run testing works without a load balancer; Cloud Run IAM still controls invocation unless you explicitly grant public access.
-- `database_tier = "db-f1-micro"`.
+- `database_tier = "db-g1-small"`.
 - `cloud_sql_disk_size_gb = 10`.
 - `cloud_sql_disk_type = "PD_HDD"`.
 - `cloud_sql_backups_enabled = false`.

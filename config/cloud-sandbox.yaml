@@ -42,7 +42,7 @@ cloud_sql:
   database: kani
   user: kani
   database_url_secret: kani-sandbox-database-url
-  tier: db-f1-micro
+  tier: db-g1-small
   disk_size_gb: 10
   disk_type: PD_HDD
   backups_enabled: false

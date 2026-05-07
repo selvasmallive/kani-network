@@ -41,7 +41,7 @@ foreach ($file in $sandboxFiles) {
 
 $terraformVariables = Get-Content "infra/terraform/variables.tf" -Raw
 $leanExpectations = @{
-    "database_tier micro default" = '(?s)variable\s+"database_tier".*?default\s*=\s*"db-f1-micro"'
+    "database_tier small default" = '(?s)variable\s+"database_tier".*?default\s*=\s*"db-g1-small"'
     "Cloud SQL 10 GB disk default" = '(?s)variable\s+"cloud_sql_disk_size_gb".*?default\s*=\s*10'
     "Cloud SQL backups disabled" = '(?s)variable\s+"cloud_sql_backups_enabled".*?default\s*=\s*false'
     "Cloud SQL PITR disabled" = '(?s)variable\s+"cloud_sql_point_in_time_recovery_enabled".*?default\s*=\s*false'
