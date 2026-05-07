@@ -54,6 +54,19 @@ Supporting services:
 - Workload Identity ready service account boundary for validators.
 - Cloud SQL connector/proxy path for Cloud Run and GKE validator database access.
 
+## Current Sandbox Project
+
+The current Google Cloud sandbox project is:
+
+```text
+Project ID: kani-network-sandbox
+Project name: kani-network
+Organization: kani.network
+Billing: linked
+```
+
+The original `kani-network` project ID is not accessible to the `selva@kani.network` account, so Phase 2 uses the dedicated `kani-network-sandbox` project ID.
+
 ## Included In This Starter
 
 - Terraform skeleton in `infra/terraform`.
@@ -80,6 +93,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase2-validate.ps1
 8. Apply the validator manifests to the GKE cluster.
 9. Deploy `kani-api` to Cloud Run through Terraform.
 10. Run Phase 1 smoke checks against the Cloud Run URL once network access is enabled.
+
+## Local Planning Commands
+
+Use the installed tool paths on this workstation if they are not on `PATH`:
+
+```powershell
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' config set project kani-network-sandbox
+& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' auth application-default login --project=kani-network-sandbox
+& 'C:\ProgramData\chocolatey\bin\terraform.exe' -chdir=infra\terraform init -backend=false
+& 'C:\ProgramData\chocolatey\bin\terraform.exe' -chdir=infra\terraform validate
+& 'C:\ProgramData\chocolatey\bin\terraform.exe' -chdir=infra\terraform plan
+```
+
+Do not run `terraform apply` until you are ready to create paid sandbox resources.
 
 ## Phase 2 Acceptance Criteria
 

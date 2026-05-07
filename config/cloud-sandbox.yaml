@@ -4,7 +4,7 @@ environment:
   redeemable: false
 
 gcp:
-  project_id: REPLACE_WITH_GCP_PROJECT_ID
+  project_id: kani-network-sandbox
   region: northamerica-northeast1
   gke_location: northamerica-northeast1
 
