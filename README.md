@@ -30,6 +30,8 @@ scripts/phase2-validate.ps1
 
 The intended Phase 2 topology is Cloud Run for `kani-api`, GKE for the three validator nodes, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for runtime secrets, Cloud Storage for future block/audit archives, and KMS for future production key work.
 
+The default Phase 2 Terraform settings use a lean free-trial profile: Cloud Run scales to zero and is capped at one instance, GKE is a single zonal `e2-small` node running all three validator pods, and Cloud SQL is `db-f1-micro` with a 10 GB HDD disk and backups/PITR disabled. This is the minimum useful sandbox profile, not a production or high-availability profile.
+
 Run the static Phase 2 scaffold check from PowerShell:
 
 ```powershell

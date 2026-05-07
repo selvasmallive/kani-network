@@ -67,6 +67,34 @@ Billing: linked
 
 The original `kani-network` project ID is not accessible to the `selva@kani.network` account, so Phase 2 uses the dedicated `kani-network-sandbox` project ID.
 
+## Lean Free-Trial Profile
+
+The default Terraform variables now target the minimum useful Phase 2 sandbox footprint. This profile is designed for the Google Cloud 90-day free trial and keeps paid runtime resources as small as possible while still exercising Cloud Run, GKE validators, Cloud SQL, Secret Manager, Artifact Registry, Cloud Storage, and KMS.
+
+Default lean settings:
+
+- Cloud Run `kani-sandbox-api` scales to zero and is capped at `1` instance.
+- GKE uses one zonal Standard cluster in `northamerica-northeast1-a`.
+- GKE validator nodes use a single `e2-small` node with a `20 GB` standard persistent disk.
+- The three validators run as pods on the single node. This preserves the Phase 2 validator shape, but it is not high availability.
+- Cloud SQL PostgreSQL uses `db-f1-micro` with a `10 GB` HDD disk.
+- Cloud SQL automated backups and point-in-time recovery are disabled for cost control.
+- Cloud Storage starts empty and is reserved for future block/audit archive writes.
+- KMS uses one software key for future signing integration.
+
+Resources that can create billable usage:
+
+- GKE Standard cluster management plane and the one Compute Engine node.
+- Cloud SQL PostgreSQL instance and its persistent disk.
+- Cloud Run request CPU/memory when the API is receiving traffic.
+- Artifact Registry image storage beyond the free allowance.
+- Cloud Storage object storage once archives are written.
+- Secret Manager active secret versions beyond the free allowance.
+- Cloud KMS software key version and key operations.
+- Cloud Build minutes when building container images.
+
+This profile is intentionally a sandbox cost profile. It should not be used for production, availability testing, regulated value movement, or disaster recovery validation. Before real value movement, switch to a production profile with multi-zone or regional capacity, backups, PITR, stricter ingress, mTLS/API Gateway, Cloud Armor, monitoring, alerting, key ceremonies, and legal/compliance sign-off.
+
 ## Included In This Starter
 
 - Terraform skeleton in `infra/terraform`.
@@ -107,6 +135,16 @@ Use the installed tool paths on this workstation if they are not on `PATH`:
 ```
 
 Do not run `terraform apply` until you are ready to create paid sandbox resources.
+
+To keep the free-trial budget safe:
+
+```powershell
+# Preview only; does not create paid resources.
+& 'C:\ProgramData\chocolatey\bin\terraform.exe' -chdir=infra\terraform plan
+
+# Destroy sandbox resources after testing if you apply later.
+& 'C:\ProgramData\chocolatey\bin\terraform.exe' -chdir=infra\terraform destroy
+```
 
 ## Phase 2 Acceptance Criteria
 

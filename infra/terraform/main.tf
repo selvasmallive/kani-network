@@ -10,6 +10,7 @@ locals {
 
   required_services = toset([
     "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
     "cloudkms.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
@@ -118,10 +119,12 @@ resource "google_sql_database_instance" "ledger" {
     tier              = var.database_tier
     availability_type = "ZONAL"
     disk_autoresize   = true
+    disk_size         = var.cloud_sql_disk_size_gb
+    disk_type         = var.cloud_sql_disk_type
 
     backup_configuration {
-      enabled                        = true
-      point_in_time_recovery_enabled = true
+      enabled                        = var.cloud_sql_backups_enabled
+      point_in_time_recovery_enabled = var.cloud_sql_point_in_time_recovery_enabled
     }
 
     ip_configuration {
@@ -208,6 +211,11 @@ resource "google_cloud_run_v2_service" "api" {
 
   template {
     service_account = google_service_account.api.email
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = var.cloud_run_max_instances
+    }
 
     volumes {
       name = "cloudsql"
@@ -328,6 +336,8 @@ resource "google_container_node_pool" "validators" {
 
   node_config {
     machine_type    = var.gke_machine_type
+    disk_size_gb    = var.gke_disk_size_gb
+    disk_type       = var.gke_disk_type
     service_account = google_service_account.validator.email
     labels          = local.labels
 

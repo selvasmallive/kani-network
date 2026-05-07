@@ -2,11 +2,12 @@ environment:
   env: SANDBOX
   real_value: false
   redeemable: false
+  cost_profile: lean-free-trial
 
 gcp:
   project_id: kani-network-sandbox
   region: northamerica-northeast1
-  gke_location: northamerica-northeast1
+  gke_location: northamerica-northeast1-a
 
 artifact_registry:
   repository: kani
@@ -18,10 +19,15 @@ cloud_run:
   port: 8080
   ledger_mode: postgres
   database_url_secret: kani-sandbox-database-url
+  min_instances: 0
+  max_instances: 1
 
 gke:
   cluster: kani-sandbox-validators
   namespace: kani-system
+  node_count: 1
+  machine_type: e2-small
+  node_disk_size_gb: 20
   validators:
     - validator-a
     - validator-b
@@ -32,6 +38,11 @@ cloud_sql:
   database: kani
   user: kani
   database_url_secret: kani-sandbox-database-url
+  tier: db-f1-micro
+  disk_size_gb: 10
+  disk_type: PD_HDD
+  backups_enabled: false
+  point_in_time_recovery_enabled: false
 
 storage:
   block_archive_bucket: kani-sandbox-block-archive

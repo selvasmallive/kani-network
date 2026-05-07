@@ -10,9 +10,9 @@ variable "region" {
 }
 
 variable "gke_location" {
-  description = "Regional or zonal location for the validator GKE cluster."
+  description = "Zonal location for the lean validator GKE cluster. Use a regional location only when you intentionally accept higher cost."
   type        = string
-  default     = "northamerica-northeast1"
+  default     = "northamerica-northeast1-a"
 }
 
 variable "name_prefix" {
@@ -35,19 +35,66 @@ variable "database_url" {
 variable "database_tier" {
   description = "Cloud SQL machine tier for the sandbox ledger."
   type        = string
-  default     = "db-custom-1-3840"
+  default     = "db-f1-micro"
+}
+
+variable "cloud_sql_disk_size_gb" {
+  description = "Cloud SQL data disk size in GiB."
+  type        = number
+  default     = 10
+}
+
+variable "cloud_sql_disk_type" {
+  description = "Cloud SQL data disk type."
+  type        = string
+  default     = "PD_HDD"
+
+  validation {
+    condition     = contains(["PD_HDD", "PD_SSD"], var.cloud_sql_disk_type)
+    error_message = "cloud_sql_disk_type must be PD_HDD or PD_SSD."
+  }
+}
+
+variable "cloud_sql_backups_enabled" {
+  description = "Enable Cloud SQL automated backups. Disabled by default in the lean free-trial sandbox."
+  type        = bool
+  default     = false
+}
+
+variable "cloud_sql_point_in_time_recovery_enabled" {
+  description = "Enable Cloud SQL point-in-time recovery. Requires backups and adds storage cost."
+  type        = bool
+  default     = false
 }
 
 variable "gke_node_count" {
   description = "Number of nodes for the validator pool."
   type        = number
-  default     = 3
+  default     = 1
 }
 
 variable "gke_machine_type" {
   description = "Machine type for validator nodes."
   type        = string
-  default     = "e2-standard-2"
+  default     = "e2-small"
+}
+
+variable "gke_disk_size_gb" {
+  description = "Boot disk size in GiB for validator nodes."
+  type        = number
+  default     = 20
+}
+
+variable "gke_disk_type" {
+  description = "Boot disk type for validator nodes."
+  type        = string
+  default     = "pd-standard"
+}
+
+variable "cloud_run_max_instances" {
+  description = "Maximum Cloud Run instances for kani-api in the lean sandbox."
+  type        = number
+  default     = 1
 }
 
 variable "cloud_run_ingress" {
