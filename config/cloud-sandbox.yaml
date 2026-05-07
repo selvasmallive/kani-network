@@ -77,6 +77,17 @@ budget_guardrail:
     target_scheduler: kani-sandbox-validator-schedule
   hard_cap: false
 
+monitoring_alerts:
+  enabled: true
+  notification_channels: budget-alert-emails
+  log_notification_rate_limit: 900s
+  policies:
+    - api-error-logs
+    - validator-job-error-logs
+    - validator-scheduler-error-logs
+    - cloud-sql-error-logs
+    - budget-brake-activity
+
 gke:
   enabled: false
   deferred_until: validator_operations_testing

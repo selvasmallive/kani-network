@@ -224,6 +224,29 @@ variable "budget_brake_dry_run" {
   default     = false
 }
 
+variable "monitoring_alerts_enabled" {
+  description = "Create Phase 2 sandbox Cloud Monitoring alert policies for API, validator, Scheduler, Cloud SQL, and budget brake signals."
+  type        = bool
+  default     = true
+}
+
+variable "monitoring_alert_notification_channels" {
+  description = "Additional Cloud Monitoring notification channel resource names for Phase 2 alert policies. Budget email channels are included automatically."
+  type        = list(string)
+  default     = []
+}
+
+variable "monitoring_alert_log_notification_rate_limit" {
+  description = "Minimum time between notifications for log-match alert policies."
+  type        = string
+  default     = "900s"
+
+  validation {
+    condition     = can(regex("^[0-9]+s$", var.monitoring_alert_log_notification_rate_limit))
+    error_message = "monitoring_alert_log_notification_rate_limit must be a duration in seconds, for example 900s."
+  }
+}
+
 variable "cloud_run_ingress" {
   description = "Cloud Run ingress setting for kani-api."
   type        = string

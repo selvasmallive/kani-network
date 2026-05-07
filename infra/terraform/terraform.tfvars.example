@@ -44,6 +44,10 @@ budget_pubsub_topic_attachment_enabled = true
 budget_brake_threshold    = 0.8
 budget_brake_dry_run      = false
 
+monitoring_alerts_enabled                     = true
+monitoring_alert_log_notification_rate_limit  = "900s"
+monitoring_alert_notification_channels        = []
+
 labels = {
   owner = "kani"
 }

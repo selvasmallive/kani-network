@@ -56,6 +56,8 @@ $leanExpectations = @{
     "Budget guardrail enabled" = '(?s)variable\s+"budget_guardrail_enabled".*?default\s*=\s*true'
     "Budget guardrail amount" = '(?s)variable\s+"budget_amount_units".*?default\s*=\s*50'
     "Budget Pub/Sub attachment switch" = '(?s)variable\s+"budget_pubsub_topic_attachment_enabled".*?default\s*=\s*true'
+    "Monitoring alerts enabled" = '(?s)variable\s+"monitoring_alerts_enabled".*?default\s*=\s*true'
+    "Monitoring alert rate limit" = '(?s)variable\s+"monitoring_alert_log_notification_rate_limit".*?default\s*=\s*"900s"'
     "Deletion protection disabled" = '(?s)variable\s+"deletion_protection".*?default\s*=\s*false'
 }
 
@@ -97,6 +99,13 @@ foreach ($expected in @(
     "transaction_log_retention_days",
     "backup_retention_settings",
     "cloud_sql_backup_retained_count",
+    "google_monitoring_alert_policy",
+    "condition_matched_log",
+    "api_error_logs",
+    "validator_job_error_logs",
+    "scheduler_error_logs",
+    "cloud_sql_error_logs",
+    "budget_brake_activity_logs",
     "google_cloud_scheduler_job",
     "run.googleapis.com/v2/projects",
     "roles/run.invoker",
@@ -136,6 +145,12 @@ foreach ($expected in @("programmatic_notifications:", "automated_brake:", "paus
     }
 }
 
+foreach ($expected in @("monitoring_alerts:", "api-error-logs", "validator-job-error-logs", "cloud-sql-error-logs", "budget-brake-activity")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox monitoring alert setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_configured_keys:\s*true")) {
     if ($cloudSandbox -notmatch $expected) {
         throw "Expected cloud sandbox API auth hardening setting in config/cloud-sandbox.yaml: $expected"
@@ -169,6 +184,7 @@ foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-a
     api_keys_source = "secret-manager"
     cloud_sql_backups_enabled = $true
     cloud_sql_point_in_time_recovery_enabled = $true
+    monitoring_alerts_enabled = $true
     gke_enabled = $false
     status = "ok"
 }
