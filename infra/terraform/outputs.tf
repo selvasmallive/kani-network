@@ -23,6 +23,13 @@ output "database_url_secret_id" {
   value       = google_secret_manager_secret.database_url.secret_id
 }
 
+output "sandbox_api_key_secret_ids" {
+  description = "Secret Manager secret IDs containing sandbox API keys for the Cloud Run API."
+  value = {
+    for key, secret in google_secret_manager_secret.sandbox_api_key : key => secret.secret_id
+  }
+}
+
 output "validator_service_account" {
   description = "Google service account used by the Cloud Run validator job."
   value       = google_service_account.validator.email

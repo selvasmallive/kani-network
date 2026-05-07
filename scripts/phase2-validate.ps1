@@ -87,6 +87,10 @@ foreach ($expected in @(
     "google_pubsub_subscription",
     "google_cloud_run_v2_service.cost_guard",
     "KANI_BUDGET_BRAKE_THRESHOLD",
+    "KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS",
+    "KANI_SANDBOX_TREASURY_API_KEY",
+    "google_secret_manager_secret.sandbox_api_key",
+    "api_sandbox_api_key",
     "google_cloud_scheduler_job",
     "run.googleapis.com/v2/projects",
     "roles/run.invoker",
@@ -126,6 +130,19 @@ foreach ($expected in @("programmatic_notifications:", "automated_brake:", "paus
     }
 }
 
+foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_configured_keys:\s*true")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox API auth hardening setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
+$cloudSmokeScript = Get-Content "scripts/phase2-cloud-smoke.ps1" -Raw
+foreach ($expected in @("secrets versions access latest", "NamePrefix-treasury-api-key", "KANI_SANDBOX_TREASURY_API_KEY")) {
+    if ($cloudSmokeScript -notmatch $expected) {
+        throw "Expected cloud smoke test to read sandbox API keys from Secret Manager or env: $expected"
+    }
+}
+
 [pscustomobject]@{
     phase = "phase-2-cloud-mvp"
     cost_profile = "phase2-lean-no-gke"
@@ -137,6 +154,7 @@ foreach ($expected in @("programmatic_notifications:", "automated_brake:", "paus
     budget_guardrail_enabled = $true
     budget_brake_enabled = $true
     budget_pubsub_topic_attachment_configurable = $true
+    api_keys_source = "secret-manager"
     gke_enabled = $false
     status = "ok"
 }

@@ -22,6 +22,15 @@ cloud_run:
   max_instances: 1
   unauthenticated_invocation: false
 
+api_auth:
+  require_configured_keys: true
+  source: secret-manager
+  secrets:
+    treasury: kani-sandbox-treasury-api-key
+    corp_a: kani-sandbox-corp-a-api-key
+    corp_b: kani-sandbox-corp-b-api-key
+    admin: kani-sandbox-admin-api-key
+
 validator_job:
   job: kani-sandbox-validator
   runtime: cloud-run-job

@@ -1,6 +1,7 @@
 param(
     [string]$ProjectId = "kani-network-sandbox",
     [string]$Region = "northamerica-northeast1",
+    [string]$NamePrefix = "kani-sandbox",
     [string]$ServiceName = "kani-sandbox-api",
     [string]$ValidatorJob = "kani-sandbox-validator",
     [string]$BaseUrl = "",
@@ -91,22 +92,46 @@ function Invoke-ValidatorJob {
     & $gcloud run jobs execute $ValidatorJob --region $Region --project $ProjectId --wait | Out-Host
 }
 
+function Get-SandboxApiKey {
+    param(
+        [string]$EnvName,
+        [string]$SecretId
+    )
+
+    $envValue = [Environment]::GetEnvironmentVariable($EnvName)
+    if ($envValue -and $envValue.Trim()) {
+        return $envValue.Trim()
+    }
+
+    $secretValue = (& $gcloud secrets versions access latest --secret $SecretId --project $ProjectId 2>$null)
+    if (-not $secretValue) {
+        throw "Could not read sandbox API key from Secret Manager secret $SecretId. Set $EnvName or apply Terraform first."
+    }
+
+    return ($secretValue -join "`n").Trim()
+}
+
+$treasuryApiKey = Get-SandboxApiKey -EnvName "KANI_SANDBOX_TREASURY_API_KEY" -SecretId "$NamePrefix-treasury-api-key"
+$corpAApiKey = Get-SandboxApiKey -EnvName "KANI_SANDBOX_CORP_A_API_KEY" -SecretId "$NamePrefix-corp-a-api-key"
+$corpBApiKey = Get-SandboxApiKey -EnvName "KANI_SANDBOX_CORP_B_API_KEY" -SecretId "$NamePrefix-corp-b-api-key"
+$adminApiKey = Get-SandboxApiKey -EnvName "KANI_SANDBOX_ADMIN_API_KEY" -SecretId "$NamePrefix-admin-api-key"
+
 $asset = "KCAD_TEST_$(Get-Date -Format yyyyMMddHHmmss)"
 $treasuryHeaders = @{
     "x-kani-institution-id" = "KANI_TREASURY"
-    "x-kani-api-key" = "sandbox-treasury-token"
+    "x-kani-api-key" = $treasuryApiKey
 }
 $corpAHeaders = @{
     "x-kani-institution-id" = "CORP_A"
-    "x-kani-api-key" = "sandbox-corp-a-token"
+    "x-kani-api-key" = $corpAApiKey
 }
 $corpBHeaders = @{
     "x-kani-institution-id" = "CORP_B"
-    "x-kani-api-key" = "sandbox-corp-b-token"
+    "x-kani-api-key" = $corpBApiKey
 }
 $adminHeaders = @{
     "x-kani-institution-id" = "KANI_ADMIN"
-    "x-kani-api-key" = "sandbox-admin-token"
+    "x-kani-api-key" = $adminApiKey
 }
 
 $health = Invoke-KaniJson -Method Get -Path "/health" -Headers @{}

@@ -28,7 +28,7 @@ k8s/
 scripts/phase2-validate.ps1
 ```
 
-The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL, and a project-scoped Cloud Billing budget alert.
+The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL and sandbox API keys, and a project-scoped Cloud Billing budget alert.
 
 This skips GKE for now to minimize free-trial cost. The validator job runs `kani-node` in `sweep` mode across `validator-a`, `validator-b`, and `validator-c`, so the cloud MVP can still prove payment queueing, block finalization, balances, and audit persistence end to end. GKE manifests remain in `k8s/` for later validator operations testing.
 
@@ -45,6 +45,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
 ```
 
 The lean cloud guardrails use a 15-minute validator schedule and a `50` unit monthly budget alert in the billing account currency. The current sandbox billing account reports `CAD`, and the budget is an alerting guardrail, not a hard cap. The budget also links an explicit Cloud Monitoring email notification channel for `selva@kani.network`; Google may require the recipient to verify that email channel before it can receive alerts. Pub/Sub and the `kani-cost-guard` Cloud Run service are connected for programmatic budget notifications, with the cost guard set to pause the validator Scheduler job if actual spend crosses `80%`.
+
+Cloud Run sets `KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS=TRUE` and loads all sandbox API keys from Secret Manager. The checked-in default keys remain only for local simulation; the cloud smoke test reads the live keys from Secret Manager.
 
 ## Sandbox Boundaries
 

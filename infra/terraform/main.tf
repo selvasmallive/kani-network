@@ -30,6 +30,25 @@ locals {
   ])
 
   database_url = "postgres://kani:${urlencode(random_password.database_user.result)}@localhost/kani?host=/cloudsql/${google_sql_database_instance.ledger.connection_name}"
+
+  sandbox_api_keys = {
+    treasury = {
+      env_name      = "KANI_SANDBOX_TREASURY_API_KEY"
+      secret_suffix = "treasury-api-key"
+    }
+    corp_a = {
+      env_name      = "KANI_SANDBOX_CORP_A_API_KEY"
+      secret_suffix = "corp-a-api-key"
+    }
+    corp_b = {
+      env_name      = "KANI_SANDBOX_CORP_B_API_KEY"
+      secret_suffix = "corp-b-api-key"
+    }
+    admin = {
+      env_name      = "KANI_SANDBOX_ADMIN_API_KEY"
+      secret_suffix = "admin-api-key"
+    }
+  }
 }
 
 data "google_project" "current" {
@@ -147,8 +166,43 @@ resource "google_secret_manager_secret_version" "database_url" {
   depends_on = [google_sql_user.ledger]
 }
 
+resource "random_password" "sandbox_api_key" {
+  for_each = local.sandbox_api_keys
+
+  length  = 40
+  special = false
+}
+
+resource "google_secret_manager_secret" "sandbox_api_key" {
+  for_each = local.sandbox_api_keys
+
+  secret_id = "${var.name_prefix}-${each.value.secret_suffix}"
+  labels    = local.labels
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "sandbox_api_key" {
+  for_each = local.sandbox_api_keys
+
+  secret      = google_secret_manager_secret.sandbox_api_key[each.key].id
+  secret_data = random_password.sandbox_api_key[each.key].result
+}
+
 resource "google_secret_manager_secret_iam_member" "api_database_url" {
   secret_id = google_secret_manager_secret.database_url.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "api_sandbox_api_key" {
+  for_each = local.sandbox_api_keys
+
+  secret_id = google_secret_manager_secret.sandbox_api_key[each.key].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.api.email}"
 }
@@ -245,12 +299,32 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name  = "KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS"
+        value = "TRUE"
+      }
+
+      env {
         name = "DATABASE_URL"
 
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.database_url.secret_id
             version = google_secret_manager_secret_version.database_url.version
+          }
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.sandbox_api_keys
+
+        content {
+          name = env.value.env_name
+
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.sandbox_api_key[env.key].secret_id
+              version = google_secret_manager_secret_version.sandbox_api_key[env.key].version
+            }
           }
         }
       }
@@ -283,7 +357,8 @@ resource "google_cloud_run_v2_service" "api" {
 
   depends_on = [
     google_project_service.required,
-    google_secret_manager_secret_iam_member.api_database_url
+    google_secret_manager_secret_iam_member.api_database_url,
+    google_secret_manager_secret_iam_member.api_sandbox_api_key
   ]
 }
 
