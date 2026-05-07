@@ -42,3 +42,8 @@ output "budget_guardrail_name" {
   description = "Cloud Billing budget resource name for the sandbox project guardrail."
   value       = try(google_billing_budget.sandbox[0].name, null)
 }
+
+output "budget_notification_channel_names" {
+  description = "Cloud Monitoring email notification channels linked to the sandbox budget."
+  value       = [for channel in google_monitoring_notification_channel.budget_email : channel.name]
+}

@@ -9,8 +9,9 @@ locals {
   )
 
   cloud_build_runtime_service_account = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
-  budget_billing_account_id           = replace(trimspace(var.budget_billing_account_id), "billingAccounts/", "")
+  budget_billing_account_id           = replace(trimspace(nonsensitive(var.budget_billing_account_id)), "billingAccounts/", "")
   budget_guardrail_enabled            = var.budget_guardrail_enabled && local.budget_billing_account_id != ""
+  budget_alert_emails                 = toset([for email in var.budget_alert_emails : trimspace(email) if trimspace(email) != ""])
 
   required_services = toset([
     "artifactregistry.googleapis.com",
@@ -19,6 +20,7 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "cloudscheduler.googleapis.com",
     "iam.googleapis.com",
+    "monitoring.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "sqladmin.googleapis.com"
@@ -422,6 +424,24 @@ resource "google_cloud_scheduler_job" "validator" {
   ]
 }
 
+resource "google_monitoring_notification_channel" "budget_email" {
+  for_each = local.budget_guardrail_enabled ? local.budget_alert_emails : toset([])
+
+  project      = var.project_id
+  display_name = "${var.name_prefix} budget alert ${each.value}"
+  description  = "Explicit email recipient for KANI sandbox budget threshold alerts."
+  type         = "email"
+  enabled      = true
+
+  labels = {
+    email_address = each.value
+  }
+
+  user_labels = local.labels
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_billing_budget" "sandbox" {
   count = local.budget_guardrail_enabled ? 1 : 0
 
@@ -446,6 +466,18 @@ resource "google_billing_budget" "sandbox" {
     content {
       threshold_percent = threshold_rules.value
       spend_basis       = "CURRENT_SPEND"
+    }
+  }
+
+  dynamic "all_updates_rule" {
+    for_each = length(google_monitoring_notification_channel.budget_email) > 0 ? [1] : []
+
+    content {
+      monitoring_notification_channels = [
+        for channel in google_monitoring_notification_channel.budget_email : channel.name
+      ]
+      disable_default_iam_recipients  = false
+      enable_project_level_recipients = true
     }
   }
 }

@@ -149,6 +149,19 @@ variable "budget_alert_thresholds" {
   }
 }
 
+variable "budget_alert_emails" {
+  description = "Explicit email recipients for Cloud Billing budget alerts, in addition to default IAM recipients. Google allows up to five email notification channels per budget."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = length(var.budget_alert_emails) <= 5 && alltrue([
+      for email in var.budget_alert_emails : can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", trimspace(email)))
+    ])
+    error_message = "budget_alert_emails must contain at most five valid email addresses."
+  }
+}
+
 variable "cloud_run_ingress" {
   description = "Cloud Run ingress setting for kani-api."
   type        = string

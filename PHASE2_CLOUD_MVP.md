@@ -74,13 +74,14 @@ This preserves the Phase 1 PoA/finality model for MVP testing without paying for
 
 Terraform now plans only the minimum resources needed for the end-to-end cloud MVP:
 
-- Required Google APIs: Artifact Registry, Billing Budgets, Cloud Build, Cloud Resource Manager, Cloud Scheduler, IAM, Cloud Run, Secret Manager, Cloud SQL Admin.
+- Required Google APIs: Artifact Registry, Billing Budgets, Cloud Build, Cloud Resource Manager, Cloud Scheduler, IAM, Cloud Monitoring, Cloud Run, Secret Manager, Cloud SQL Admin.
 - Artifact Registry Docker repository: stores the shared `kani-api` / `kani-node` image tagged as `latest` and by Cloud Build ID.
 - Cloud SQL PostgreSQL instance: Enterprise edition, `db-g1-small`, `10 GB` HDD, zonal, backups disabled, PITR disabled.
 - Secret Manager secret: stores the generated Cloud SQL socket `DATABASE_URL`.
 - Cloud Run service: `kani-sandbox-api`, scale-to-zero, max `1` instance.
 - Cloud Run job: `kani-sandbox-validator`, one task, `sweep` mode, max `25` transactions per block.
 - Cloud Scheduler job: `kani-sandbox-validator-schedule`, every `15` minutes, OAuth-authenticated to the Cloud Run Jobs API.
+- Cloud Monitoring email notification channel: explicit budget alert recipient for `selva@kani.network`.
 - Cloud Billing budget: project-scoped monthly budget alert, default `50` units in the billing account currency, with alerts at `50%`, `80%`, and `100%`.
 - IAM service accounts and minimum runtime permissions for Cloud SQL and Secret Manager.
 - Cloud Build runtime IAM grants for source archive reads, Artifact Registry writes, and build logging.
@@ -110,11 +111,13 @@ The default Terraform variables are tuned for a free-trial sandbox:
 - `cloud_sql_point_in_time_recovery_enabled = false`.
 - `validator_schedule = "*/15 * * * *"` so the validator job is not running constantly.
 - `budget_amount_units = 50` with alert thresholds at `0.5`, `0.8`, and `1.0`.
+- `budget_alert_emails = ["selva@kani.network"]` links an explicit Cloud Monitoring email notification channel to the budget.
 
 Do not run `terraform apply` until you are ready to create paid sandbox resources.
 
 Cloud Billing budgets are alerts, not hard caps. They help catch spend early, but they do not automatically stop resources.
 The current sandbox billing account reports currency `CAD`, so the live guardrail is a `50 CAD` monthly alert budget.
+Google may send a verification email for the Cloud Monitoring notification channel. Budget emails might not deliver to that explicit channel until the recipient verifies it.
 
 ## Included In This Starter
 
