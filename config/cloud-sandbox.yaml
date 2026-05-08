@@ -31,6 +31,27 @@ api_auth:
     corp_b: kani-sandbox-corp-b-api-key
     admin: kani-sandbox-admin-api-key
 
+compliance:
+  enabled: true
+  profile: sandbox-stp-v1
+  allowed_accounts:
+    - CORP_A
+    - CORP_B
+  allowed_asset_prefixes:
+    - KCAD_TEST
+    - KUSD_TEST
+  max_payment_amount: 500000
+  allow_self_transfers: false
+  decisions:
+    allow: SANDBOX_STP
+    review: MAX_PAYMENT_AMOUNT
+    reject:
+      - PAYMENT_SHAPE
+      - NO_SELF_TRANSFER
+      - ACCOUNT_ALLOWLIST
+      - ASSET_ALLOWLIST
+  audit_event: COMPLIANCE_DECISION
+
 iso20022:
   enabled: true
   supported_messages:

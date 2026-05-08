@@ -84,6 +84,66 @@ function Invoke-KaniJson {
     return Invoke-RestMethod -Method $Method -Uri $uri -Headers $requestHeaders -ContentType "application/json" -Body $json
 }
 
+function Invoke-KaniJsonError {
+    param(
+        [string]$Method,
+        [string]$Path,
+        [hashtable]$Headers,
+        [int]$ExpectedStatus,
+        $Body = $null
+    )
+
+    $uri = "$BaseUrl$Path"
+    $requestHeaders = Join-Headers $Headers
+    $json = $null
+    if ($null -ne $Body) {
+        $json = $Body | ConvertTo-Json -Depth 10
+    }
+
+    try {
+        if ($null -eq $Body) {
+            Invoke-RestMethod -Method $Method -Uri $uri -Headers $requestHeaders | Out-Null
+        } else {
+            Invoke-RestMethod -Method $Method -Uri $uri -Headers $requestHeaders -ContentType "application/json" -Body $json | Out-Null
+        }
+        throw "Expected HTTP $ExpectedStatus from $Path"
+    } catch {
+        $errorRecord = $_
+        $response = $errorRecord.Exception.Response
+        if (-not $response) {
+            throw
+        }
+
+        $statusCode = [int]$response.StatusCode
+        $content = ""
+        if ($errorRecord.ErrorDetails -and $errorRecord.ErrorDetails.Message) {
+            $content = $errorRecord.ErrorDetails.Message
+        }
+        if (-not $content) {
+            try {
+                $stream = $response.GetResponseStream()
+                if ($stream) {
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $content = $reader.ReadToEnd()
+                    $reader.Dispose()
+                }
+            } catch {
+                $content = ""
+            }
+        }
+
+        if ($statusCode -ne $ExpectedStatus) {
+            throw "Expected HTTP $ExpectedStatus from $Path, got $statusCode with body $content"
+        }
+
+        try {
+            return $content | ConvertFrom-Json
+        } catch {
+            return [pscustomobject]@{ error = $content }
+        }
+    }
+}
+
 function Invoke-KaniXml {
     param(
         [string]$Method,
@@ -183,6 +243,17 @@ $transfer = Invoke-KaniJson -Method Post -Path "/v1/payments" -Headers $corpAHea
 }
 Invoke-ValidatorJob
 
+$blockedSelfTransfer = Invoke-KaniJsonError -Method Post -Path "/v1/payments" -Headers $corpAHeaders -ExpectedStatus 403 -Body @{
+    from = "CORP_A"
+    to = "CORP_A"
+    asset = $asset
+    amount = 1
+    client_reference_id = "phase2-compliance-self-$asset"
+}
+if ($blockedSelfTransfer.error -notmatch "NO_SELF_TRANSFER") {
+    throw "Expected compliance self-transfer block, got $($blockedSelfTransfer.error)"
+}
+
 $isoMessageId = "phase2-cloud-iso-$asset"
 $isoEndToEndId = "phase2-cloud-iso-e2e-$asset"
 $isoXml = @"
@@ -279,6 +350,7 @@ if ([int64]$pending.count -ne 0) {
     iso_message_id = $isoTransfer.message_id
     iso_status = "ACSC"
     iso_statement_account = "CORP_A"
+    compliance_blocked_self_transfer = $true
     corp_a_balance = $balanceA.amount
     corp_b_balance = $balanceB.amount
     latest_block_height = $latestBlock.height

@@ -6,6 +6,10 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
+use kani_compliance::{
+    screen_sandbox_payment_with_policy, ComplianceDecision, CompliancePayment, ComplianceResult,
+    SandboxCompliancePolicy,
+};
 use kani_iso20022::{
     build_camt053_statement, build_pacs002_status_report, parse_pacs008_credit_transfer,
     Camt053CreditDebitIndicator, Camt053Entry, Camt053Statement, Iso20022Error,
@@ -48,6 +52,7 @@ const OPENAPI_JSON: &str = include_str!("../../../openapi/kani-api.v1.json");
 struct AppState {
     node: KaniNode,
     auth: SandboxAuthConfig,
+    compliance_policy: SandboxCompliancePolicy,
 }
 
 #[derive(Clone, Debug)]
@@ -525,7 +530,11 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/v1/audit-events", get(get_audit_events))
         .route("/v1/validators", get(get_validators))
         .route("/v1/sandbox/mint", post(sandbox_mint))
-        .with_state(AppState { node, auth })
+        .with_state(AppState {
+            node,
+            auth,
+            compliance_policy: SandboxCompliancePolicy::sandbox_default(),
+        })
 }
 
 async fn health() -> Json<HealthResponse> {
@@ -589,6 +598,7 @@ async fn submit_validated_payment(
     }
     audit_authorization_allowed(state, headers, &auth, action, &resource).await?;
     ensure_account_exists(&state.node, &request.to).await?;
+    enforce_payment_compliance(state, headers, &auth, action, &resource, &request).await?;
 
     let client_reference_id =
         normalized_client_reference_id(request.client_reference_id, request.idempotency_key)?;
@@ -605,6 +615,36 @@ async fn submit_validated_payment(
         .map(PaymentResponse::from)?;
 
     Ok(response)
+}
+
+async fn enforce_payment_compliance(
+    state: &AppState,
+    headers: &HeaderMap,
+    auth: &AuthenticatedInstitution,
+    action: &'static str,
+    resource: &str,
+    request: &ValidatedPaymentRequest,
+) -> Result<(), ApiError> {
+    let payment = CompliancePayment {
+        from: request.from.clone(),
+        to: request.to.clone(),
+        asset: request.asset.clone(),
+        amount: request.amount,
+    };
+    let result = screen_sandbox_payment_with_policy(&state.compliance_policy, &payment);
+
+    if result.decision == ComplianceDecision::Allow {
+        audit_compliance_decision(state, headers, auth, action, resource, &payment, &result)
+            .await?;
+        return Ok(());
+    }
+
+    let error = ApiError::Forbidden(format!(
+        "compliance decision {:?} by {}: {}",
+        result.decision, result.rule_id, result.reason
+    ));
+    audit_compliance_decision(state, headers, auth, action, resource, &payment, &result).await?;
+    Err(error)
 }
 
 fn pacs008_transfer_request(
@@ -940,6 +980,52 @@ async fn audit_authorization_denied(
         error.status_code(),
     )
     .await
+}
+
+async fn audit_compliance_decision(
+    state: &AppState,
+    headers: &HeaderMap,
+    auth: &AuthenticatedInstitution,
+    action: &str,
+    resource: &str,
+    payment: &CompliancePayment,
+    result: &ComplianceResult,
+) -> Result<(), ApiError> {
+    let mut metadata = BTreeMap::new();
+    metadata.insert("action".to_string(), action.to_string());
+    metadata.insert("amount".to_string(), payment.amount.to_string());
+    metadata.insert("asset".to_string(), payment.asset.clone());
+    metadata.insert("decision".to_string(), format!("{:?}", result.decision));
+    metadata.insert("from".to_string(), payment.from.clone());
+    metadata.insert("institution_id".to_string(), auth.institution_id.clone());
+    metadata.insert("reason".to_string(), result.reason.clone());
+    metadata.insert("resource".to_string(), resource.to_string());
+    metadata.insert("role".to_string(), auth_role(auth).to_string());
+    metadata.insert("rule_id".to_string(), result.rule_id.clone());
+    metadata.insert("to".to_string(), payment.to.clone());
+    metadata.insert(
+        "request_institution_hint".to_string(),
+        institution_hint(headers).unwrap_or_default(),
+    );
+
+    let event = AuditEvent::new(
+        "COMPLIANCE_DECISION",
+        format!(
+            "compliance decision decision={:?} rule_id={} action={action} from={} to={} asset={} amount={}",
+            result.decision,
+            result.rule_id,
+            payment.from,
+            payment.to,
+            payment.asset,
+            payment.amount
+        ),
+        None,
+        None,
+    )
+    .with_metadata(metadata);
+
+    state.node.record_audit_event(event).await?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1937,6 +2023,85 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, ApiError::Forbidden(_)));
+    }
+
+    #[tokio::test]
+    async fn payment_submission_allows_compliant_sandbox_transfer() {
+        let state = AppState {
+            node: KaniNode::sandbox_default(),
+            auth: SandboxAuthConfig::new(vec![("CORP_A".to_string(), "corp-a-key".to_string())]),
+            compliance_policy: SandboxCompliancePolicy::sandbox_default(),
+        };
+        state
+            .node
+            .mint_sandbox(
+                SANDBOX_TREASURY_ACCOUNT,
+                SANDBOX_CORP_A_ACCOUNT,
+                "KCAD_TEST",
+                1_000_000,
+            )
+            .await
+            .unwrap();
+        let request = ValidatedPaymentRequest {
+            from: SANDBOX_CORP_A_ACCOUNT.to_string(),
+            to: SANDBOX_CORP_B_ACCOUNT.to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 100_000,
+            client_reference_id: Some("compliance-ok".to_string()),
+            idempotency_key: None,
+        };
+
+        let response = submit_validated_payment(
+            &state,
+            &headers_for("CORP_A", "corp-a-key"),
+            request,
+            "create_payment",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.status, TransactionStatus::Finalized);
+        assert_eq!(
+            state
+                .node
+                .balance(SANDBOX_CORP_B_ACCOUNT, "KCAD_TEST")
+                .await
+                .unwrap(),
+            100_000
+        );
+    }
+
+    #[tokio::test]
+    async fn payment_submission_blocks_compliance_rejections_before_queueing() {
+        let state = AppState {
+            node: KaniNode::sandbox_default(),
+            auth: SandboxAuthConfig::new(vec![("CORP_A".to_string(), "corp-a-key".to_string())]),
+            compliance_policy: SandboxCompliancePolicy::sandbox_default(),
+        };
+        let request = ValidatedPaymentRequest {
+            from: SANDBOX_CORP_A_ACCOUNT.to_string(),
+            to: SANDBOX_CORP_A_ACCOUNT.to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 100_000,
+            client_reference_id: Some("compliance-reject".to_string()),
+            idempotency_key: None,
+        };
+
+        let error = submit_validated_payment(
+            &state,
+            &headers_for("CORP_A", "corp-a-key"),
+            request,
+            "create_payment",
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ApiError::Forbidden(message) if message.contains("NO_SELF_TRANSFER")
+        ));
+        let pending = state.node.pending_transactions(10, 0).await.unwrap();
+        assert!(pending.is_empty());
     }
 
     #[tokio::test]

@@ -860,6 +860,7 @@ dependencies = [
  "axum",
  "base64",
  "chrono",
+ "kani-compliance",
  "kani-iso20022",
  "kani-ledger",
  "kani-node",

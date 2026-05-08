@@ -157,6 +157,12 @@ foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_config
     }
 }
 
+foreach ($expected in @("compliance:", "sandbox-stp-v1", "allowed_accounts:", "allowed_asset_prefixes:", "max_payment_amount:\s*500000", "allow_self_transfers:\s*false", "SANDBOX_STP", "MAX_PAYMENT_AMOUNT", "NO_SELF_TRANSFER", "COMPLIANCE_DECISION")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox compliance setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 foreach ($expected in @("iso20022:", "pacs\.008", "pacs\.002", "camt\.053", "/v1/iso20022/pacs008", "/v1/iso20022/pacs002/\{payment_id\}", "/v1/iso20022/camt053/accounts/\{account_id\}", "single CdtTrfTxInf", "ACSC", "ACSP", "RJCT", "CLBD", "CRDT", "DBIT")) {
     if ($cloudSandbox -notmatch $expected) {
         throw "Expected cloud sandbox ISO 20022 setting in config/cloud-sandbox.yaml: $expected"
@@ -182,6 +188,12 @@ foreach ($expected in @("Invoke-KaniXml", "Invoke-KaniRaw", "/v1/iso20022/pacs00
     }
 }
 
+foreach ($expected in @("Invoke-KaniJsonError", "ExpectedStatus 403", "phase2-compliance-self", "NO_SELF_TRANSFER", "compliance_blocked_self_transfer")) {
+    if ($cloudSmokeScript -notmatch $expected) {
+        throw "Expected cloud smoke test to exercise compliance rejection flow: $expected"
+    }
+}
+
 [pscustomobject]@{
     phase = "phase-2-cloud-mvp"
     cost_profile = "phase2-lean-no-gke"
@@ -194,6 +206,7 @@ foreach ($expected in @("Invoke-KaniXml", "Invoke-KaniRaw", "/v1/iso20022/pacs00
     budget_brake_enabled = $true
     budget_pubsub_topic_attachment_configurable = $true
     api_keys_source = "secret-manager"
+    compliance_sandbox_stp_enabled = $true
     iso20022_pacs008_enabled = $true
     iso20022_pacs002_enabled = $true
     iso20022_camt053_enabled = $true
