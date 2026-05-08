@@ -238,6 +238,21 @@ foreach ($expected in @(
     }
 }
 
+$statementXml = Invoke-KaniRaw -Method Get -Path "/v1/iso20022/camt053/accounts/CORP_A?asset=$asset&limit=20&offset=0" -Headers $corpAHeaders
+foreach ($expected in @(
+    "camt.053.001.08",
+    "<BkToCstmrStmt>",
+    "<Id>CORP_A</Id>",
+    "<Cd>CLBD</Cd>",
+    "<CdtDbtInd>CRDT</CdtDbtInd>",
+    "<CdtDbtInd>DBIT</CdtDbtInd>",
+    "<Amt Ccy=`"$asset`">875000</Amt>"
+)) {
+    if ($statementXml -notmatch [regex]::Escape($expected)) {
+        throw "Expected camt.053 XML to contain $expected"
+    }
+}
+
 $balanceA = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_A/balances/$asset" -Headers $corpAHeaders
 $balanceB = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_B/balances/$asset" -Headers $corpBHeaders
 $latestBlock = Invoke-KaniJson -Method Get -Path "/v1/blocks/latest" -Headers $adminHeaders
@@ -263,6 +278,7 @@ if ([int64]$pending.count -ne 0) {
     iso_transaction = $isoTransfer.payment.transaction_id
     iso_message_id = $isoTransfer.message_id
     iso_status = "ACSC"
+    iso_statement_account = "CORP_A"
     corp_a_balance = $balanceA.amount
     corp_b_balance = $balanceB.amount
     latest_block_height = $latestBlock.height

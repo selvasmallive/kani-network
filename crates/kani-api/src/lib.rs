@@ -7,13 +7,15 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use kani_iso20022::{
-    build_pacs002_status_report, parse_pacs008_credit_transfer, Iso20022Error,
+    build_camt053_statement, build_pacs002_status_report, parse_pacs008_credit_transfer,
+    Camt053CreditDebitIndicator, Camt053Entry, Camt053Statement, Iso20022Error,
     Pacs002PaymentStatus, Pacs002TransactionStatus, Pacs008CreditTransfer,
 };
-use kani_ledger::{AuditEventSearch, BlockSearch};
+use kani_ledger::{AuditEventSearch, BlockSearch, JournalEntrySearch};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
-    Account, AccountType, AuditEvent, Block, PaymentRecord, Transaction, TransactionStatus,
+    Account, AccountType, AuditEvent, Block, JournalDirection, JournalEntry, PaymentRecord,
+    Transaction, TransactionStatus,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, env};
@@ -38,6 +40,8 @@ const DEFAULT_BLOCK_LIMIT: i64 = 100;
 const MAX_BLOCK_LIMIT: i64 = 500;
 const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
 const MAX_AUDIT_EVENT_LIMIT: i64 = 500;
+const DEFAULT_STATEMENT_ENTRY_LIMIT: i64 = 100;
+const MAX_STATEMENT_ENTRY_LIMIT: i64 = 500;
 const OPENAPI_JSON: &str = include_str!("../../../openapi/kani-api.v1.json");
 
 #[derive(Clone)]
@@ -384,6 +388,13 @@ pub struct BlockQuery {
     pub offset: Option<i64>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct Camt053StatementQuery {
+    pub asset: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
     error: String,
@@ -501,6 +512,10 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/v1/payments/:id", get(get_payment))
         .route("/v1/iso20022/pacs008", post(create_pacs008_payment))
         .route("/v1/iso20022/pacs002/:payment_id", get(get_pacs002_status))
+        .route(
+            "/v1/iso20022/camt053/accounts/:account_id",
+            get(get_camt053_statement),
+        )
         .route("/v1/accounts", get(get_accounts))
         .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
@@ -671,6 +686,49 @@ fn pacs002_transaction_status(status: TransactionStatus) -> Pacs002TransactionSt
 
 fn pacs002_status_code(status: TransactionStatus) -> &'static str {
     pacs002_transaction_status(status).code()
+}
+
+fn camt053_statement_from_journal_entries(
+    account_id: String,
+    asset: String,
+    balance: i128,
+    entries: Vec<JournalEntry>,
+) -> Camt053Statement {
+    let now = Utc::now();
+    let created_at = now.to_rfc3339();
+    let timestamp = now.timestamp_millis();
+
+    Camt053Statement {
+        message_id: format!("camt.053:{account_id}:{asset}:{timestamp}"),
+        created_at,
+        statement_id: format!("stmt:{account_id}:{asset}:{timestamp}"),
+        account_id,
+        asset,
+        balance,
+        entries: entries
+            .into_iter()
+            .map(camt053_entry_from_journal_entry)
+            .collect(),
+    }
+}
+
+fn camt053_entry_from_journal_entry(entry: JournalEntry) -> Camt053Entry {
+    Camt053Entry {
+        id: entry.id,
+        transaction_id: entry.transaction_id,
+        asset: entry.asset,
+        amount: entry.amount,
+        direction: camt053_direction(entry.direction),
+        block_height: entry.block_height,
+        booked_at: entry.created_at.to_rfc3339(),
+    }
+}
+
+fn camt053_direction(direction: JournalDirection) -> Camt053CreditDebitIndicator {
+    match direction {
+        JournalDirection::Credit => Camt053CreditDebitIndicator::Credit,
+        JournalDirection::Debit => Camt053CreditDebitIndicator::Debit,
+    }
 }
 
 fn normalized_client_reference_id(
@@ -968,6 +1026,42 @@ impl BlockFilter {
 }
 
 #[derive(Clone, Debug, Default)]
+struct Camt053StatementFilter {
+    asset: String,
+    limit: i64,
+    offset: i64,
+}
+
+impl Camt053StatementFilter {
+    fn try_from_query(query: Camt053StatementQuery) -> Result<Self, ApiError> {
+        let asset = normalize_asset_code(query.asset.ok_or_else(|| {
+            ApiError::BadRequest("asset query parameter is required".to_string())
+        })?)?;
+        let (limit, offset) = validated_page(
+            query.limit,
+            query.offset,
+            DEFAULT_STATEMENT_ENTRY_LIMIT,
+            MAX_STATEMENT_ENTRY_LIMIT,
+        )?;
+
+        Ok(Self {
+            asset,
+            limit,
+            offset,
+        })
+    }
+
+    fn to_search(&self, account_id: String) -> JournalEntrySearch {
+        JournalEntrySearch {
+            account_id,
+            asset: Some(self.asset.clone()),
+            limit: self.limit,
+            offset: self.offset,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 struct AuditEventFilter {
     event_type: Option<String>,
     decision: Option<String>,
@@ -1099,6 +1193,42 @@ async fn get_pacs002_status(
         read_authorized_payment(&state, &headers, &payment_id, "read_iso20022_pacs002").await?;
     let status = pacs002_status_from_payment(&record);
     let xml = build_pacs002_status_report(&status);
+
+    Ok(([(header::CONTENT_TYPE, "application/xml")], xml).into_response())
+}
+
+async fn get_camt053_statement(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(account_id): Path<String>,
+    Query(query): Query<Camt053StatementQuery>,
+) -> Result<Response, ApiError> {
+    let filter = Camt053StatementFilter::try_from_query(query)?;
+    let resource = format!("account:{account_id}:camt053:{}", filter.asset);
+    let auth = authenticate_request(&state, &headers, "read_iso20022_camt053", &resource).await?;
+    if let Err(error) = authorize_account_read(&state.node, &auth, &account_id).await {
+        audit_authorization_denied(
+            &state,
+            &headers,
+            Some(&auth),
+            "read_iso20022_camt053",
+            &resource,
+            &error,
+        )
+        .await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(&state, &headers, &auth, "read_iso20022_camt053", &resource)
+        .await?;
+
+    let balance = state.node.balance(&account_id, &filter.asset).await?;
+    let entries = state
+        .node
+        .journal_entries(filter.to_search(account_id.clone()))
+        .await?;
+    let statement =
+        camt053_statement_from_journal_entries(account_id, filter.asset, balance, entries);
+    let xml = build_camt053_statement(&statement);
 
     Ok(([(header::CONTENT_TYPE, "application/xml")], xml).into_response())
 }
@@ -1620,6 +1750,86 @@ mod tests {
         );
     }
 
+    #[test]
+    fn camt053_statement_maps_journal_entries() {
+        let mut credit = JournalEntry::new(
+            "mint-tx",
+            "CORP_A",
+            "KCAD_TEST",
+            1000000,
+            JournalDirection::Credit,
+            1,
+        );
+        credit.id = "journal-credit".to_string();
+        credit.created_at = DateTime::parse_from_rfc3339("2026-05-07T10:01:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut debit = JournalEntry::new(
+            "transfer-tx",
+            "CORP_A",
+            "KCAD_TEST",
+            125000,
+            JournalDirection::Debit,
+            2,
+        );
+        debit.id = "journal-debit".to_string();
+        debit.created_at = DateTime::parse_from_rfc3339("2026-05-07T10:02:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let statement = camt053_statement_from_journal_entries(
+            "CORP_A".to_string(),
+            "KCAD_TEST".to_string(),
+            875000,
+            vec![credit, debit],
+        );
+
+        assert!(statement
+            .message_id
+            .starts_with("camt.053:CORP_A:KCAD_TEST:"));
+        assert!(statement.statement_id.starts_with("stmt:CORP_A:KCAD_TEST:"));
+        assert_eq!(statement.account_id, "CORP_A");
+        assert_eq!(statement.asset, "KCAD_TEST");
+        assert_eq!(statement.balance, 875000);
+        assert_eq!(statement.entries.len(), 2);
+        assert_eq!(
+            statement.entries[0].direction,
+            Camt053CreditDebitIndicator::Credit
+        );
+        assert_eq!(
+            statement.entries[1].direction,
+            Camt053CreditDebitIndicator::Debit
+        );
+        assert_eq!(statement.entries[1].transaction_id, "transfer-tx");
+        assert_eq!(statement.entries[1].booked_at, "2026-05-07T10:02:00+00:00");
+    }
+
+    #[test]
+    fn camt053_statement_filter_requires_asset_and_valid_page_params() {
+        let missing_asset = Camt053StatementFilter::try_from_query(Camt053StatementQuery {
+            asset: None,
+            ..Camt053StatementQuery::default()
+        });
+        assert!(matches!(missing_asset, Err(ApiError::BadRequest(_))));
+
+        let valid = Camt053StatementFilter::try_from_query(Camt053StatementQuery {
+            asset: Some("KCAD_TEST".to_string()),
+            limit: Some(25),
+            offset: Some(5),
+        })
+        .unwrap();
+        assert_eq!(valid.asset, "KCAD_TEST");
+        assert_eq!(valid.limit, 25);
+        assert_eq!(valid.offset, 5);
+
+        let oversized_limit = Camt053StatementFilter::try_from_query(Camt053StatementQuery {
+            asset: Some("KCAD_TEST".to_string()),
+            limit: Some(MAX_STATEMENT_ENTRY_LIMIT + 1),
+            ..Camt053StatementQuery::default()
+        });
+        assert!(matches!(oversized_limit, Err(ApiError::BadRequest(_))));
+    }
+
     #[tokio::test]
     async fn institution_can_authorize_own_account() {
         let node = KaniNode::sandbox_default();
@@ -1799,6 +2009,7 @@ mod tests {
             "/v1/payments/{id}",
             "/v1/iso20022/pacs008",
             "/v1/iso20022/pacs002/{payment_id}",
+            "/v1/iso20022/camt053/accounts/{account_id}",
             "/v1/accounts",
             "/v1/accounts/{account_id}/balances/{asset}",
             "/v1/assets/{asset}/issued",

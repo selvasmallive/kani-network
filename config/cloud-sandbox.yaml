@@ -36,8 +36,10 @@ iso20022:
   supported_messages:
     - pacs.008
     - pacs.002
+    - camt.053
   ingest_endpoint: /v1/iso20022/pacs008
   status_endpoint: /v1/iso20022/pacs002/{payment_id}
+  statement_endpoint: /v1/iso20022/camt053/accounts/{account_id}
   sandbox_mapping:
     debtor_account: DbtrAcct/Id/Othr/Id
     creditor_account: CdtrAcct/Id/Othr/Id
@@ -47,9 +49,14 @@ iso20022:
       pending: ACSP
       finalized: ACSC
       rejected: RJCT
+    statement:
+      closing_booked_balance: CLBD
+      credit_indicator: CRDT
+      debit_indicator: DBIT
   restrictions:
     - single CdtTrfTxInf per message
     - amount must be a positive integer in KANI minor units
+    - camt.053 statements are account-scoped and sandbox-only
     - real_value remains false
 
 validator_job:

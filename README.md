@@ -28,7 +28,7 @@ k8s/
 scripts/phase2-validate.ps1
 ```
 
-The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL and sandbox API keys, Cloud SQL backups/PITR for sandbox recovery, basic ISO 20022 `pacs.008` sandbox ingestion, Cloud Monitoring alerts for operational signals, and a project-scoped Cloud Billing budget alert.
+The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL and sandbox API keys, Cloud SQL backups/PITR for sandbox recovery, basic ISO 20022 `pacs.008` sandbox ingestion, `pacs.002` status XML, `camt.053` account statements, Cloud Monitoring alerts for operational signals, and a project-scoped Cloud Billing budget alert.
 
 This skips GKE for now to minimize free-trial cost. The validator job runs `kani-node` in `sweep` mode across `validator-a`, `validator-b`, and `validator-c`, so the cloud MVP can still prove payment queueing, block finalization, balances, and audit persistence end to end. GKE manifests remain in `k8s/` for later validator operations testing.
 
@@ -50,7 +50,7 @@ The lean cloud guardrails use a 15-minute validator schedule and a `50` unit mon
 
 Cloud Run sets `KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS=TRUE` and loads all sandbox API keys from Secret Manager. The checked-in default keys remain only for local simulation; the cloud smoke test reads the live keys from Secret Manager.
 
-The initial ISO 20022 endpoints are `POST /v1/iso20022/pacs008` and `GET /v1/iso20022/pacs002/{payment_id}`. They accept a single-transfer `pacs.008` XML document, map debtor and creditor account identifiers to sandbox accounts, submit the payment through the same ledger path as `POST /v1/payments`, and return a basic `pacs.002` XML status report.
+The initial ISO 20022 endpoints are `POST /v1/iso20022/pacs008`, `GET /v1/iso20022/pacs002/{payment_id}`, and `GET /v1/iso20022/camt053/accounts/{account_id}?asset=KCAD_TEST`. They accept a single-transfer `pacs.008` XML document, map debtor and creditor account identifiers to sandbox accounts, submit the payment through the same ledger path as `POST /v1/payments`, return a basic `pacs.002` XML status report, and produce a sandbox `camt.053` XML account statement from finalized journal entries.
 
 ## Sandbox Boundaries
 

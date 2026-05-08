@@ -78,6 +78,43 @@ pub struct Pacs002PaymentStatus {
     pub creditor_account: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum Camt053CreditDebitIndicator {
+    Credit,
+    Debit,
+}
+
+impl Camt053CreditDebitIndicator {
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Credit => "CRDT",
+            Self::Debit => "DBIT",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Camt053Entry {
+    pub id: String,
+    pub transaction_id: String,
+    pub asset: String,
+    pub amount: i128,
+    pub direction: Camt053CreditDebitIndicator,
+    pub block_height: i64,
+    pub booked_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Camt053Statement {
+    pub message_id: String,
+    pub created_at: String,
+    pub statement_id: String,
+    pub account_id: String,
+    pub asset: String,
+    pub balance: i128,
+    pub entries: Vec<Camt053Entry>,
+}
+
 pub fn parse_envelope(
     message_type: &str,
     raw_xml: impl Into<String>,
@@ -226,6 +263,85 @@ pub fn build_pacs002_status_report(status: &Pacs002PaymentStatus) -> String {
     xml
 }
 
+pub fn build_camt053_statement(statement: &Camt053Statement) -> String {
+    let mut xml = String::new();
+    xml.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
+    xml.push('\n');
+    xml.push_str(r#"<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">"#);
+    xml.push('\n');
+    xml.push_str("  <BkToCstmrStmt>\n");
+    xml.push_str("    <GrpHdr>\n");
+    push_element(&mut xml, 6, "MsgId", &statement.message_id);
+    push_element(&mut xml, 6, "CreDtTm", &statement.created_at);
+    xml.push_str("    </GrpHdr>\n");
+    xml.push_str("    <Stmt>\n");
+    push_element(&mut xml, 6, "Id", &statement.statement_id);
+    push_element(&mut xml, 6, "ElctrncSeqNb", "1");
+    xml.push_str("      <Acct>\n");
+    xml.push_str("        <Id>\n");
+    xml.push_str("          <Othr>\n");
+    push_element(&mut xml, 12, "Id", &statement.account_id);
+    xml.push_str("          </Othr>\n");
+    xml.push_str("        </Id>\n");
+    push_element(&mut xml, 8, "Ccy", &statement.asset);
+    xml.push_str("      </Acct>\n");
+    xml.push_str("      <Bal>\n");
+    xml.push_str("        <Tp>\n");
+    xml.push_str("          <CdOrPrtry>\n");
+    push_element(&mut xml, 12, "Cd", "CLBD");
+    xml.push_str("          </CdOrPrtry>\n");
+    xml.push_str("        </Tp>\n");
+    push_amount_element(
+        &mut xml,
+        8,
+        "Amt",
+        &statement.asset,
+        positive_amount(statement.balance),
+    );
+    push_element(
+        &mut xml,
+        8,
+        "CdtDbtInd",
+        balance_credit_debit_indicator(statement.balance).code(),
+    );
+    xml.push_str("        <Dt>\n");
+    push_element(&mut xml, 10, "DtTm", &statement.created_at);
+    xml.push_str("        </Dt>\n");
+    xml.push_str("      </Bal>\n");
+
+    for entry in &statement.entries {
+        xml.push_str("      <Ntry>\n");
+        push_element(&mut xml, 8, "NtryRef", &entry.id);
+        push_amount_element(
+            &mut xml,
+            8,
+            "Amt",
+            &entry.asset,
+            positive_amount(entry.amount),
+        );
+        push_element(&mut xml, 8, "CdtDbtInd", entry.direction.code());
+        xml.push_str("        <Sts>\n");
+        push_element(&mut xml, 10, "Cd", "BOOK");
+        xml.push_str("        </Sts>\n");
+        xml.push_str("        <BookgDt>\n");
+        push_element(&mut xml, 10, "DtTm", &entry.booked_at);
+        xml.push_str("        </BookgDt>\n");
+        push_element(&mut xml, 8, "AcctSvcrRef", &entry.transaction_id);
+        push_element(
+            &mut xml,
+            8,
+            "AddtlNtryInf",
+            &format!("KANI block_height={}", entry.block_height),
+        );
+        xml.push_str("      </Ntry>\n");
+    }
+
+    xml.push_str("    </Stmt>\n");
+    xml.push_str("  </BkToCstmrStmt>\n");
+    xml.push_str("</Document>\n");
+    xml
+}
+
 fn required_child_text<'a, 'input>(
     node: &roxmltree::Node<'a, 'input>,
     path: &[&str],
@@ -273,6 +389,18 @@ fn parse_minor_units(value: &str) -> Result<i128, Iso20022Error> {
     }
 
     Ok(amount)
+}
+
+fn balance_credit_debit_indicator(balance: i128) -> Camt053CreditDebitIndicator {
+    if balance < 0 {
+        Camt053CreditDebitIndicator::Debit
+    } else {
+        Camt053CreditDebitIndicator::Credit
+    }
+}
+
+fn positive_amount(amount: i128) -> i128 {
+    amount.checked_abs().unwrap_or(i128::MAX)
 }
 
 fn push_element(xml: &mut String, indent: usize, name: &str, value: &str) {
@@ -446,6 +574,80 @@ mod tests {
         assert!(xml.contains("<OrgnlMsgId>msg&amp;001</OrgnlMsgId>"));
         assert!(xml.contains("<TxSts>RJCT</TxSts>"));
         assert!(xml.contains("insufficient &lt;funds&gt; &amp; rejected"));
+        assert!(xml.contains(r#"Ccy="KCAD_&quot;TEST&quot;""#));
+    }
+
+    #[test]
+    fn builds_camt053_statement_with_credit_and_debit_entries() {
+        let statement = Camt053Statement {
+            message_id: "camt.053:CORP_A:KCAD_TEST:1".to_string(),
+            created_at: "2026-05-07T10:00:00Z".to_string(),
+            statement_id: "stmt:CORP_A:KCAD_TEST:1".to_string(),
+            account_id: "CORP_A".to_string(),
+            asset: "KCAD_TEST".to_string(),
+            balance: 875000,
+            entries: vec![
+                Camt053Entry {
+                    id: "journal-credit".to_string(),
+                    transaction_id: "mint-tx".to_string(),
+                    asset: "KCAD_TEST".to_string(),
+                    amount: 1000000,
+                    direction: Camt053CreditDebitIndicator::Credit,
+                    block_height: 1,
+                    booked_at: "2026-05-07T10:01:00Z".to_string(),
+                },
+                Camt053Entry {
+                    id: "journal-debit".to_string(),
+                    transaction_id: "transfer-tx".to_string(),
+                    asset: "KCAD_TEST".to_string(),
+                    amount: 125000,
+                    direction: Camt053CreditDebitIndicator::Debit,
+                    block_height: 2,
+                    booked_at: "2026-05-07T10:02:00Z".to_string(),
+                },
+            ],
+        };
+
+        let xml = build_camt053_statement(&statement);
+
+        assert!(xml.contains("camt.053.001.08"));
+        assert!(xml.contains("<BkToCstmrStmt>"));
+        assert!(xml.contains("<Id>CORP_A</Id>"));
+        assert!(xml.contains("<Cd>CLBD</Cd>"));
+        assert!(xml.contains(r#"<Amt Ccy="KCAD_TEST">875000</Amt>"#));
+        assert!(xml.contains("<CdtDbtInd>CRDT</CdtDbtInd>"));
+        assert!(xml.contains("<CdtDbtInd>DBIT</CdtDbtInd>"));
+        assert!(xml.contains("<AcctSvcrRef>transfer-tx</AcctSvcrRef>"));
+        assert!(xml.contains("<AddtlNtryInf>KANI block_height=2</AddtlNtryInf>"));
+    }
+
+    #[test]
+    fn camt053_statement_escapes_xml_values() {
+        let statement = Camt053Statement {
+            message_id: "camt.053:<msg>&1".to_string(),
+            created_at: "2026-05-07T10:00:00Z".to_string(),
+            statement_id: "stmt:&1".to_string(),
+            account_id: "CORP_<A>".to_string(),
+            asset: "KCAD_\"TEST\"".to_string(),
+            balance: 100,
+            entries: vec![Camt053Entry {
+                id: "entry&1".to_string(),
+                transaction_id: "tx<1>".to_string(),
+                asset: "KCAD_\"TEST\"".to_string(),
+                amount: 100,
+                direction: Camt053CreditDebitIndicator::Credit,
+                block_height: 1,
+                booked_at: "2026-05-07T10:01:00Z".to_string(),
+            }],
+        };
+
+        let xml = build_camt053_statement(&statement);
+
+        assert!(xml.contains("<MsgId>camt.053:&lt;msg&gt;&amp;1</MsgId>"));
+        assert!(xml.contains("<Id>stmt:&amp;1</Id>"));
+        assert!(xml.contains("<Id>CORP_&lt;A&gt;</Id>"));
+        assert!(xml.contains("<NtryRef>entry&amp;1</NtryRef>"));
+        assert!(xml.contains("<AcctSvcrRef>tx&lt;1&gt;</AcctSvcrRef>"));
         assert!(xml.contains(r#"Ccy="KCAD_&quot;TEST&quot;""#));
     }
 }

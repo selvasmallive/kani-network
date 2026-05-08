@@ -2,10 +2,12 @@ use chrono::{DateTime, Utc};
 use kani_consensus::{ConsensusError, PoAConsensus, Validator};
 use kani_crypto::{hash_bytes, hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
 use kani_ledger::{
-    AuditEventSearch, BlockSearch, InMemoryLedger, LedgerError, LedgerStorageError,
-    PostgresLedgerStore, ValidatorStatus,
+    AuditEventSearch, BlockSearch, InMemoryLedger, JournalEntrySearch, LedgerError,
+    LedgerStorageError, PostgresLedgerStore, ValidatorStatus,
 };
-use kani_types::{Account, AuditEvent, Block, PaymentRecord, Transaction, TransactionKind};
+use kani_types::{
+    Account, AuditEvent, Block, JournalEntry, PaymentRecord, Transaction, TransactionKind,
+};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env,
@@ -331,6 +333,17 @@ impl KaniNode {
         }
 
         Ok(search.apply(self.current_ledger().await?.audit_events().to_vec()))
+    }
+
+    pub async fn journal_entries(
+        &self,
+        search: JournalEntrySearch,
+    ) -> Result<Vec<JournalEntry>, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.query_journal_entries(&search).await?);
+        }
+
+        Ok(search.apply(self.current_ledger().await?.journal_entries().to_vec()))
     }
 
     pub async fn record_audit_event(&self, event: AuditEvent) -> Result<(), NodeError> {

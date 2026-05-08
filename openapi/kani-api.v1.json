@@ -204,6 +204,68 @@
         }
       }
     },
+    "/v1/iso20022/camt053/accounts/{account_id}": {
+      "get": {
+        "summary": "Read ISO 20022 camt.053 account statement",
+        "description": "Returns a sandbox camt.053 XML account statement for one account and asset. Visible only to the institution that owns the account.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccountId"
+          },
+          {
+            "name": "asset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{3,32}$"
+            },
+            "examples": {
+              "testCad": {
+                "value": "KCAD_TEST"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "camt.053 account statement",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string",
+                  "description": "camt.053 XML document"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "string",
+                  "description": "camt.053 XML document"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/v1/payments/{id}": {
       "get": {
         "summary": "Read a payment by id",

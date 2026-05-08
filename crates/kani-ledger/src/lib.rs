@@ -106,6 +106,42 @@ impl BlockSearch {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JournalEntrySearch {
+    pub account_id: String,
+    pub asset: Option<String>,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+impl JournalEntrySearch {
+    pub fn apply(&self, entries: Vec<JournalEntry>) -> Vec<JournalEntry> {
+        let limit = usize::try_from(self.limit.max(0)).unwrap_or(usize::MAX);
+        let offset = usize::try_from(self.offset.max(0)).unwrap_or(usize::MAX);
+
+        entries
+            .into_iter()
+            .filter(|entry| self.matches(entry))
+            .skip(offset)
+            .take(limit)
+            .collect()
+    }
+
+    fn matches(&self, entry: &JournalEntry) -> bool {
+        if entry.account_id != self.account_id {
+            return false;
+        }
+
+        if let Some(asset) = &self.asset {
+            if entry.asset != *asset {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuditEventSearch {
     pub event_type: Option<String>,
     pub decision: Option<String>,
@@ -816,6 +852,41 @@ impl PostgresLedgerStore {
         Ok(())
     }
 
+    pub async fn query_journal_entries(
+        &self,
+        search: &JournalEntrySearch,
+    ) -> Result<Vec<JournalEntry>, LedgerStorageError> {
+        let mut query_builder = QueryBuilder::<Postgres>::new(
+            r#"
+            SELECT
+              id::text AS id,
+              transaction_id::text AS transaction_id,
+              account_id,
+              asset,
+              amount::text AS amount,
+              direction,
+              block_height,
+              created_at
+            FROM journal_entries
+            WHERE account_id =
+            "#,
+        );
+        query_builder.push_bind(&search.account_id);
+
+        if let Some(asset) = search.asset.as_deref() {
+            query_builder.push(" AND asset = ").push_bind(asset);
+        }
+
+        query_builder
+            .push(" ORDER BY created_at, id LIMIT ")
+            .push_bind(search.limit)
+            .push(" OFFSET ")
+            .push_bind(search.offset);
+
+        let rows = query_builder.build().fetch_all(&self.pool).await?;
+        rows.iter().map(journal_entry_from_row).collect()
+    }
+
     pub async fn query_audit_events(
         &self,
         search: &AuditEventSearch,
@@ -1349,20 +1420,7 @@ impl PostgresLedgerStore {
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter()
-            .map(|row| {
-                Ok(JournalEntry {
-                    id: row.try_get("id")?,
-                    transaction_id: row.try_get("transaction_id")?,
-                    account_id: row.try_get("account_id")?,
-                    asset: row.try_get("asset")?,
-                    amount: parse_amount(row.try_get("amount")?)?,
-                    direction: journal_direction_from_db(row.try_get::<String, _>("direction")?)?,
-                    block_height: row.try_get("block_height")?,
-                    created_at: row.try_get("created_at")?,
-                })
-            })
-            .collect()
+        rows.iter().map(journal_entry_from_row).collect()
     }
 
     async fn load_audit_events(&self) -> Result<Vec<AuditEvent>, LedgerStorageError> {
@@ -1404,6 +1462,19 @@ fn audit_event_from_row(row: &sqlx::postgres::PgRow) -> Result<AuditEvent, Ledge
         metadata: serde_json::from_value(row.try_get::<Value, _>("metadata")?)?,
         block_height: row.try_get("block_height")?,
         transaction_id: row.try_get("transaction_id")?,
+        created_at: row.try_get("created_at")?,
+    })
+}
+
+fn journal_entry_from_row(row: &sqlx::postgres::PgRow) -> Result<JournalEntry, LedgerStorageError> {
+    Ok(JournalEntry {
+        id: row.try_get("id")?,
+        transaction_id: row.try_get("transaction_id")?,
+        account_id: row.try_get("account_id")?,
+        asset: row.try_get("asset")?,
+        amount: parse_amount(row.try_get("amount")?)?,
+        direction: journal_direction_from_db(row.try_get::<String, _>("direction")?)?,
+        block_height: row.try_get("block_height")?,
         created_at: row.try_get("created_at")?,
     })
 }
@@ -1732,6 +1803,46 @@ mod tests {
         assert_eq!(ledger.issued(KCAD_TEST), 1_000_000);
         assert_eq!(ledger.blocks().len(), 2);
         assert_eq!(ledger.audit_events().len(), 4);
+    }
+
+    #[test]
+    fn journal_entry_search_filters_account_asset_and_pages_results() {
+        let mut ledger = InMemoryLedger::sandbox();
+        let mint = Transaction::new_mint(
+            SANDBOX_TREASURY_ACCOUNT,
+            SANDBOX_CORP_A_ACCOUNT,
+            KCAD_TEST,
+            1_000_000,
+            ledger.next_nonce(SANDBOX_TREASURY_ACCOUNT),
+        );
+        ledger
+            .apply_block(seal_test_block(&ledger, vec![mint]))
+            .unwrap();
+
+        let transfer = Transaction::new_transfer(
+            SANDBOX_CORP_A_ACCOUNT,
+            SANDBOX_CORP_B_ACCOUNT,
+            KCAD_TEST,
+            100_000,
+            ledger.next_nonce(SANDBOX_CORP_A_ACCOUNT),
+        );
+        ledger
+            .apply_block(seal_test_block(&ledger, vec![transfer]))
+            .unwrap();
+
+        let search = JournalEntrySearch {
+            account_id: SANDBOX_CORP_A_ACCOUNT.to_string(),
+            asset: Some(KCAD_TEST.to_string()),
+            limit: 1,
+            offset: 1,
+        };
+        let entries = search.apply(ledger.journal_entries().to_vec());
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].account_id, SANDBOX_CORP_A_ACCOUNT);
+        assert_eq!(entries[0].asset, KCAD_TEST);
+        assert_eq!(entries[0].direction, JournalDirection::Debit);
+        assert_eq!(entries[0].amount, 100_000);
     }
 
     #[test]
