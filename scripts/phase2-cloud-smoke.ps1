@@ -171,6 +171,24 @@ function Invoke-KaniRaw {
     return (Invoke-WebRequest -UseBasicParsing -Method $Method -Uri $uri -Headers $requestHeaders).Content
 }
 
+function Get-JsonProperty {
+    param(
+        $Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($property) {
+        return $property.Value
+    }
+
+    return $null
+}
+
 function Invoke-ValidatorJob {
     if ($SkipValidatorJob) {
         return
@@ -328,6 +346,9 @@ $balanceA = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_A/balances/$ass
 $balanceB = Invoke-KaniJson -Method Get -Path "/v1/accounts/CORP_B/balances/$asset" -Headers $corpBHeaders
 $latestBlock = Invoke-KaniJson -Method Get -Path "/v1/blocks/latest" -Headers $adminHeaders
 $pending = Invoke-KaniJson -Method Get -Path "/v1/transactions/pending?limit=100&offset=0" -Headers $adminHeaders
+$settlementReport = Invoke-KaniJson -Method Get -Path "/v1/reports/settlement-summary?limit=500&offset=0" -Headers $adminHeaders
+$complianceReport = Invoke-KaniJson -Method Get -Path "/v1/reports/compliance-decisions?limit=500&offset=0" -Headers $adminHeaders
+$validatorReport = Invoke-KaniJson -Method Get -Path "/v1/reports/validator-finality?limit=500&offset=0" -Headers $adminHeaders
 
 if ([int64]$balanceA.amount -ne 875000) {
     throw "Expected CORP_A balance 875000, got $($balanceA.amount)"
@@ -337,6 +358,33 @@ if ([int64]$balanceB.amount -ne 125000) {
 }
 if ([int64]$pending.count -ne 0) {
     throw "Expected no pending transactions, got $($pending.count)"
+}
+if ($settlementReport.report_type -ne "settlement_summary") {
+    throw "Expected settlement summary report"
+}
+$mintedForAsset = Get-JsonProperty -Object $settlementReport.minted_amount_by_asset -Name $asset
+$transferredForAsset = Get-JsonProperty -Object $settlementReport.gross_transfer_amount_by_asset -Name $asset
+if ([int64]$mintedForAsset -ne 1000000) {
+    throw "Expected settlement report minted amount 1000000 for $asset, got $mintedForAsset"
+}
+if ([int64]$transferredForAsset -ne 125000) {
+    throw "Expected settlement report gross transfer amount 125000 for $asset, got $transferredForAsset"
+}
+if ($complianceReport.report_type -ne "compliance_decisions") {
+    throw "Expected compliance decision report"
+}
+$selfTransferRejections = Get-JsonProperty -Object $complianceReport.decisions_by_rule_id -Name "NO_SELF_TRANSFER"
+if ([int64]$selfTransferRejections -lt 1) {
+    throw "Expected compliance report to include at least one NO_SELF_TRANSFER decision"
+}
+if ($validatorReport.report_type -ne "validator_finality") {
+    throw "Expected validator finality report"
+}
+if ([int64]$validatorReport.required_finality_votes -ne 2) {
+    throw "Expected validator finality report required_finality_votes 2, got $($validatorReport.required_finality_votes)"
+}
+if ([int64]$validatorReport.finalized_block_count -lt 1) {
+    throw "Expected validator finality report to include finalized blocks"
 }
 
 [pscustomobject]@{
@@ -357,5 +405,9 @@ if ([int64]$pending.count -ne 0) {
     latest_block_validator = $latestBlock.validator
     latest_block_finalized_by = $latestBlock.finalized_by -join ","
     pending_count = $pending.count
+    audit_reports_verified = $true
+    settlement_report_transactions = $settlementReport.transaction_count
+    compliance_report_events = $complianceReport.event_count
+    validator_report_finalized_blocks = $validatorReport.finalized_block_count
     status = "ok"
 }

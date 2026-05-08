@@ -560,6 +560,138 @@
         }
       }
     },
+    "/v1/reports/settlement-summary": {
+      "get": {
+        "summary": "Read settlement summary report",
+        "description": "Sandbox admin credentials are required. Summarizes finalized sandbox blocks by transaction kind and asset.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CreatedFrom"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedTo"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settlement summary report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementSummaryReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/reports/compliance-decisions": {
+      "get": {
+        "summary": "Read compliance decision report",
+        "description": "Sandbox admin credentials are required. Groups COMPLIANCE_DECISION audit events by decision, rule, and institution.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CreatedFrom"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedTo"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compliance decision report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceDecisionReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/reports/validator-finality": {
+      "get": {
+        "summary": "Read validator finality report",
+        "description": "Sandbox admin credentials are required. Summarizes validator block production, finality votes, and 2/3 threshold coverage.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CreatedFrom"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedTo"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validator finality report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidatorFinalityReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/v1/validators": {
       "get": {
         "summary": "Read validator status",
@@ -1173,6 +1305,340 @@
             }
           }
         ]
+      },
+      "SettlementSummaryReport": {
+        "type": "object",
+        "required": [
+          "report_type",
+          "environment",
+          "real_value",
+          "redeemable",
+          "created_from",
+          "created_to",
+          "scan_limit",
+          "scan_offset",
+          "block_count",
+          "transaction_count",
+          "mint_count",
+          "burn_count",
+          "transfer_count",
+          "minted_amount_by_asset",
+          "burned_amount_by_asset",
+          "gross_transfer_amount_by_asset"
+        ],
+        "properties": {
+          "report_type": {
+            "type": "string",
+            "const": "settlement_summary"
+          },
+          "environment": {
+            "type": "string",
+            "const": "SANDBOX"
+          },
+          "real_value": {
+            "type": "boolean",
+            "const": false
+          },
+          "redeemable": {
+            "type": "boolean",
+            "const": false
+          },
+          "created_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "scan_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "scan_offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "block_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transaction_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mint_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "burn_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transfer_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minted_amount_by_asset": {
+            "$ref": "#/components/schemas/AssetAmountMap"
+          },
+          "burned_amount_by_asset": {
+            "$ref": "#/components/schemas/AssetAmountMap"
+          },
+          "gross_transfer_amount_by_asset": {
+            "$ref": "#/components/schemas/AssetAmountMap"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComplianceDecisionReport": {
+        "type": "object",
+        "required": [
+          "report_type",
+          "environment",
+          "real_value",
+          "redeemable",
+          "created_from",
+          "created_to",
+          "scan_limit",
+          "scan_offset",
+          "event_count",
+          "decisions_by_decision",
+          "decisions_by_rule_id",
+          "decisions_by_institution",
+          "latest_event_at"
+        ],
+        "properties": {
+          "report_type": {
+            "type": "string",
+            "const": "compliance_decisions"
+          },
+          "environment": {
+            "type": "string",
+            "const": "SANDBOX"
+          },
+          "real_value": {
+            "type": "boolean",
+            "const": false
+          },
+          "redeemable": {
+            "type": "boolean",
+            "const": false
+          },
+          "created_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "scan_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "scan_offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "decisions_by_decision": {
+            "$ref": "#/components/schemas/StringCountMap"
+          },
+          "decisions_by_rule_id": {
+            "$ref": "#/components/schemas/StringCountMap"
+          },
+          "decisions_by_institution": {
+            "$ref": "#/components/schemas/StringCountMap"
+          },
+          "latest_event_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidatorFinalityReport": {
+        "type": "object",
+        "required": [
+          "report_type",
+          "environment",
+          "real_value",
+          "redeemable",
+          "created_from",
+          "created_to",
+          "scan_limit",
+          "scan_offset",
+          "active_validator_count",
+          "required_finality_votes",
+          "block_count",
+          "transaction_count",
+          "finalized_block_count",
+          "blocks_below_threshold",
+          "validators"
+        ],
+        "properties": {
+          "report_type": {
+            "type": "string",
+            "const": "validator_finality"
+          },
+          "environment": {
+            "type": "string",
+            "const": "SANDBOX"
+          },
+          "real_value": {
+            "type": "boolean",
+            "const": false
+          },
+          "redeemable": {
+            "type": "boolean",
+            "const": false
+          },
+          "created_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "scan_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "scan_offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active_validator_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "required_finality_votes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "block_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transaction_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "finalized_block_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blocks_below_threshold": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "validators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidatorFinalityRow"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidatorFinalityRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "active",
+          "produced_blocks",
+          "finality_votes",
+          "last_seen_at",
+          "last_finalized_height",
+          "last_finalized_hash",
+          "last_finalized_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "produced_blocks": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "finality_votes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_seen_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_finalized_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "last_finalized_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_finalized_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AssetAmountMap": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer"
+        }
+      },
+      "StringCountMap": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
       "PageMetadata": {
         "type": "object",

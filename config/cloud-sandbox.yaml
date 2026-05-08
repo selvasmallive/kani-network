@@ -52,6 +52,18 @@ compliance:
       - ASSET_ALLOWLIST
   audit_event: COMPLIANCE_DECISION
 
+reporting:
+  enabled: true
+  endpoints:
+    settlement_summary: /v1/reports/settlement-summary
+    compliance_decisions: /v1/reports/compliance-decisions
+    validator_finality: /v1/reports/validator-finality
+  scan_limit_max: 500
+  reports:
+    - settlement volume by asset and transaction kind
+    - compliance decisions by rule and institution
+    - validator block production and finality votes
+
 iso20022:
   enabled: true
   supported_messages:

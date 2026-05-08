@@ -28,7 +28,7 @@ k8s/
 scripts/phase2-validate.ps1
 ```
 
-The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL and sandbox API keys, Cloud SQL backups/PITR for sandbox recovery, basic sandbox compliance screening, ISO 20022 `pacs.008` sandbox ingestion, `pacs.002` status XML, `camt.053` account statements, Cloud Monitoring alerts for operational signals, and a project-scoped Cloud Billing budget alert.
+The default Phase 2 topology is `phase2-lean-no-gke`: Cloud Run for `kani-api`, a Cloud Run Job for validator finality, Cloud Scheduler for periodic validator execution, Cloud SQL PostgreSQL for ledger state, Artifact Registry for images, Secret Manager for the generated database URL and sandbox API keys, Cloud SQL backups/PITR for sandbox recovery, basic sandbox compliance screening, ISO 20022 `pacs.008` sandbox ingestion, `pacs.002` status XML, `camt.053` account statements, admin audit/reporting endpoints, Cloud Monitoring alerts for operational signals, and a project-scoped Cloud Billing budget alert.
 
 This skips GKE for now to minimize free-trial cost. The validator job runs `kani-node` in `sweep` mode across `validator-a`, `validator-b`, and `validator-c`, so the cloud MVP can still prove payment queueing, block finalization, balances, and audit persistence end to end. GKE manifests remain in `k8s/` for later validator operations testing.
 
@@ -53,6 +53,8 @@ Cloud Run sets `KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS=TRUE` and loads all san
 The initial ISO 20022 endpoints are `POST /v1/iso20022/pacs008`, `GET /v1/iso20022/pacs002/{payment_id}`, and `GET /v1/iso20022/camt053/accounts/{account_id}?asset=KCAD_TEST`. They accept a single-transfer `pacs.008` XML document, map debtor and creditor account identifiers to sandbox accounts, submit the payment through the same ledger path as `POST /v1/payments`, return a basic `pacs.002` XML status report, and produce a sandbox `camt.053` XML account statement from finalized journal entries.
 
 The Phase 2 sandbox compliance profile is `sandbox-stp-v1`. It allows straight-through processing only between `CORP_A` and `CORP_B`, only for `KCAD_TEST*` and `KUSD_TEST*` assets, blocks self-transfers, flags payments above `500000` minor units for manual review, and records every payment-screening decision as a `COMPLIANCE_DECISION` audit event.
+
+Admin reporting endpoints are `GET /v1/reports/settlement-summary`, `GET /v1/reports/compliance-decisions`, and `GET /v1/reports/validator-finality`. They summarize finalized settlement volume by asset, compliance decisions by rule/institution, and validator production/finality vote coverage for the sandbox operator.
 
 ## Sandbox Boundaries
 
@@ -130,7 +132,7 @@ x-kani-api-key: sandbox-corp-a-token | sandbox-corp-b-token | sandbox-treasury-t
 
 These local keys are simulation-only. Override them with `KANI_SANDBOX_CORP_A_API_KEY`, `KANI_SANDBOX_CORP_B_API_KEY`, and `KANI_SANDBOX_TREASURY_API_KEY` when needed.
 Balance reads require the institution that owns the account. Payment lookup is visible to the sending or receiving institution.
-Network-wide read APIs such as accounts, blocks, audit events, validators, and pending transactions require sandbox admin headers:
+Network-wide read APIs such as accounts, blocks, audit events, reports, validators, and pending transactions require sandbox admin headers:
 
 ```text
 x-kani-institution-id: KANI_ADMIN
@@ -267,6 +269,18 @@ curl "http://127.0.0.1:8080/v1/audit-events?limit=100&offset=0" \
   -H "x-kani-api-key: sandbox-admin-token"
 
 curl "http://127.0.0.1:8080/v1/audit-events?event_type=API_AUTHORIZATION_DECISION&decision=DENIED&institution_id=CORP_B&created_from=1970-01-01T00%3A00%3A00Z&limit=100&offset=0" \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl "http://127.0.0.1:8080/v1/reports/settlement-summary?limit=500&offset=0" \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl "http://127.0.0.1:8080/v1/reports/compliance-decisions?limit=500&offset=0" \
+  -H "x-kani-institution-id: KANI_ADMIN" \
+  -H "x-kani-api-key: sandbox-admin-token"
+
+curl "http://127.0.0.1:8080/v1/reports/validator-finality?limit=500&offset=0" \
   -H "x-kani-institution-id: KANI_ADMIN" \
   -H "x-kani-api-key: sandbox-admin-token"
 

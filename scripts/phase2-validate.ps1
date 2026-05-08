@@ -163,6 +163,12 @@ foreach ($expected in @("compliance:", "sandbox-stp-v1", "allowed_accounts:", "a
     }
 }
 
+foreach ($expected in @("reporting:", "/v1/reports/settlement-summary", "/v1/reports/compliance-decisions", "/v1/reports/validator-finality", "settlement volume by asset", "validator block production")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox reporting setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 foreach ($expected in @("iso20022:", "pacs\.008", "pacs\.002", "camt\.053", "/v1/iso20022/pacs008", "/v1/iso20022/pacs002/\{payment_id\}", "/v1/iso20022/camt053/accounts/\{account_id\}", "single CdtTrfTxInf", "ACSC", "ACSP", "RJCT", "CLBD", "CRDT", "DBIT")) {
     if ($cloudSandbox -notmatch $expected) {
         throw "Expected cloud sandbox ISO 20022 setting in config/cloud-sandbox.yaml: $expected"
@@ -194,6 +200,12 @@ foreach ($expected in @("Invoke-KaniJsonError", "ExpectedStatus 403", "phase2-co
     }
 }
 
+foreach ($expected in @("/v1/reports/settlement-summary", "/v1/reports/compliance-decisions", "/v1/reports/validator-finality", "settlement_summary", "compliance_decisions", "validator_finality", "audit_reports_verified")) {
+    if ($cloudSmokeScript -notmatch $expected) {
+        throw "Expected cloud smoke test to exercise audit/reporting flow: $expected"
+    }
+}
+
 [pscustomobject]@{
     phase = "phase-2-cloud-mvp"
     cost_profile = "phase2-lean-no-gke"
@@ -210,6 +222,7 @@ foreach ($expected in @("Invoke-KaniJsonError", "ExpectedStatus 403", "phase2-co
     iso20022_pacs008_enabled = $true
     iso20022_pacs002_enabled = $true
     iso20022_camt053_enabled = $true
+    audit_reporting_enabled = $true
     cloud_sql_backups_enabled = $true
     cloud_sql_point_in_time_recovery_enabled = $true
     monitoring_alerts_enabled = $true

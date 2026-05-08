@@ -44,6 +44,8 @@ const DEFAULT_BLOCK_LIMIT: i64 = 100;
 const MAX_BLOCK_LIMIT: i64 = 500;
 const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
 const MAX_AUDIT_EVENT_LIMIT: i64 = 500;
+const DEFAULT_REPORT_SCAN_LIMIT: i64 = 500;
+const MAX_REPORT_SCAN_LIMIT: i64 = 500;
 const DEFAULT_STATEMENT_ENTRY_LIMIT: i64 = 100;
 const MAX_STATEMENT_ENTRY_LIMIT: i64 = 500;
 const OPENAPI_JSON: &str = include_str!("../../../openapi/kani-api.v1.json");
@@ -341,6 +343,74 @@ pub struct ValidatorResponse {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct SettlementSummaryReport {
+    pub report_type: &'static str,
+    pub environment: &'static str,
+    pub real_value: bool,
+    pub redeemable: bool,
+    pub created_from: Option<String>,
+    pub created_to: Option<String>,
+    pub scan_limit: i64,
+    pub scan_offset: i64,
+    pub block_count: usize,
+    pub transaction_count: usize,
+    pub mint_count: usize,
+    pub burn_count: usize,
+    pub transfer_count: usize,
+    pub minted_amount_by_asset: BTreeMap<String, i128>,
+    pub burned_amount_by_asset: BTreeMap<String, i128>,
+    pub gross_transfer_amount_by_asset: BTreeMap<String, i128>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ComplianceDecisionReport {
+    pub report_type: &'static str,
+    pub environment: &'static str,
+    pub real_value: bool,
+    pub redeemable: bool,
+    pub created_from: Option<String>,
+    pub created_to: Option<String>,
+    pub scan_limit: i64,
+    pub scan_offset: i64,
+    pub event_count: usize,
+    pub decisions_by_decision: BTreeMap<String, usize>,
+    pub decisions_by_rule_id: BTreeMap<String, usize>,
+    pub decisions_by_institution: BTreeMap<String, usize>,
+    pub latest_event_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ValidatorFinalityReport {
+    pub report_type: &'static str,
+    pub environment: &'static str,
+    pub real_value: bool,
+    pub redeemable: bool,
+    pub created_from: Option<String>,
+    pub created_to: Option<String>,
+    pub scan_limit: i64,
+    pub scan_offset: i64,
+    pub active_validator_count: usize,
+    pub required_finality_votes: usize,
+    pub block_count: usize,
+    pub transaction_count: usize,
+    pub finalized_block_count: usize,
+    pub blocks_below_threshold: usize,
+    pub validators: Vec<ValidatorFinalityRow>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ValidatorFinalityRow {
+    pub id: String,
+    pub active: bool,
+    pub produced_blocks: usize,
+    pub finality_votes: usize,
+    pub last_seen_at: Option<String>,
+    pub last_finalized_height: Option<i64>,
+    pub last_finalized_hash: Option<String>,
+    pub last_finalized_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct HealthResponse {
     pub service: &'static str,
     pub status: &'static str,
@@ -396,6 +466,14 @@ pub struct BlockQuery {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Camt053StatementQuery {
     pub asset: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ReportQuery {
+    pub created_from: Option<String>,
+    pub created_to: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
@@ -528,6 +606,18 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route("/v1/blocks", get(get_blocks))
         .route("/v1/blocks/latest", get(get_latest_block))
         .route("/v1/audit-events", get(get_audit_events))
+        .route(
+            "/v1/reports/settlement-summary",
+            get(get_settlement_summary_report),
+        )
+        .route(
+            "/v1/reports/compliance-decisions",
+            get(get_compliance_decision_report),
+        )
+        .route(
+            "/v1/reports/validator-finality",
+            get(get_validator_finality_report),
+        )
         .route("/v1/validators", get(get_validators))
         .route("/v1/sandbox/mint", post(sandbox_mint))
         .with_state(AppState {
@@ -1202,6 +1292,91 @@ impl AuditEventFilter {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct ReportFilter {
+    created_from: Option<DateTime<Utc>>,
+    created_to: Option<DateTime<Utc>>,
+    limit: i64,
+    offset: i64,
+}
+
+impl ReportFilter {
+    fn try_from_query(query: ReportQuery) -> Result<Self, ApiError> {
+        let created_from = parse_optional_rfc3339("created_from", query.created_from)?;
+        let created_to = parse_optional_rfc3339("created_to", query.created_to)?;
+        if let (Some(created_from), Some(created_to)) = (created_from.as_ref(), created_to.as_ref())
+        {
+            if created_from > created_to {
+                return Err(ApiError::BadRequest(
+                    "created_from must be before or equal to created_to".to_string(),
+                ));
+            }
+        }
+
+        let (limit, offset) = validated_page(
+            query.limit,
+            query.offset,
+            DEFAULT_REPORT_SCAN_LIMIT,
+            MAX_REPORT_SCAN_LIMIT,
+        )?;
+
+        Ok(Self {
+            created_from,
+            created_to,
+            limit,
+            offset,
+        })
+    }
+
+    fn to_block_search(&self) -> BlockSearch {
+        BlockSearch {
+            limit: self.limit,
+            offset: self.offset,
+        }
+    }
+
+    fn to_compliance_audit_search(&self) -> AuditEventSearch {
+        AuditEventSearch {
+            event_type: Some("COMPLIANCE_DECISION".to_string()),
+            decision: None,
+            institution_id: None,
+            created_from: self.created_from.as_ref().cloned(),
+            created_to: self.created_to.as_ref().cloned(),
+            limit: self.limit,
+            offset: self.offset,
+        }
+    }
+
+    fn apply_block_window(&self, blocks: Vec<Block>) -> Vec<Block> {
+        blocks
+            .into_iter()
+            .filter(|block| {
+                if let Some(created_from) = self.created_from.as_ref() {
+                    if &block.created_at < created_from {
+                        return false;
+                    }
+                }
+
+                if let Some(created_to) = self.created_to.as_ref() {
+                    if &block.created_at > created_to {
+                        return false;
+                    }
+                }
+
+                true
+            })
+            .collect()
+    }
+
+    fn created_from_string(&self) -> Option<String> {
+        self.created_from.as_ref().map(DateTime::to_rfc3339)
+    }
+
+    fn created_to_string(&self) -> Option<String> {
+        self.created_to.as_ref().map(DateTime::to_rfc3339)
+    }
+}
+
 fn validated_page(
     limit: Option<i64>,
     offset: Option<i64>,
@@ -1344,6 +1519,22 @@ async fn read_authorized_payment(
     audit_authorization_allowed(state, headers, &auth, action, &resource).await?;
 
     Ok(record)
+}
+
+async fn authorize_admin_request(
+    state: &AppState,
+    headers: &HeaderMap,
+    action: &'static str,
+    resource: &str,
+) -> Result<AuthenticatedInstitution, ApiError> {
+    let auth = authenticate_request(state, headers, action, resource).await?;
+    if let Err(error) = authorize_admin(&auth) {
+        audit_authorization_denied(state, headers, Some(&auth), action, resource, &error).await?;
+        return Err(error);
+    }
+    audit_authorization_allowed(state, headers, &auth, action, resource).await?;
+
+    Ok(auth)
 }
 
 async fn get_accounts(
@@ -1546,6 +1737,247 @@ async fn get_audit_events(
     Ok(Json(PaginatedResponse::from_limit_plus_one(
         items, limit, offset,
     )))
+}
+
+async fn get_settlement_summary_report(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<SettlementSummaryReport>, ApiError> {
+    let resource = "network:reports:settlement_summary";
+    authorize_admin_request(&state, &headers, "read_settlement_report", resource).await?;
+    let filter = ReportFilter::try_from_query(query)?;
+    let blocks = state.node.blocks(filter.to_block_search()).await?;
+    let blocks = filter.apply_block_window(blocks);
+
+    Ok(Json(build_settlement_summary_report(&filter, &blocks)))
+}
+
+async fn get_compliance_decision_report(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<ComplianceDecisionReport>, ApiError> {
+    let resource = "network:reports:compliance_decisions";
+    authorize_admin_request(&state, &headers, "read_compliance_report", resource).await?;
+    let filter = ReportFilter::try_from_query(query)?;
+    let events = state
+        .node
+        .audit_events(filter.to_compliance_audit_search())
+        .await?;
+
+    Ok(Json(build_compliance_decision_report(&filter, &events)))
+}
+
+async fn get_validator_finality_report(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<ValidatorFinalityReport>, ApiError> {
+    let resource = "network:reports:validator_finality";
+    authorize_admin_request(&state, &headers, "read_validator_report", resource).await?;
+    let filter = ReportFilter::try_from_query(query)?;
+    let blocks = state.node.blocks(filter.to_block_search()).await?;
+    let blocks = filter.apply_block_window(blocks);
+    let validators = state.node.validators().await?;
+
+    Ok(Json(build_validator_finality_report(
+        &filter, &blocks, validators,
+    )))
+}
+
+fn build_settlement_summary_report(
+    filter: &ReportFilter,
+    blocks: &[Block],
+) -> SettlementSummaryReport {
+    let mut minted_amount_by_asset = BTreeMap::new();
+    let mut burned_amount_by_asset = BTreeMap::new();
+    let mut gross_transfer_amount_by_asset = BTreeMap::new();
+    let mut mint_count = 0;
+    let mut burn_count = 0;
+    let mut transfer_count = 0;
+
+    for tx in blocks.iter().flat_map(|block| block.txs.iter()) {
+        match tx.kind {
+            kani_types::TransactionKind::Mint => {
+                mint_count += 1;
+                add_amount(&mut minted_amount_by_asset, &tx.asset, tx.amount);
+            }
+            kani_types::TransactionKind::Burn => {
+                burn_count += 1;
+                add_amount(&mut burned_amount_by_asset, &tx.asset, tx.amount);
+            }
+            kani_types::TransactionKind::Transfer => {
+                transfer_count += 1;
+                add_amount(&mut gross_transfer_amount_by_asset, &tx.asset, tx.amount);
+            }
+        }
+    }
+
+    SettlementSummaryReport {
+        report_type: "settlement_summary",
+        environment: "SANDBOX",
+        real_value: false,
+        redeemable: false,
+        created_from: filter.created_from_string(),
+        created_to: filter.created_to_string(),
+        scan_limit: filter.limit,
+        scan_offset: filter.offset,
+        block_count: blocks.len(),
+        transaction_count: mint_count + burn_count + transfer_count,
+        mint_count,
+        burn_count,
+        transfer_count,
+        minted_amount_by_asset,
+        burned_amount_by_asset,
+        gross_transfer_amount_by_asset,
+    }
+}
+
+fn build_compliance_decision_report(
+    filter: &ReportFilter,
+    events: &[AuditEvent],
+) -> ComplianceDecisionReport {
+    let mut decisions_by_decision = BTreeMap::new();
+    let mut decisions_by_rule_id = BTreeMap::new();
+    let mut decisions_by_institution = BTreeMap::new();
+    let mut latest_event_at = None;
+
+    for event in events {
+        if latest_event_at
+            .as_ref()
+            .map(|latest| &event.created_at > latest)
+            .unwrap_or(true)
+        {
+            latest_event_at = Some(event.created_at.to_owned());
+        }
+
+        increment_count(
+            &mut decisions_by_decision,
+            event
+                .metadata
+                .get("decision")
+                .cloned()
+                .unwrap_or_else(|| "UNKNOWN".to_string()),
+        );
+        increment_count(
+            &mut decisions_by_rule_id,
+            event
+                .metadata
+                .get("rule_id")
+                .cloned()
+                .unwrap_or_else(|| "UNKNOWN".to_string()),
+        );
+        increment_count(
+            &mut decisions_by_institution,
+            event
+                .metadata
+                .get("institution_id")
+                .cloned()
+                .unwrap_or_else(|| "UNKNOWN".to_string()),
+        );
+    }
+
+    ComplianceDecisionReport {
+        report_type: "compliance_decisions",
+        environment: "SANDBOX",
+        real_value: false,
+        redeemable: false,
+        created_from: filter.created_from_string(),
+        created_to: filter.created_to_string(),
+        scan_limit: filter.limit,
+        scan_offset: filter.offset,
+        event_count: events.len(),
+        decisions_by_decision,
+        decisions_by_rule_id,
+        decisions_by_institution,
+        latest_event_at: latest_event_at.map(|value| value.to_rfc3339()),
+    }
+}
+
+fn build_validator_finality_report(
+    filter: &ReportFilter,
+    blocks: &[Block],
+    validators: Vec<kani_node::ValidatorInfo>,
+) -> ValidatorFinalityReport {
+    let active_validator_count = validators
+        .iter()
+        .filter(|validator| validator.active)
+        .count();
+    let required_finality_votes = required_phase1_finality_votes(active_validator_count);
+    let mut produced_blocks = BTreeMap::new();
+    let mut finality_votes = BTreeMap::new();
+    let mut transaction_count = 0;
+    let mut finalized_block_count = 0;
+    let mut blocks_below_threshold = 0;
+
+    for block in blocks {
+        transaction_count += block.txs.len();
+        increment_count(&mut produced_blocks, block.validator.clone());
+        for validator_id in &block.finalized_by {
+            increment_count(&mut finality_votes, validator_id.clone());
+        }
+
+        if block.finalized_by.len() >= required_finality_votes {
+            finalized_block_count += 1;
+        } else {
+            blocks_below_threshold += 1;
+        }
+    }
+
+    let validators = validators
+        .into_iter()
+        .map(|validator| ValidatorFinalityRow {
+            produced_blocks: produced_blocks
+                .get(&validator.id)
+                .copied()
+                .unwrap_or_default(),
+            finality_votes: finality_votes
+                .get(&validator.id)
+                .copied()
+                .unwrap_or_default(),
+            id: validator.id,
+            active: validator.active,
+            last_seen_at: validator.last_seen_at.map(|value| value.to_rfc3339()),
+            last_finalized_height: validator.last_finalized_height,
+            last_finalized_hash: validator.last_finalized_hash,
+            last_finalized_at: validator.last_finalized_at.map(|value| value.to_rfc3339()),
+        })
+        .collect();
+
+    ValidatorFinalityReport {
+        report_type: "validator_finality",
+        environment: "SANDBOX",
+        real_value: false,
+        redeemable: false,
+        created_from: filter.created_from_string(),
+        created_to: filter.created_to_string(),
+        scan_limit: filter.limit,
+        scan_offset: filter.offset,
+        active_validator_count,
+        required_finality_votes,
+        block_count: blocks.len(),
+        transaction_count,
+        finalized_block_count,
+        blocks_below_threshold,
+        validators,
+    }
+}
+
+fn add_amount(amounts: &mut BTreeMap<String, i128>, asset: &str, amount: i128) {
+    *amounts.entry(asset.to_string()).or_default() += amount;
+}
+
+fn increment_count(counts: &mut BTreeMap<String, usize>, key: String) {
+    *counts.entry(key).or_default() += 1;
+}
+
+fn required_phase1_finality_votes(active_validator_count: usize) -> usize {
+    if active_validator_count == 0 {
+        return 0;
+    }
+
+    (active_validator_count * 2).div_ceil(3)
 }
 
 async fn get_validators(
@@ -2182,6 +2614,9 @@ mod tests {
             "/v1/blocks",
             "/v1/blocks/latest",
             "/v1/audit-events",
+            "/v1/reports/settlement-summary",
+            "/v1/reports/compliance-decisions",
+            "/v1/reports/validator-finality",
             "/v1/validators",
             "/v1/sandbox/mint",
         ] {
@@ -2200,6 +2635,10 @@ mod tests {
             "PaginatedBlockResponse",
             "PaginatedTransactionResponse",
             "PaginatedAuditEventResponse",
+            "SettlementSummaryReport",
+            "ComplianceDecisionReport",
+            "ValidatorFinalityReport",
+            "ValidatorFinalityRow",
             "Block",
             "Transaction",
             "AuditEvent",
@@ -2231,6 +2670,132 @@ mod tests {
         assert_eq!(response.offset, 5);
         assert_eq!(response.count, 2);
         assert_eq!(response.next_offset, Some(7));
+    }
+
+    #[test]
+    fn settlement_summary_report_counts_blocks_and_asset_amounts() {
+        let mint = kani_types::Transaction::new_mint(
+            SANDBOX_TREASURY_ACCOUNT,
+            SANDBOX_CORP_A_ACCOUNT,
+            "KCAD_TEST",
+            1_000_000,
+            1,
+        );
+        let transfer = kani_types::Transaction::new_transfer(
+            SANDBOX_CORP_A_ACCOUNT,
+            SANDBOX_CORP_B_ACCOUNT,
+            "KCAD_TEST",
+            100_000,
+            2,
+        );
+        let burn = kani_types::Transaction::new_burn(
+            SANDBOX_CORP_B_ACCOUNT,
+            SANDBOX_TREASURY_ACCOUNT,
+            "KUSD_TEST",
+            50_000,
+            3,
+        );
+        let blocks = vec![
+            Block::new_unsealed(1, kani_types::GENESIS_HASH, vec![mint], "validator-a").seal(
+                "hash-1",
+                vec![],
+                vec!["validator-a".to_string(), "validator-b".to_string()],
+            ),
+            Block::new_unsealed(2, "hash-1", vec![transfer, burn], "validator-b").seal(
+                "hash-2",
+                vec![],
+                vec!["validator-b".to_string(), "validator-c".to_string()],
+            ),
+        ];
+
+        let report = build_settlement_summary_report(&report_filter(), &blocks);
+
+        assert_eq!(report.block_count, 2);
+        assert_eq!(report.transaction_count, 3);
+        assert_eq!(report.mint_count, 1);
+        assert_eq!(report.burn_count, 1);
+        assert_eq!(report.transfer_count, 1);
+        assert_eq!(
+            report.minted_amount_by_asset.get("KCAD_TEST"),
+            Some(&1_000_000)
+        );
+        assert_eq!(
+            report.gross_transfer_amount_by_asset.get("KCAD_TEST"),
+            Some(&100_000)
+        );
+        assert_eq!(
+            report.burned_amount_by_asset.get("KUSD_TEST"),
+            Some(&50_000)
+        );
+    }
+
+    #[test]
+    fn compliance_decision_report_groups_by_decision_rule_and_institution() {
+        let events = vec![
+            compliance_audit_event(
+                "COMPLIANCE_DECISION",
+                &[
+                    ("decision", "Allow"),
+                    ("rule_id", "SANDBOX_STP"),
+                    ("institution_id", "CORP_A"),
+                ],
+            ),
+            compliance_audit_event(
+                "COMPLIANCE_DECISION",
+                &[
+                    ("decision", "Reject"),
+                    ("rule_id", "NO_SELF_TRANSFER"),
+                    ("institution_id", "CORP_A"),
+                ],
+            ),
+        ];
+
+        let report = build_compliance_decision_report(&report_filter(), &events);
+
+        assert_eq!(report.event_count, 2);
+        assert_eq!(report.decisions_by_decision.get("Allow"), Some(&1));
+        assert_eq!(report.decisions_by_decision.get("Reject"), Some(&1));
+        assert_eq!(
+            report.decisions_by_rule_id.get("NO_SELF_TRANSFER"),
+            Some(&1)
+        );
+        assert_eq!(report.decisions_by_institution.get("CORP_A"), Some(&2));
+        assert!(report.latest_event_at.is_some());
+    }
+
+    #[test]
+    fn validator_finality_report_counts_production_and_votes() {
+        let blocks = vec![
+            Block::new_unsealed(1, kani_types::GENESIS_HASH, vec![], "validator-a").seal(
+                "hash-1",
+                vec![],
+                vec!["validator-a".to_string(), "validator-b".to_string()],
+            ),
+            Block::new_unsealed(2, "hash-1", vec![], "validator-b").seal(
+                "hash-2",
+                vec![],
+                vec!["validator-b".to_string(), "validator-c".to_string()],
+            ),
+        ];
+        let validators = vec![
+            validator_info("validator-a", true),
+            validator_info("validator-b", true),
+            validator_info("validator-c", true),
+        ];
+
+        let report = build_validator_finality_report(&report_filter(), &blocks, validators);
+
+        assert_eq!(report.active_validator_count, 3);
+        assert_eq!(report.required_finality_votes, 2);
+        assert_eq!(report.finalized_block_count, 2);
+        assert_eq!(report.blocks_below_threshold, 0);
+        let validator_a = report
+            .validators
+            .iter()
+            .find(|validator| validator.id == "validator-a")
+            .unwrap();
+        assert_eq!(validator_a.produced_blocks, 1);
+        assert_eq!(validator_a.finality_votes, 1);
     }
 
     #[test]
@@ -2439,6 +3004,36 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         event
+    }
+
+    fn compliance_audit_event(event_type: &str, pairs: &[(&str, &str)]) -> AuditEvent {
+        let mut metadata = BTreeMap::new();
+        for (key, value) in pairs {
+            metadata.insert((*key).to_string(), (*value).to_string());
+        }
+
+        AuditEvent::new(event_type, "compliance decision", None, None).with_metadata(metadata)
+    }
+
+    fn report_filter() -> ReportFilter {
+        ReportFilter {
+            created_from: None,
+            created_to: None,
+            limit: DEFAULT_REPORT_SCAN_LIMIT,
+            offset: 0,
+        }
+    }
+
+    fn validator_info(id: &str, active: bool) -> kani_node::ValidatorInfo {
+        kani_node::ValidatorInfo {
+            id: id.to_string(),
+            public_key: format!("{id}-public-key"),
+            active,
+            last_seen_at: None,
+            last_finalized_height: None,
+            last_finalized_hash: None,
+            last_finalized_at: None,
+        }
     }
 
     fn block_with_height(height: i64) -> Block {
