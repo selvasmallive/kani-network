@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $requiredFiles = @(
     "PHASE2_CLOUD_MVP.md",
+    "PHASE2_LEAN_WRAPUP.md",
     "cloudbuild.yaml",
     "config/cloud-sandbox.yaml",
     "scripts/phase2-cloud-smoke.ps1",
@@ -38,6 +39,13 @@ foreach ($file in $sandboxFiles) {
         if ($content -notmatch $expected) {
             throw "Expected $expected in $file"
         }
+    }
+}
+
+$wrapup = Get-Content "PHASE2_LEAN_WRAPUP.md" -Raw
+foreach ($expected in @("phase2-lean-no-gke", "release candidate", "SANDBOX", "REAL_VALUE", "REDEEMABLE", "GKE", "terraform plan -detailed-exitcode", "phase2-security-smoke.ps1", "phase2-cloud-smoke.ps1", "status = ok", "No public API invocation", "No public Secret Manager access")) {
+    if ($wrapup -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 2 wrap-up evidence in PHASE2_LEAN_WRAPUP.md: $expected"
     }
 }
 

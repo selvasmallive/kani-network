@@ -1,7 +1,9 @@
 # KANI Phase 2 Cloud MVP
 
-Status: started
+Status: lean no-GKE release candidate
 Scope: `phase2-lean-no-gke` sandbox cloud deployment path
+
+Release wrap-up: `PHASE2_LEAN_WRAPUP.md`
 
 ## Objective
 
