@@ -18,8 +18,10 @@ use kani_iso20022::{
 use kani_ledger::{AuditEventSearch, BlockSearch, JournalEntrySearch};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
-    Account, AccountType, AuditEvent, Block, JournalDirection, JournalEntry, PaymentRecord,
-    Transaction, TransactionStatus,
+    Account, AccountType, AuditEvent, Block, Institution, InstitutionCredential,
+    InstitutionCredentialStatus, InstitutionCredentialType, InstitutionDefinition,
+    InstitutionLimit, InstitutionRiskTier, InstitutionRole, InstitutionStatus, JournalDirection,
+    JournalEntry, PaymentRecord, Transaction, TransactionStatus,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, env};
@@ -284,6 +286,127 @@ impl SandboxMintRequest {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct CreateInstitutionRequest {
+    pub id: String,
+    pub legal_name: String,
+    pub institution_code: String,
+    pub jurisdiction: String,
+    pub risk_tier: Option<InstitutionRiskTier>,
+    pub allowed_assets: Vec<String>,
+    pub roles: Vec<InstitutionRole>,
+}
+
+#[derive(Clone, Debug)]
+struct ValidatedCreateInstitutionRequest {
+    id: String,
+    legal_name: String,
+    institution_code: String,
+    jurisdiction: String,
+    risk_tier: InstitutionRiskTier,
+    allowed_assets: Vec<String>,
+    roles: Vec<InstitutionRole>,
+}
+
+impl CreateInstitutionRequest {
+    fn validate(self) -> Result<ValidatedCreateInstitutionRequest, ApiError> {
+        let id = normalize_institution_id(self.id)?;
+        let institution_code = normalize_institution_id(self.institution_code)?;
+        let legal_name = normalize_required_field("legal_name", self.legal_name)?;
+        let jurisdiction = normalize_jurisdiction(self.jurisdiction)?;
+        let allowed_assets = normalize_asset_list(self.allowed_assets)?;
+        let roles = if self.roles.is_empty() {
+            vec![InstitutionRole::Operator, InstitutionRole::Auditor]
+        } else {
+            self.roles
+        };
+
+        Ok(ValidatedCreateInstitutionRequest {
+            id,
+            legal_name,
+            institution_code,
+            jurisdiction,
+            risk_tier: self.risk_tier.unwrap_or(InstitutionRiskTier::Medium),
+            allowed_assets,
+            roles,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct CreateInstitutionCredentialRequest {
+    pub credential_type: InstitutionCredentialType,
+    pub label: String,
+    pub fingerprint: String,
+    pub issuer: Option<String>,
+    pub subject: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug)]
+struct ValidatedCreateInstitutionCredentialRequest {
+    credential_type: InstitutionCredentialType,
+    label: String,
+    fingerprint: String,
+    issuer: Option<String>,
+    subject: Option<String>,
+    expires_at: Option<DateTime<Utc>>,
+}
+
+impl CreateInstitutionCredentialRequest {
+    fn validate(self) -> Result<ValidatedCreateInstitutionCredentialRequest, ApiError> {
+        Ok(ValidatedCreateInstitutionCredentialRequest {
+            credential_type: self.credential_type,
+            label: normalize_required_field("label", self.label)?,
+            fingerprint: normalize_required_field("fingerprint", self.fingerprint)?,
+            issuer: normalize_optional_text(self.issuer),
+            subject: normalize_optional_text(self.subject),
+            expires_at: self.expires_at,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct SetInstitutionLimitRequest {
+    pub asset: String,
+    pub daily_limit: i128,
+    pub per_transaction_limit: i128,
+}
+
+#[derive(Clone, Debug)]
+struct ValidatedSetInstitutionLimitRequest {
+    asset: String,
+    daily_limit: i128,
+    per_transaction_limit: i128,
+}
+
+impl SetInstitutionLimitRequest {
+    fn validate(self) -> Result<ValidatedSetInstitutionLimitRequest, ApiError> {
+        let daily_limit = validate_non_negative_amount("daily_limit", self.daily_limit)?;
+        let per_transaction_limit =
+            validate_non_negative_amount("per_transaction_limit", self.per_transaction_limit)?;
+
+        if per_transaction_limit > daily_limit && daily_limit > 0 {
+            return Err(ApiError::BadRequest(
+                "per_transaction_limit cannot exceed daily_limit".to_string(),
+            ));
+        }
+
+        Ok(ValidatedSetInstitutionLimitRequest {
+            asset: normalize_asset_code(self.asset)?,
+            daily_limit,
+            per_transaction_limit,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct InstitutionProfileResponse {
+    pub institution: Institution,
+    pub credentials: Vec<InstitutionCredential>,
+    pub limits: Vec<InstitutionLimit>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct PaymentResponse {
     pub payment_id: String,
@@ -520,6 +643,9 @@ impl ApiError {
 impl From<NodeError> for ApiError {
     fn from(error: NodeError) -> Self {
         match error {
+            NodeError::Ledger(kani_ledger::LedgerError::UnknownInstitution(institution_id)) => {
+                ApiError::NotFound(format!("institution {institution_id} not found"))
+            }
             NodeError::Ledger(kani_ledger_error) => {
                 ApiError::BadRequest(kani_ledger_error.to_string())
             }
@@ -598,6 +724,23 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
         .route(
             "/v1/iso20022/camt053/accounts/:account_id",
             get(get_camt053_statement),
+        )
+        .route(
+            "/v1/admin/institutions",
+            get(get_institutions).post(create_institution),
+        )
+        .route("/v1/admin/institutions/:id", get(get_institution))
+        .route(
+            "/v1/admin/institutions/:id/credentials",
+            post(create_institution_credential),
+        )
+        .route(
+            "/v1/admin/institutions/:id/suspend",
+            post(suspend_institution),
+        )
+        .route(
+            "/v1/admin/institutions/:id/limits",
+            post(set_institution_limit),
         )
         .route("/v1/accounts", get(get_accounts))
         .route("/v1/transactions/pending", get(get_pending_transactions))
@@ -931,6 +1074,75 @@ fn validate_positive_amount(amount: i128) -> Result<i128, ApiError> {
     Ok(amount)
 }
 
+fn validate_non_negative_amount(field: &str, amount: i128) -> Result<i128, ApiError> {
+    if amount < 0 {
+        return Err(ApiError::BadRequest(format!(
+            "{field} must be non-negative"
+        )));
+    }
+
+    Ok(amount)
+}
+
+fn normalize_institution_id(value: String) -> Result<String, ApiError> {
+    let institution_id = normalize_required_field("institution_id", value)?.to_ascii_uppercase();
+    if institution_id.len() > 64 {
+        return Err(ApiError::BadRequest(
+            "institution_id must be 64 characters or fewer".to_string(),
+        ));
+    }
+
+    if !institution_id.chars().all(|character| {
+        character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
+    }) {
+        return Err(ApiError::BadRequest(
+            "institution_id must contain only uppercase letters, digits, or underscores"
+                .to_string(),
+        ));
+    }
+
+    Ok(institution_id)
+}
+
+fn normalize_jurisdiction(value: String) -> Result<String, ApiError> {
+    let jurisdiction = normalize_required_field("jurisdiction", value)?.to_ascii_uppercase();
+    if jurisdiction.len() < 2 || jurisdiction.len() > 8 {
+        return Err(ApiError::BadRequest(
+            "jurisdiction must be between 2 and 8 characters".to_string(),
+        ));
+    }
+
+    if !jurisdiction
+        .chars()
+        .all(|character| character.is_ascii_uppercase() || character == '-')
+    {
+        return Err(ApiError::BadRequest(
+            "jurisdiction must contain only uppercase letters or hyphens".to_string(),
+        ));
+    }
+
+    Ok(jurisdiction)
+}
+
+fn normalize_asset_list(values: Vec<String>) -> Result<Vec<String>, ApiError> {
+    if values.is_empty() {
+        return Err(ApiError::BadRequest(
+            "allowed_assets must contain at least one asset".to_string(),
+        ));
+    }
+
+    values
+        .into_iter()
+        .map(normalize_asset_code)
+        .collect::<Result<Vec<_>, _>>()
+}
+
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 async fn authorize_account_control(
     node: &KaniNode,
     auth: &AuthenticatedInstitution,
@@ -956,11 +1168,26 @@ async fn authorize_account_access(
     let account = ensure_account_exists(node, account_id).await?;
 
     if account.institution_id.as_deref() == Some(auth.institution_id.as_str()) {
+        ensure_institution_can_operate(node, &auth.institution_id).await?;
         return Ok(account);
     }
 
     Err(ApiError::Forbidden(format!(
         "institution is not authorized to {action} account {account_id}"
+    )))
+}
+
+async fn ensure_institution_can_operate(
+    node: &KaniNode,
+    institution_id: &str,
+) -> Result<(), ApiError> {
+    let institution = node.get_institution(institution_id).await?;
+    if institution.status == InstitutionStatus::Approved {
+        return Ok(());
+    }
+
+    Err(ApiError::Forbidden(format!(
+        "institution {institution_id} is not approved for account operations"
     )))
 }
 
@@ -1535,6 +1762,222 @@ async fn authorize_admin_request(
     audit_authorization_allowed(state, headers, &auth, action, resource).await?;
 
     Ok(auth)
+}
+
+async fn get_institutions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<Institution>>, ApiError> {
+    let resource = "network:institutions";
+    authorize_admin_request(&state, &headers, "read_institutions", resource).await?;
+
+    Ok(Json(state.node.institutions().await?))
+}
+
+async fn get_institution(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<InstitutionProfileResponse>, ApiError> {
+    let institution_id = normalize_institution_id(id)?;
+    let resource = format!("institution:{institution_id}");
+    authorize_admin_request(&state, &headers, "read_institution", &resource).await?;
+
+    Ok(Json(institution_profile(&state, &institution_id).await?))
+}
+
+async fn create_institution(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(request): Json<CreateInstitutionRequest>,
+) -> Result<(StatusCode, Json<Institution>), ApiError> {
+    let request = request.validate()?;
+    let resource = format!("institution:{}", request.id);
+    let auth = authorize_admin_request(&state, &headers, "create_institution", &resource).await?;
+    let institution = Institution::new(InstitutionDefinition {
+        id: request.id,
+        legal_name: request.legal_name,
+        institution_code: request.institution_code,
+        jurisdiction: request.jurisdiction,
+        status: InstitutionStatus::Requested,
+        risk_tier: request.risk_tier,
+        allowed_assets: request.allowed_assets,
+        roles: request.roles,
+    });
+    let institution = state.node.upsert_institution(institution).await?;
+    audit_institution_event(
+        &state,
+        &auth,
+        "INSTITUTION_ONBOARDING_REQUESTED",
+        &institution.id,
+        format!("institution {} onboarding requested", institution.id),
+        BTreeMap::from([
+            ("institution_id".to_string(), institution.id.clone()),
+            (
+                "institution_code".to_string(),
+                institution.institution_code.clone(),
+            ),
+            ("status".to_string(), "REQUESTED".to_string()),
+        ]),
+    )
+    .await?;
+
+    Ok((StatusCode::CREATED, Json(institution)))
+}
+
+async fn create_institution_credential(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(request): Json<CreateInstitutionCredentialRequest>,
+) -> Result<(StatusCode, Json<InstitutionCredential>), ApiError> {
+    let institution_id = normalize_institution_id(id)?;
+    let request = request.validate()?;
+    let resource = format!("institution:{institution_id}:credential");
+    let auth =
+        authorize_admin_request(&state, &headers, "create_institution_credential", &resource)
+            .await?;
+    state.node.get_institution(&institution_id).await?;
+    let mut credential = InstitutionCredential::new(
+        institution_id.clone(),
+        request.credential_type,
+        request.label,
+        request.fingerprint,
+    );
+    credential.issuer = request.issuer;
+    credential.subject = request.subject;
+    credential.expires_at = request.expires_at;
+    credential.status = InstitutionCredentialStatus::Active;
+
+    let credential = state.node.add_institution_credential(credential).await?;
+    audit_institution_event(
+        &state,
+        &auth,
+        "INSTITUTION_CREDENTIAL_CREATED",
+        &institution_id,
+        format!(
+            "credential {} created for institution {}",
+            credential.id, institution_id
+        ),
+        BTreeMap::from([
+            ("credential_id".to_string(), credential.id.clone()),
+            (
+                "credential_type".to_string(),
+                format!("{:?}", credential.credential_type),
+            ),
+            ("institution_id".to_string(), institution_id.clone()),
+            ("status".to_string(), format!("{:?}", credential.status)),
+        ]),
+    )
+    .await?;
+
+    Ok((StatusCode::CREATED, Json(credential)))
+}
+
+async fn suspend_institution(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Institution>, ApiError> {
+    let institution_id = normalize_institution_id(id)?;
+    let resource = format!("institution:{institution_id}");
+    let auth = authorize_admin_request(&state, &headers, "suspend_institution", &resource).await?;
+    let institution = state.node.suspend_institution(&institution_id).await?;
+    audit_institution_event(
+        &state,
+        &auth,
+        "INSTITUTION_SUSPENDED",
+        &institution.id,
+        format!("institution {} suspended", institution.id),
+        BTreeMap::from([
+            ("institution_id".to_string(), institution.id.clone()),
+            ("status".to_string(), "SUSPENDED".to_string()),
+        ]),
+    )
+    .await?;
+
+    Ok(Json(institution))
+}
+
+async fn set_institution_limit(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(request): Json<SetInstitutionLimitRequest>,
+) -> Result<Json<InstitutionLimit>, ApiError> {
+    let institution_id = normalize_institution_id(id)?;
+    let request = request.validate()?;
+    let resource = format!("institution:{institution_id}:limits:{}", request.asset);
+    let auth =
+        authorize_admin_request(&state, &headers, "set_institution_limits", &resource).await?;
+    let limit = InstitutionLimit::new(
+        institution_id.clone(),
+        request.asset,
+        request.daily_limit,
+        request.per_transaction_limit,
+    );
+    let limit = state.node.upsert_institution_limit(limit).await?;
+    audit_institution_event(
+        &state,
+        &auth,
+        "INSTITUTION_LIMIT_UPDATED",
+        &institution_id,
+        format!(
+            "institution {} limit updated for {}",
+            institution_id, limit.asset
+        ),
+        BTreeMap::from([
+            ("asset".to_string(), limit.asset.clone()),
+            ("daily_limit".to_string(), limit.daily_limit.to_string()),
+            ("institution_id".to_string(), institution_id.clone()),
+            (
+                "per_transaction_limit".to_string(),
+                limit.per_transaction_limit.to_string(),
+            ),
+        ]),
+    )
+    .await?;
+
+    Ok(Json(limit))
+}
+
+async fn institution_profile(
+    state: &AppState,
+    institution_id: &str,
+) -> Result<InstitutionProfileResponse, ApiError> {
+    let institution = state.node.get_institution(institution_id).await?;
+    let credentials = state.node.institution_credentials(institution_id).await?;
+    let limits = state.node.institution_limits(institution_id).await?;
+
+    Ok(InstitutionProfileResponse {
+        institution,
+        credentials,
+        limits,
+    })
+}
+
+async fn audit_institution_event(
+    state: &AppState,
+    auth: &AuthenticatedInstitution,
+    event_type: &str,
+    institution_id: &str,
+    message: String,
+    mut metadata: BTreeMap<String, String>,
+) -> Result<(), ApiError> {
+    metadata.insert(
+        "actor_institution_id".to_string(),
+        auth.institution_id.clone(),
+    );
+    metadata.insert("actor_role".to_string(), auth_role(auth).to_string());
+    metadata.insert("institution_id".to_string(), institution_id.to_string());
+
+    state
+        .node
+        .record_audit_event(
+            AuditEvent::new(event_type, message, None, None).with_metadata(metadata),
+        )
+        .await?;
+    Ok(())
 }
 
 async fn get_accounts(
@@ -2191,6 +2634,48 @@ mod tests {
     }
 
     #[test]
+    fn create_institution_request_validation_normalizes_inputs() {
+        let request = CreateInstitutionRequest {
+            id: " bank_c ".to_string(),
+            legal_name: " Bank C Ltd. ".to_string(),
+            institution_code: " bank_c ".to_string(),
+            jurisdiction: " ca ".to_string(),
+            risk_tier: Some(InstitutionRiskTier::High),
+            allowed_assets: vec![" KCAD_TEST ".to_string()],
+            roles: vec![InstitutionRole::Operator],
+        };
+
+        let validated = request.validate().unwrap();
+
+        assert_eq!(validated.id, "BANK_C");
+        assert_eq!(validated.legal_name, "Bank C Ltd.");
+        assert_eq!(validated.institution_code, "BANK_C");
+        assert_eq!(validated.jurisdiction, "CA");
+        assert_eq!(validated.risk_tier, InstitutionRiskTier::High);
+        assert_eq!(validated.allowed_assets, vec!["KCAD_TEST"]);
+        assert_eq!(validated.roles, vec![InstitutionRole::Operator]);
+    }
+
+    #[test]
+    fn institution_limit_validation_rejects_negative_or_inverted_limits() {
+        let negative = SetInstitutionLimitRequest {
+            asset: "KCAD_TEST".to_string(),
+            daily_limit: -1,
+            per_transaction_limit: 1,
+        }
+        .validate();
+        assert!(matches!(negative, Err(ApiError::BadRequest(_))));
+
+        let inverted = SetInstitutionLimitRequest {
+            asset: "KCAD_TEST".to_string(),
+            daily_limit: 100,
+            per_transaction_limit: 101,
+        }
+        .validate();
+        assert!(matches!(inverted, Err(ApiError::BadRequest(_))));
+    }
+
+    #[test]
     fn pacs008_transfer_request_maps_to_payment_request() {
         let transfer = Pacs008CreditTransfer {
             message_id: " msg-001 ".to_string(),
@@ -2361,6 +2846,22 @@ mod tests {
             .unwrap();
 
         assert_eq!(account.id, SANDBOX_CORP_A_ACCOUNT);
+    }
+
+    #[tokio::test]
+    async fn suspended_institution_cannot_authorize_account_control() {
+        let node = KaniNode::sandbox_default();
+        node.suspend_institution("CORP_A").await.unwrap();
+        let auth = AuthenticatedInstitution {
+            institution_id: "CORP_A".to_string(),
+            is_admin: false,
+        };
+
+        let error = authorize_account_control(&node, &auth, SANDBOX_CORP_A_ACCOUNT)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, ApiError::Forbidden(_)));
     }
 
     #[tokio::test]

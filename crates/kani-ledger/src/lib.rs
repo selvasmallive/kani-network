@@ -1,8 +1,12 @@
 use chrono::{DateTime, Utc};
 use kani_types::{
-    Account, AccountType, AuditEvent, Block, JournalDirection, JournalEntry, PaymentRecord,
-    Transaction, TransactionKind, TransactionStatus, GENESIS_HASH, KCAD_TEST, KUSD_TEST,
-    SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT, SANDBOX_FEE_ACCOUNT, SANDBOX_TREASURY_ACCOUNT,
+    Account, AccountType, AuditEvent, Block, Institution, InstitutionCredential,
+    InstitutionCredentialStatus, InstitutionCredentialType, InstitutionLimit, InstitutionRiskTier,
+    InstitutionRole, InstitutionStatus, JournalDirection, JournalEntry, PaymentRecord, Transaction,
+    TransactionKind, TransactionStatus, GENESIS_HASH, KCAD_TEST, KUSD_TEST, SANDBOX_CORP_A_ACCOUNT,
+    SANDBOX_CORP_A_INSTITUTION, SANDBOX_CORP_B_ACCOUNT, SANDBOX_CORP_B_INSTITUTION,
+    SANDBOX_FEE_ACCOUNT, SANDBOX_NETWORK_INSTITUTION, SANDBOX_TREASURY_ACCOUNT,
+    SANDBOX_TREASURY_INSTITUTION,
 };
 use serde_json::Value;
 use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres, QueryBuilder, Row};
@@ -15,6 +19,8 @@ const BLOCK_PRODUCTION_LOCK_ID: i64 = 0x4B414E49504F4131_i64;
 pub enum LedgerError {
     #[error("account {0} does not exist")]
     UnknownAccount(String),
+    #[error("institution {0} does not exist")]
+    UnknownInstitution(String),
     #[error("payment {0} does not exist")]
     UnknownPayment(String),
     #[error("asset code is required")]
@@ -57,6 +63,16 @@ pub enum LedgerStorageError {
     },
     #[error("unknown account type {0}")]
     UnknownAccountType(String),
+    #[error("unknown institution status {0}")]
+    UnknownInstitutionStatus(String),
+    #[error("unknown institution risk tier {0}")]
+    UnknownInstitutionRiskTier(String),
+    #[error("unknown institution role {0}")]
+    UnknownInstitutionRole(String),
+    #[error("unknown institution credential type {0}")]
+    UnknownInstitutionCredentialType(String),
+    #[error("unknown institution credential status {0}")]
+    UnknownInstitutionCredentialStatus(String),
     #[error("unknown transaction kind {0}")]
     UnknownTransactionKind(String),
     #[error("unknown transaction status {0}")]
@@ -203,6 +219,9 @@ impl AuditEventSearch {
 #[derive(Clone, Debug, Default)]
 pub struct LedgerSnapshot {
     pub accounts: Vec<Account>,
+    pub institutions: Vec<Institution>,
+    pub institution_credentials: Vec<InstitutionCredential>,
+    pub institution_limits: Vec<InstitutionLimit>,
     pub balances: Vec<Balance>,
     pub payments: Vec<PaymentRecord>,
     pub blocks: Vec<Block>,
@@ -215,6 +234,9 @@ pub struct LedgerSnapshot {
 #[derive(Clone, Debug)]
 pub struct InMemoryLedger {
     accounts: HashMap<String, Account>,
+    institutions: HashMap<String, Institution>,
+    institution_credentials: HashMap<String, InstitutionCredential>,
+    institution_limits: HashMap<(String, String), InstitutionLimit>,
     balances: HashMap<(String, String), i128>,
     payments: HashMap<String, PaymentRecord>,
     blocks: Vec<Block>,
@@ -228,6 +250,9 @@ impl InMemoryLedger {
     pub fn empty() -> Self {
         Self {
             accounts: HashMap::new(),
+            institutions: HashMap::new(),
+            institution_credentials: HashMap::new(),
+            institution_limits: HashMap::new(),
             balances: HashMap::new(),
             payments: HashMap::new(),
             blocks: Vec::new(),
@@ -244,6 +269,21 @@ impl InMemoryLedger {
                 .accounts
                 .into_iter()
                 .map(|account| (account.id.clone(), account))
+                .collect(),
+            institutions: snapshot
+                .institutions
+                .into_iter()
+                .map(|institution| (institution.id.clone(), institution))
+                .collect(),
+            institution_credentials: snapshot
+                .institution_credentials
+                .into_iter()
+                .map(|credential| (credential.id.clone(), credential))
+                .collect(),
+            institution_limits: snapshot
+                .institution_limits
+                .into_iter()
+                .map(|limit| ((limit.institution_id.clone(), limit.asset.clone()), limit))
                 .collect(),
             balances: snapshot
                 .balances
@@ -266,6 +306,9 @@ impl InMemoryLedger {
     pub fn snapshot(&self) -> LedgerSnapshot {
         LedgerSnapshot {
             accounts: self.accounts(),
+            institutions: self.institutions(),
+            institution_credentials: self.institution_credentials(None),
+            institution_limits: self.institution_limits.values().cloned().collect(),
             balances: self
                 .balances
                 .iter()
@@ -293,25 +336,45 @@ impl InMemoryLedger {
 
     pub fn sandbox() -> Self {
         let mut ledger = Self::empty();
+        ledger.upsert_institution(Institution::sandbox_approved(
+            SANDBOX_TREASURY_INSTITUTION,
+            "KANI Sandbox Treasury",
+            SANDBOX_TREASURY_INSTITUTION,
+        ));
+        ledger.upsert_institution(Institution::sandbox_approved(
+            SANDBOX_CORP_A_INSTITUTION,
+            "Sandbox Corporation A",
+            SANDBOX_CORP_A_INSTITUTION,
+        ));
+        ledger.upsert_institution(Institution::sandbox_approved(
+            SANDBOX_CORP_B_INSTITUTION,
+            "Sandbox Corporation B",
+            SANDBOX_CORP_B_INSTITUTION,
+        ));
+        ledger.upsert_institution(Institution::sandbox_approved(
+            SANDBOX_NETWORK_INSTITUTION,
+            "KANI Network Sandbox Operator",
+            SANDBOX_NETWORK_INSTITUTION,
+        ));
         ledger.upsert_account(Account::new(
             SANDBOX_TREASURY_ACCOUNT,
             AccountType::Treasury,
-            Some("KANI_TREASURY".to_string()),
+            Some(SANDBOX_TREASURY_INSTITUTION.to_string()),
         ));
         ledger.upsert_account(Account::new(
             SANDBOX_CORP_A_ACCOUNT,
             AccountType::Institution,
-            Some("CORP_A".to_string()),
+            Some(SANDBOX_CORP_A_INSTITUTION.to_string()),
         ));
         ledger.upsert_account(Account::new(
             SANDBOX_CORP_B_ACCOUNT,
             AccountType::Institution,
-            Some("CORP_B".to_string()),
+            Some(SANDBOX_CORP_B_INSTITUTION.to_string()),
         ));
         ledger.upsert_account(Account::new(
             SANDBOX_FEE_ACCOUNT,
             AccountType::Fee,
-            Some("KANI".to_string()),
+            Some(SANDBOX_NETWORK_INSTITUTION.to_string()),
         ));
         ledger.ensure_balance_row(SANDBOX_TREASURY_ACCOUNT, KCAD_TEST);
         ledger.ensure_balance_row(SANDBOX_CORP_A_ACCOUNT, KCAD_TEST);
@@ -328,6 +391,88 @@ impl InMemoryLedger {
 
     pub fn accounts(&self) -> Vec<Account> {
         self.accounts.values().cloned().collect()
+    }
+
+    pub fn upsert_institution(&mut self, institution: Institution) {
+        self.institutions
+            .insert(institution.id.clone(), institution);
+    }
+
+    pub fn institutions(&self) -> Vec<Institution> {
+        let mut institutions: Vec<_> = self.institutions.values().cloned().collect();
+        institutions.sort_by(|left, right| left.id.cmp(&right.id));
+        institutions
+    }
+
+    pub fn get_institution(&self, institution_id: &str) -> Result<Institution, LedgerError> {
+        self.institutions
+            .get(institution_id)
+            .cloned()
+            .ok_or_else(|| LedgerError::UnknownInstitution(institution_id.to_string()))
+    }
+
+    pub fn suspend_institution(
+        &mut self,
+        institution_id: &str,
+    ) -> Result<Institution, LedgerError> {
+        let institution = self.get_institution(institution_id)?.suspended();
+        self.upsert_institution(institution.clone());
+        Ok(institution)
+    }
+
+    pub fn upsert_institution_limit(
+        &mut self,
+        limit: InstitutionLimit,
+    ) -> Result<InstitutionLimit, LedgerError> {
+        self.get_institution(&limit.institution_id)?;
+        self.institution_limits.insert(
+            (limit.institution_id.clone(), limit.asset.clone()),
+            limit.clone(),
+        );
+        Ok(limit)
+    }
+
+    pub fn institution_limits(
+        &self,
+        institution_id: &str,
+    ) -> Result<Vec<InstitutionLimit>, LedgerError> {
+        self.get_institution(institution_id)?;
+        let mut limits: Vec<_> = self
+            .institution_limits
+            .values()
+            .filter(|limit| limit.institution_id == institution_id)
+            .cloned()
+            .collect();
+        limits.sort_by(|left, right| left.asset.cmp(&right.asset));
+        Ok(limits)
+    }
+
+    pub fn add_institution_credential(
+        &mut self,
+        credential: InstitutionCredential,
+    ) -> Result<InstitutionCredential, LedgerError> {
+        self.get_institution(&credential.institution_id)?;
+        self.institution_credentials
+            .insert(credential.id.clone(), credential.clone());
+        Ok(credential)
+    }
+
+    pub fn institution_credentials(
+        &self,
+        institution_id: Option<&str>,
+    ) -> Vec<InstitutionCredential> {
+        let mut credentials: Vec<_> = self
+            .institution_credentials
+            .values()
+            .filter(|credential| {
+                institution_id
+                    .map(|institution_id| credential.institution_id == institution_id)
+                    .unwrap_or(true)
+            })
+            .cloned()
+            .collect();
+        credentials.sort_by(|left, right| left.id.cmp(&right.id));
+        credentials
     }
 
     pub fn latest_block(&self) -> Option<Block> {
@@ -618,9 +763,233 @@ impl PostgresLedgerStore {
         if snapshot.accounts.is_empty() {
             self.save_snapshot(&InMemoryLedger::sandbox().snapshot())
                 .await?;
+        } else if snapshot.institutions.is_empty() {
+            for institution in InMemoryLedger::sandbox().snapshot().institutions {
+                self.upsert_institution(&institution).await?;
+            }
         }
 
         Ok(())
+    }
+
+    pub async fn upsert_institution(
+        &self,
+        institution: &Institution,
+    ) -> Result<Institution, LedgerStorageError> {
+        sqlx::query(
+            r#"
+            INSERT INTO institutions (
+              id, legal_name, institution_code, jurisdiction, status, risk_tier,
+              allowed_assets, roles, created_at, approved_at, suspended_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            ON CONFLICT (id) DO UPDATE SET
+              legal_name = EXCLUDED.legal_name,
+              institution_code = EXCLUDED.institution_code,
+              jurisdiction = EXCLUDED.jurisdiction,
+              status = EXCLUDED.status,
+              risk_tier = EXCLUDED.risk_tier,
+              allowed_assets = EXCLUDED.allowed_assets,
+              roles = EXCLUDED.roles,
+              approved_at = EXCLUDED.approved_at,
+              suspended_at = EXCLUDED.suspended_at,
+              updated_at = EXCLUDED.updated_at
+            "#,
+        )
+        .bind(&institution.id)
+        .bind(&institution.legal_name)
+        .bind(&institution.institution_code)
+        .bind(&institution.jurisdiction)
+        .bind(institution_status_to_db(&institution.status))
+        .bind(institution_risk_tier_to_db(&institution.risk_tier))
+        .bind(serde_json::to_value(&institution.allowed_assets)?)
+        .bind(serde_json::to_value(
+            institution
+                .roles
+                .iter()
+                .map(institution_role_to_db)
+                .collect::<Vec<_>>(),
+        )?)
+        .bind(institution.created_at)
+        .bind(institution.approved_at)
+        .bind(institution.suspended_at)
+        .bind(institution.updated_at)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(institution.clone())
+    }
+
+    pub async fn institutions(&self) -> Result<Vec<Institution>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id, legal_name, institution_code, jurisdiction, status, risk_tier,
+              allowed_assets, roles, created_at, approved_at, suspended_at, updated_at
+            FROM institutions
+            ORDER BY id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| institution_from_row(&row))
+            .collect()
+    }
+
+    pub async fn get_institution(
+        &self,
+        institution_id: &str,
+    ) -> Result<Option<Institution>, LedgerStorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+              id, legal_name, institution_code, jurisdiction, status, risk_tier,
+              allowed_assets, roles, created_at, approved_at, suspended_at, updated_at
+            FROM institutions
+            WHERE id = $1
+            "#,
+        )
+        .bind(institution_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| institution_from_row(&row)).transpose()
+    }
+
+    pub async fn suspend_institution(
+        &self,
+        institution_id: &str,
+    ) -> Result<Option<Institution>, LedgerStorageError> {
+        let now = Utc::now();
+        let row = sqlx::query(
+            r#"
+            UPDATE institutions
+            SET status = 'SUSPENDED',
+                suspended_at = COALESCE(suspended_at, $2),
+                updated_at = $2
+            WHERE id = $1
+            RETURNING
+              id, legal_name, institution_code, jurisdiction, status, risk_tier,
+              allowed_assets, roles, created_at, approved_at, suspended_at, updated_at
+            "#,
+        )
+        .bind(institution_id)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| institution_from_row(&row)).transpose()
+    }
+
+    pub async fn insert_institution_credential(
+        &self,
+        credential: &InstitutionCredential,
+    ) -> Result<InstitutionCredential, LedgerStorageError> {
+        sqlx::query(
+            r#"
+            INSERT INTO institution_credentials (
+              id, institution_id, credential_type, label, fingerprint, issuer, subject,
+              expires_at, status, created_at, revoked_at, revocation_reason
+            )
+            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            "#,
+        )
+        .bind(&credential.id)
+        .bind(&credential.institution_id)
+        .bind(institution_credential_type_to_db(
+            &credential.credential_type,
+        ))
+        .bind(&credential.label)
+        .bind(&credential.fingerprint)
+        .bind(&credential.issuer)
+        .bind(&credential.subject)
+        .bind(credential.expires_at)
+        .bind(institution_credential_status_to_db(&credential.status))
+        .bind(credential.created_at)
+        .bind(credential.revoked_at)
+        .bind(&credential.revocation_reason)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(credential.clone())
+    }
+
+    pub async fn institution_credentials(
+        &self,
+        institution_id: &str,
+    ) -> Result<Vec<InstitutionCredential>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id, institution_id, credential_type, label, fingerprint, issuer,
+              subject, expires_at, status, created_at, revoked_at, revocation_reason
+            FROM institution_credentials
+            WHERE institution_id = $1
+            ORDER BY created_at, id
+            "#,
+        )
+        .bind(institution_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| institution_credential_from_row(&row))
+            .collect()
+    }
+
+    pub async fn upsert_institution_limit(
+        &self,
+        limit: &InstitutionLimit,
+    ) -> Result<InstitutionLimit, LedgerStorageError> {
+        sqlx::query(
+            r#"
+            INSERT INTO institution_limits (
+              institution_id, asset, daily_limit, per_transaction_limit, updated_at
+            )
+            VALUES ($1, $2, CAST($3 AS NUMERIC(38, 0)), CAST($4 AS NUMERIC(38, 0)), $5)
+            ON CONFLICT (institution_id, asset) DO UPDATE SET
+              daily_limit = EXCLUDED.daily_limit,
+              per_transaction_limit = EXCLUDED.per_transaction_limit,
+              updated_at = EXCLUDED.updated_at
+            "#,
+        )
+        .bind(&limit.institution_id)
+        .bind(&limit.asset)
+        .bind(limit.daily_limit.to_string())
+        .bind(limit.per_transaction_limit.to_string())
+        .bind(limit.updated_at)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(limit.clone())
+    }
+
+    pub async fn institution_limits(
+        &self,
+        institution_id: &str,
+    ) -> Result<Vec<InstitutionLimit>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              institution_id,
+              asset,
+              daily_limit::text AS daily_limit,
+              per_transaction_limit::text AS per_transaction_limit,
+              updated_at
+            FROM institution_limits
+            WHERE institution_id = $1
+            ORDER BY asset
+            "#,
+        )
+        .bind(institution_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| institution_limit_from_row(&row))
+            .collect()
     }
 
     pub async fn try_acquire_block_production_lock(
@@ -1059,6 +1428,100 @@ impl PostgresLedgerStore {
     pub async fn save_snapshot(&self, snapshot: &LedgerSnapshot) -> Result<(), LedgerStorageError> {
         let mut tx = self.pool.begin().await?;
 
+        for institution in &snapshot.institutions {
+            sqlx::query(
+                r#"
+                INSERT INTO institutions (
+                  id, legal_name, institution_code, jurisdiction, status, risk_tier,
+                  allowed_assets, roles, created_at, approved_at, suspended_at, updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ON CONFLICT (id) DO UPDATE SET
+                  legal_name = EXCLUDED.legal_name,
+                  institution_code = EXCLUDED.institution_code,
+                  jurisdiction = EXCLUDED.jurisdiction,
+                  status = EXCLUDED.status,
+                  risk_tier = EXCLUDED.risk_tier,
+                  allowed_assets = EXCLUDED.allowed_assets,
+                  roles = EXCLUDED.roles,
+                  approved_at = EXCLUDED.approved_at,
+                  suspended_at = EXCLUDED.suspended_at,
+                  updated_at = EXCLUDED.updated_at
+                "#,
+            )
+            .bind(&institution.id)
+            .bind(&institution.legal_name)
+            .bind(&institution.institution_code)
+            .bind(&institution.jurisdiction)
+            .bind(institution_status_to_db(&institution.status))
+            .bind(institution_risk_tier_to_db(&institution.risk_tier))
+            .bind(serde_json::to_value(&institution.allowed_assets)?)
+            .bind(serde_json::to_value(
+                institution
+                    .roles
+                    .iter()
+                    .map(institution_role_to_db)
+                    .collect::<Vec<_>>(),
+            )?)
+            .bind(institution.created_at)
+            .bind(institution.approved_at)
+            .bind(institution.suspended_at)
+            .bind(institution.updated_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for credential in &snapshot.institution_credentials {
+            sqlx::query(
+                r#"
+                INSERT INTO institution_credentials (
+                  id, institution_id, credential_type, label, fingerprint, issuer, subject,
+                  expires_at, status, created_at, revoked_at, revocation_reason
+                )
+                VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ON CONFLICT (id) DO NOTHING
+                "#,
+            )
+            .bind(&credential.id)
+            .bind(&credential.institution_id)
+            .bind(institution_credential_type_to_db(
+                &credential.credential_type,
+            ))
+            .bind(&credential.label)
+            .bind(&credential.fingerprint)
+            .bind(&credential.issuer)
+            .bind(&credential.subject)
+            .bind(credential.expires_at)
+            .bind(institution_credential_status_to_db(&credential.status))
+            .bind(credential.created_at)
+            .bind(credential.revoked_at)
+            .bind(&credential.revocation_reason)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for limit in &snapshot.institution_limits {
+            sqlx::query(
+                r#"
+                INSERT INTO institution_limits (
+                  institution_id, asset, daily_limit, per_transaction_limit, updated_at
+                )
+                VALUES ($1, $2, CAST($3 AS NUMERIC(38, 0)), CAST($4 AS NUMERIC(38, 0)), $5)
+                ON CONFLICT (institution_id, asset) DO UPDATE SET
+                  daily_limit = EXCLUDED.daily_limit,
+                  per_transaction_limit = EXCLUDED.per_transaction_limit,
+                  updated_at = EXCLUDED.updated_at
+                "#,
+            )
+            .bind(&limit.institution_id)
+            .bind(&limit.asset)
+            .bind(limit.daily_limit.to_string())
+            .bind(limit.per_transaction_limit.to_string())
+            .bind(limit.updated_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
         for account in &snapshot.accounts {
             sqlx::query(
                 r#"
@@ -1202,6 +1665,9 @@ impl PostgresLedgerStore {
 
     pub async fn load_snapshot(&self) -> Result<LedgerSnapshot, LedgerStorageError> {
         let accounts = self.load_accounts().await?;
+        let institutions = self.institutions().await?;
+        let institution_credentials = self.load_institution_credentials().await?;
+        let institution_limits = self.load_institution_limits().await?;
         let balances = self.load_balances().await?;
         let (payments, nonces, issued, txs_by_block) = self.load_payments().await?;
         let blocks = self.load_blocks(txs_by_block).await?;
@@ -1210,6 +1676,9 @@ impl PostgresLedgerStore {
 
         Ok(LedgerSnapshot {
             accounts,
+            institutions,
+            institution_credentials,
+            institution_limits,
             balances,
             payments,
             blocks,
@@ -1236,6 +1705,47 @@ impl PostgresLedgerStore {
                     created_at: row.try_get("created_at")?,
                 })
             })
+            .collect()
+    }
+
+    async fn load_institution_credentials(
+        &self,
+    ) -> Result<Vec<InstitutionCredential>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id, institution_id, credential_type, label, fingerprint, issuer,
+              subject, expires_at, status, created_at, revoked_at, revocation_reason
+            FROM institution_credentials
+            ORDER BY created_at, id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| institution_credential_from_row(&row))
+            .collect()
+    }
+
+    async fn load_institution_limits(&self) -> Result<Vec<InstitutionLimit>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              institution_id,
+              asset,
+              daily_limit::text AS daily_limit,
+              per_transaction_limit::text AS per_transaction_limit,
+              updated_at
+            FROM institution_limits
+            ORDER BY institution_id, asset
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| institution_limit_from_row(&row))
             .collect()
     }
 
@@ -1479,6 +1989,60 @@ fn journal_entry_from_row(row: &sqlx::postgres::PgRow) -> Result<JournalEntry, L
     })
 }
 
+fn institution_from_row(row: &sqlx::postgres::PgRow) -> Result<Institution, LedgerStorageError> {
+    let roles: Vec<String> = serde_json::from_value(row.try_get::<Value, _>("roles")?)?;
+    Ok(Institution {
+        id: row.try_get("id")?,
+        legal_name: row.try_get("legal_name")?,
+        institution_code: row.try_get("institution_code")?,
+        jurisdiction: row.try_get("jurisdiction")?,
+        status: institution_status_from_db(row.try_get::<String, _>("status")?)?,
+        risk_tier: institution_risk_tier_from_db(row.try_get::<String, _>("risk_tier")?)?,
+        allowed_assets: serde_json::from_value(row.try_get::<Value, _>("allowed_assets")?)?,
+        roles: roles
+            .into_iter()
+            .map(institution_role_from_db)
+            .collect::<Result<Vec<_>, _>>()?,
+        created_at: row.try_get("created_at")?,
+        approved_at: row.try_get("approved_at")?,
+        suspended_at: row.try_get("suspended_at")?,
+        updated_at: row.try_get("updated_at")?,
+    })
+}
+
+fn institution_credential_from_row(
+    row: &sqlx::postgres::PgRow,
+) -> Result<InstitutionCredential, LedgerStorageError> {
+    Ok(InstitutionCredential {
+        id: row.try_get("id")?,
+        institution_id: row.try_get("institution_id")?,
+        credential_type: institution_credential_type_from_db(
+            row.try_get::<String, _>("credential_type")?,
+        )?,
+        label: row.try_get("label")?,
+        fingerprint: row.try_get("fingerprint")?,
+        issuer: row.try_get("issuer")?,
+        subject: row.try_get("subject")?,
+        expires_at: row.try_get("expires_at")?,
+        status: institution_credential_status_from_db(row.try_get::<String, _>("status")?)?,
+        created_at: row.try_get("created_at")?,
+        revoked_at: row.try_get("revoked_at")?,
+        revocation_reason: row.try_get("revocation_reason")?,
+    })
+}
+
+fn institution_limit_from_row(
+    row: &sqlx::postgres::PgRow,
+) -> Result<InstitutionLimit, LedgerStorageError> {
+    Ok(InstitutionLimit {
+        institution_id: row.try_get("institution_id")?,
+        asset: row.try_get("asset")?,
+        daily_limit: parse_amount(row.try_get("daily_limit")?)?,
+        per_transaction_limit: parse_amount(row.try_get("per_transaction_limit")?)?,
+        updated_at: row.try_get("updated_at")?,
+    })
+}
+
 fn block_from_row(
     row: &sqlx::postgres::PgRow,
     txs: Vec<Transaction>,
@@ -1596,6 +2160,111 @@ fn account_type_from_db(value: String) -> Result<AccountType, LedgerStorageError
         "SETTLEMENT" => Ok(AccountType::Settlement),
         "FEE" => Ok(AccountType::Fee),
         _ => Err(LedgerStorageError::UnknownAccountType(value)),
+    }
+}
+
+fn institution_status_to_db(status: &InstitutionStatus) -> &'static str {
+    match status {
+        InstitutionStatus::Requested => "REQUESTED",
+        InstitutionStatus::DueDiligence => "DUE_DILIGENCE",
+        InstitutionStatus::Approved => "APPROVED",
+        InstitutionStatus::Rejected => "REJECTED",
+        InstitutionStatus::Suspended => "SUSPENDED",
+        InstitutionStatus::Offboarded => "OFFBOARDED",
+    }
+}
+
+fn institution_status_from_db(value: String) -> Result<InstitutionStatus, LedgerStorageError> {
+    match value.as_str() {
+        "REQUESTED" => Ok(InstitutionStatus::Requested),
+        "DUE_DILIGENCE" => Ok(InstitutionStatus::DueDiligence),
+        "APPROVED" => Ok(InstitutionStatus::Approved),
+        "REJECTED" => Ok(InstitutionStatus::Rejected),
+        "SUSPENDED" => Ok(InstitutionStatus::Suspended),
+        "OFFBOARDED" => Ok(InstitutionStatus::Offboarded),
+        _ => Err(LedgerStorageError::UnknownInstitutionStatus(value)),
+    }
+}
+
+fn institution_risk_tier_to_db(risk_tier: &InstitutionRiskTier) -> &'static str {
+    match risk_tier {
+        InstitutionRiskTier::Low => "LOW",
+        InstitutionRiskTier::Medium => "MEDIUM",
+        InstitutionRiskTier::High => "HIGH",
+        InstitutionRiskTier::Restricted => "RESTRICTED",
+    }
+}
+
+fn institution_risk_tier_from_db(value: String) -> Result<InstitutionRiskTier, LedgerStorageError> {
+    match value.as_str() {
+        "LOW" => Ok(InstitutionRiskTier::Low),
+        "MEDIUM" => Ok(InstitutionRiskTier::Medium),
+        "HIGH" => Ok(InstitutionRiskTier::High),
+        "RESTRICTED" => Ok(InstitutionRiskTier::Restricted),
+        _ => Err(LedgerStorageError::UnknownInstitutionRiskTier(value)),
+    }
+}
+
+fn institution_role_to_db(role: &InstitutionRole) -> &'static str {
+    match role {
+        InstitutionRole::Operator => "OPERATOR",
+        InstitutionRole::Approver => "APPROVER",
+        InstitutionRole::Auditor => "AUDITOR",
+        InstitutionRole::ComplianceReviewer => "COMPLIANCE_REVIEWER",
+        InstitutionRole::TechnicalAdmin => "TECHNICAL_ADMIN",
+    }
+}
+
+fn institution_role_from_db(value: String) -> Result<InstitutionRole, LedgerStorageError> {
+    match value.as_str() {
+        "OPERATOR" => Ok(InstitutionRole::Operator),
+        "APPROVER" => Ok(InstitutionRole::Approver),
+        "AUDITOR" => Ok(InstitutionRole::Auditor),
+        "COMPLIANCE_REVIEWER" => Ok(InstitutionRole::ComplianceReviewer),
+        "TECHNICAL_ADMIN" => Ok(InstitutionRole::TechnicalAdmin),
+        _ => Err(LedgerStorageError::UnknownInstitutionRole(value)),
+    }
+}
+
+fn institution_credential_type_to_db(credential_type: &InstitutionCredentialType) -> &'static str {
+    match credential_type {
+        InstitutionCredentialType::SandboxApiKey => "SANDBOX_API_KEY",
+        InstitutionCredentialType::MtlsCertificate => "MTLS_CERTIFICATE",
+        InstitutionCredentialType::OidcClient => "OIDC_CLIENT",
+    }
+}
+
+fn institution_credential_type_from_db(
+    value: String,
+) -> Result<InstitutionCredentialType, LedgerStorageError> {
+    match value.as_str() {
+        "SANDBOX_API_KEY" => Ok(InstitutionCredentialType::SandboxApiKey),
+        "MTLS_CERTIFICATE" => Ok(InstitutionCredentialType::MtlsCertificate),
+        "OIDC_CLIENT" => Ok(InstitutionCredentialType::OidcClient),
+        _ => Err(LedgerStorageError::UnknownInstitutionCredentialType(value)),
+    }
+}
+
+fn institution_credential_status_to_db(status: &InstitutionCredentialStatus) -> &'static str {
+    match status {
+        InstitutionCredentialStatus::Pending => "PENDING",
+        InstitutionCredentialStatus::Active => "ACTIVE",
+        InstitutionCredentialStatus::Retired => "RETIRED",
+        InstitutionCredentialStatus::Revoked => "REVOKED",
+    }
+}
+
+fn institution_credential_status_from_db(
+    value: String,
+) -> Result<InstitutionCredentialStatus, LedgerStorageError> {
+    match value.as_str() {
+        "PENDING" => Ok(InstitutionCredentialStatus::Pending),
+        "ACTIVE" => Ok(InstitutionCredentialStatus::Active),
+        "RETIRED" => Ok(InstitutionCredentialStatus::Retired),
+        "REVOKED" => Ok(InstitutionCredentialStatus::Revoked),
+        _ => Err(LedgerStorageError::UnknownInstitutionCredentialStatus(
+            value,
+        )),
     }
 }
 

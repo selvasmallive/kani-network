@@ -8,6 +8,10 @@ pub const SANDBOX_TREASURY_ACCOUNT: &str = "TREASURY_SANDBOX";
 pub const SANDBOX_CORP_A_ACCOUNT: &str = "CORP_A";
 pub const SANDBOX_CORP_B_ACCOUNT: &str = "CORP_B";
 pub const SANDBOX_FEE_ACCOUNT: &str = "FEE_SANDBOX";
+pub const SANDBOX_TREASURY_INSTITUTION: &str = "KANI_TREASURY";
+pub const SANDBOX_CORP_A_INSTITUTION: &str = "CORP_A";
+pub const SANDBOX_CORP_B_INSTITUTION: &str = "CORP_B";
+pub const SANDBOX_NETWORK_INSTITUTION: &str = "KANI";
 
 pub const KCAD_TEST: &str = "KCAD_TEST";
 pub const KUSD_TEST: &str = "KUSD_TEST";
@@ -40,6 +44,235 @@ impl Account {
             account_type,
             institution_id,
             created_at: Utc::now(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstitutionStatus {
+    Requested,
+    DueDiligence,
+    Approved,
+    Rejected,
+    Suspended,
+    Offboarded,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstitutionRiskTier {
+    Low,
+    Medium,
+    High,
+    Restricted,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstitutionRole {
+    Operator,
+    Approver,
+    Auditor,
+    ComplianceReviewer,
+    TechnicalAdmin,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct InstitutionDefinition {
+    pub id: String,
+    pub legal_name: String,
+    pub institution_code: String,
+    pub jurisdiction: String,
+    pub status: InstitutionStatus,
+    pub risk_tier: InstitutionRiskTier,
+    pub allowed_assets: Vec<String>,
+    pub roles: Vec<InstitutionRole>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Institution {
+    pub id: String,
+    pub legal_name: String,
+    pub institution_code: String,
+    pub jurisdiction: String,
+    pub status: InstitutionStatus,
+    pub risk_tier: InstitutionRiskTier,
+    pub allowed_assets: Vec<String>,
+    pub roles: Vec<InstitutionRole>,
+    pub created_at: DateTime<Utc>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub suspended_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl Institution {
+    pub fn new(definition: InstitutionDefinition) -> Self {
+        let now = Utc::now();
+        let status = definition.status;
+        Self {
+            id: definition.id,
+            legal_name: definition.legal_name,
+            institution_code: definition.institution_code,
+            jurisdiction: definition.jurisdiction,
+            status,
+            risk_tier: definition.risk_tier,
+            allowed_assets: definition.allowed_assets,
+            roles: definition.roles,
+            created_at: now,
+            approved_at: (status == InstitutionStatus::Approved).then_some(now),
+            suspended_at: (status == InstitutionStatus::Suspended).then_some(now),
+            updated_at: now,
+        }
+    }
+
+    pub fn sandbox_approved(
+        id: impl Into<String>,
+        legal_name: impl Into<String>,
+        institution_code: impl Into<String>,
+    ) -> Self {
+        Self::new(InstitutionDefinition {
+            id: id.into(),
+            legal_name: legal_name.into(),
+            institution_code: institution_code.into(),
+            jurisdiction: "CA".to_string(),
+            status: InstitutionStatus::Approved,
+            risk_tier: InstitutionRiskTier::Low,
+            allowed_assets: vec![KCAD_TEST.to_string(), KUSD_TEST.to_string()],
+            roles: vec![
+                InstitutionRole::Operator,
+                InstitutionRole::Auditor,
+                InstitutionRole::TechnicalAdmin,
+            ],
+        })
+    }
+
+    pub fn suspended(mut self) -> Self {
+        let now = Utc::now();
+        self.status = InstitutionStatus::Suspended;
+        self.suspended_at = Some(now);
+        self.updated_at = now;
+        self
+    }
+
+    pub fn with_limits_update(mut self) -> Self {
+        self.updated_at = Utc::now();
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstitutionCredentialType {
+    SandboxApiKey,
+    MtlsCertificate,
+    OidcClient,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstitutionCredentialStatus {
+    Pending,
+    Active,
+    Retired,
+    Revoked,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct InstitutionCredential {
+    pub id: String,
+    pub institution_id: String,
+    pub credential_type: InstitutionCredentialType,
+    pub label: String,
+    pub fingerprint: String,
+    pub issuer: Option<String>,
+    pub subject: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub status: InstitutionCredentialStatus,
+    pub created_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub revocation_reason: Option<String>,
+}
+
+impl InstitutionCredential {
+    pub fn new(
+        institution_id: impl Into<String>,
+        credential_type: InstitutionCredentialType,
+        label: impl Into<String>,
+        fingerprint: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            institution_id: institution_id.into(),
+            credential_type,
+            label: label.into(),
+            fingerprint: fingerprint.into(),
+            issuer: None,
+            subject: None,
+            expires_at: None,
+            status: InstitutionCredentialStatus::Active,
+            created_at: Utc::now(),
+            revoked_at: None,
+            revocation_reason: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct InstitutionLimit {
+    pub institution_id: String,
+    pub asset: String,
+    pub daily_limit: i128,
+    pub per_transaction_limit: i128,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl InstitutionLimit {
+    pub fn new(
+        institution_id: impl Into<String>,
+        asset: impl Into<String>,
+        daily_limit: i128,
+        per_transaction_limit: i128,
+    ) -> Self {
+        Self {
+            institution_id: institution_id.into(),
+            asset: asset.into(),
+            daily_limit,
+            per_transaction_limit,
+            updated_at: Utc::now(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OnboardingCaseStatus {
+    Requested,
+    DueDiligence,
+    Approved,
+    Rejected,
+    Suspended,
+    Offboarded,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct OnboardingCase {
+    pub id: String,
+    pub institution_id: String,
+    pub status: OnboardingCaseStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl OnboardingCase {
+    pub fn new(institution_id: impl Into<String>, status: OnboardingCaseStatus) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            institution_id: institution_id.into(),
+            status,
+            created_at: now,
+            updated_at: now,
         }
     }
 }

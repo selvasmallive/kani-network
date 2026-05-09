@@ -42,9 +42,20 @@ Cloud SQL recovery settings, restore commands, and monitoring alert policies are
 The current lean no-GKE release-candidate status, live sandbox resources, verification evidence, and intentional deferrals are summarized in `PHASE2_LEAN_WRAPUP.md`.
 The first post-wrap-up observation gate is recorded in `PHASE2_OBSERVATION_REPORT.md`.
 
-## Phase 3 Enterprise Planning
+## Phase 3 Enterprise
 
-Phase 3 planning has started in `PHASE3_ENTERPRISE_PLAN.md` with a structured config in `config/phase3-enterprise.yaml`. This planning slice keeps the same sandbox boundary and does not create GKE, HSM, production ingress, or real-value capabilities.
+Phase 3 has moved from planning into the first sandbox-only implementation slice. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the first implementation checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
+
+The first Phase 3 implementation slice adds institution records, credential metadata, per-institution limits, admin institution endpoints, and account-operation blocking for suspended institutions:
+
+```text
+GET  /v1/admin/institutions
+POST /v1/admin/institutions
+GET  /v1/admin/institutions/{id}
+POST /v1/admin/institutions/{id}/credentials
+POST /v1/admin/institutions/{id}/suspend
+POST /v1/admin/institutions/{id}/limits
+```
 
 Run the static Phase 3 planning check from PowerShell:
 

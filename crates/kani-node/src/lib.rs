@@ -6,7 +6,8 @@ use kani_ledger::{
     LedgerStorageError, PostgresLedgerStore, ValidatorStatus,
 };
 use kani_types::{
-    Account, AuditEvent, Block, JournalEntry, PaymentRecord, Transaction, TransactionKind,
+    Account, AuditEvent, Block, Institution, InstitutionCredential, InstitutionLimit, JournalEntry,
+    PaymentRecord, Transaction, TransactionKind,
 };
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -322,6 +323,111 @@ impl KaniNode {
 
     pub async fn accounts(&self) -> Result<Vec<Account>, NodeError> {
         Ok(self.current_ledger().await?.accounts())
+    }
+
+    pub async fn institutions(&self) -> Result<Vec<Institution>, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.institutions().await?);
+        }
+
+        Ok(self.current_ledger().await?.institutions())
+    }
+
+    pub async fn get_institution(&self, institution_id: &str) -> Result<Institution, NodeError> {
+        if let Some(storage) = &self.storage {
+            return storage
+                .get_institution(institution_id)
+                .await?
+                .ok_or_else(|| LedgerError::UnknownInstitution(institution_id.to_string()).into());
+        }
+
+        Ok(self
+            .current_ledger()
+            .await?
+            .get_institution(institution_id)?)
+    }
+
+    pub async fn upsert_institution(
+        &self,
+        institution: Institution,
+    ) -> Result<Institution, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.upsert_institution(&institution).await?);
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        ledger.upsert_institution(institution.clone());
+        Ok(institution)
+    }
+
+    pub async fn suspend_institution(
+        &self,
+        institution_id: &str,
+    ) -> Result<Institution, NodeError> {
+        if let Some(storage) = &self.storage {
+            return storage
+                .suspend_institution(institution_id)
+                .await?
+                .ok_or_else(|| LedgerError::UnknownInstitution(institution_id.to_string()).into());
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        Ok(ledger.suspend_institution(institution_id)?)
+    }
+
+    pub async fn add_institution_credential(
+        &self,
+        credential: InstitutionCredential,
+    ) -> Result<InstitutionCredential, NodeError> {
+        if let Some(storage) = &self.storage {
+            self.get_institution(&credential.institution_id).await?;
+            return Ok(storage.insert_institution_credential(&credential).await?);
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        Ok(ledger.add_institution_credential(credential)?)
+    }
+
+    pub async fn institution_credentials(
+        &self,
+        institution_id: &str,
+    ) -> Result<Vec<InstitutionCredential>, NodeError> {
+        if let Some(storage) = &self.storage {
+            self.get_institution(institution_id).await?;
+            return Ok(storage.institution_credentials(institution_id).await?);
+        }
+
+        let ledger = self.current_ledger().await?;
+        ledger.get_institution(institution_id)?;
+        Ok(ledger.institution_credentials(Some(institution_id)))
+    }
+
+    pub async fn upsert_institution_limit(
+        &self,
+        limit: InstitutionLimit,
+    ) -> Result<InstitutionLimit, NodeError> {
+        if let Some(storage) = &self.storage {
+            self.get_institution(&limit.institution_id).await?;
+            return Ok(storage.upsert_institution_limit(&limit).await?);
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        Ok(ledger.upsert_institution_limit(limit)?)
+    }
+
+    pub async fn institution_limits(
+        &self,
+        institution_id: &str,
+    ) -> Result<Vec<InstitutionLimit>, NodeError> {
+        if let Some(storage) = &self.storage {
+            self.get_institution(institution_id).await?;
+            return Ok(storage.institution_limits(institution_id).await?);
+        }
+
+        Ok(self
+            .current_ledger()
+            .await?
+            .institution_limits(institution_id)?)
     }
 
     pub async fn audit_events(

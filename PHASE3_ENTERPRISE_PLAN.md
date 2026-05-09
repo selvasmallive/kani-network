@@ -1,6 +1,6 @@
 # KANI Phase 3 Enterprise Plan
 
-Status: planning
+Status: implementation started
 Date: 2026-05-09
 Scope: enterprise sandbox design after `phase2-lean-no-gke`
 
@@ -201,3 +201,7 @@ Phase 3 planning is accepted when:
 - A static validator verifies the required planning artifacts.
 - Phase 2 lean remains unchanged and passing.
 - No GKE, production ingress, HSM, or real-value resources are created by this planning slice.
+
+## Implementation Progress
+
+`phase3-institution-model-rc1` is the first implementation slice. It adds institution, credential, onboarding, and limit types; in-memory and PostgreSQL persistence; sandbox admin institution APIs; and authorization checks that block suspended institutions from operating accounts. Details are recorded in `PHASE3_INSTITUTION_MODEL.md`.
