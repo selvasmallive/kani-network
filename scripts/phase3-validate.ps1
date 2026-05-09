@@ -6,8 +6,10 @@ $requiredFiles = @(
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
     "PHASE3_BFT_PROTOTYPE.md",
+    "PHASE3_PROD_EDGE_DESIGN.md",
     "config/phase3-enterprise.yaml",
     "scripts/phase3-validate.ps1",
+    "infra/terraform/phase3_prod_edge_design.tf",
     "PHASE2_OBSERVATION_REPORT.md",
     "openapi/kani-api.v1.json",
     "migrations/0002_phase3_institutions.sql",
@@ -42,11 +44,13 @@ foreach ($expected in @(
     "phase3-compliance-cases-rc1",
     "phase3-consensus-interface-rc1",
     "phase3-bft-prototype-rc1",
+    "phase3-prod-edge-design-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
-    "PHASE3_BFT_PROTOTYPE.md"
+    "PHASE3_BFT_PROTOTYPE.md",
+    "PHASE3_PROD_EDGE_DESIGN.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -134,6 +138,31 @@ foreach ($expected in @(
     }
 }
 
+$prodEdgeDesign = Get-Content "PHASE3_PROD_EDGE_DESIGN.md" -Raw
+foreach ($expected in @(
+    "Status: design slice ready",
+    "phase3-prod-edge-design-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "does not create paid edge resources",
+    "infra/terraform/phase3_prod_edge_design.tf",
+    "phase3_prod_edge_design_enabled",
+    "External HTTPS load balancer or API Gateway",
+    "Certificate Manager TLS certificate",
+    "mTLS trust config",
+    "Cloud Armor WAF",
+    "private Cloud Run ingress mode",
+    "allUsers",
+    "allAuthenticatedUsers",
+    "Cloud Run invoker grant",
+    "Current validator behavior remains Phase 1 PoA"
+)) {
+    if ($prodEdgeDesign -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 production edge design content in PHASE3_PROD_EDGE_DESIGN.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -173,7 +202,19 @@ foreach ($expected in @(
     "ConsensusEngineConfig::sandbox_bft_prototype",
     "strict greater-than-two-thirds quorum tests",
     "bft_enabled_by_default: false",
-    "validator peer networking"
+    "validator peer networking",
+    "phase3_prod_edge_design_rc1:",
+    "status: design_ready",
+    "terraform_design_file: infra/terraform/phase3_prod_edge_design.tf",
+    "guard_variable: phase3_prod_edge_design_enabled",
+    "guard_default: false",
+    "declares_google_cloud_resources: false",
+    "global_external_https_load_balancer_or_api_gateway",
+    "certificate_manager_trust_config",
+    "cloud_armor_waf",
+    "private_cloud_run_ingress",
+    "admin_oidc",
+    "load_balancer_apply"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -187,6 +228,7 @@ foreach ($expected in @(
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
     "PHASE3_BFT_PROTOTYPE.md",
+    "PHASE3_PROD_EDGE_DESIGN.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
@@ -194,11 +236,38 @@ foreach ($expected in @(
     "POST /v1/compliance/cases/{id}/approve",
     "ConsensusEngine",
     "BftConsensus",
-    "ConsensusEngineConfig::sandbox_bft_prototype"
+    "ConsensusEngineConfig::sandbox_bft_prototype",
+    "phase3_prod_edge_design.tf",
+    "phase3_prod_edge_design_enabled"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
     }
+}
+
+$prodEdgeTerraform = Get-Content "infra/terraform/phase3_prod_edge_design.tf" -Raw
+foreach ($expected in @(
+    'variable "phase3_prod_edge_design_enabled"',
+    "default     = false",
+    "phase3-prod-edge-design-rc1",
+    "creates_paid_resources        = false",
+    "creates_real_value_capability = false",
+    "global_external_https_load_balancer",
+    "certificate_manager_trust_config",
+    "institution_mtls",
+    "cloud_armor_waf",
+    "private_cloud_run_ingress",
+    "admin_oidc",
+    "forbidden_invokers",
+    'output "phase3_prod_edge_design"'
+)) {
+    if ($prodEdgeTerraform -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 production edge Terraform design content: $expected"
+    }
+}
+
+if ($prodEdgeTerraform -match 'resource\s+"google_') {
+    throw "phase3_prod_edge_design.tf must remain design-only and must not declare Google Cloud resources in this slice"
 }
 
 $observation = Get-Content "PHASE2_OBSERVATION_REPORT.md" -Raw
@@ -375,5 +444,6 @@ foreach ($expected in @(
     compliance_cases_rc1 = $true
     consensus_interface_rc1 = $true
     bft_prototype_rc1 = $true
+    prod_edge_design_rc1 = $true
     result = "ok"
 }

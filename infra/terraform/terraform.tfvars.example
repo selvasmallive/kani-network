@@ -49,6 +49,14 @@ monitoring_alerts_enabled                     = true
 monitoring_alert_log_notification_rate_limit  = "900s"
 monitoring_alert_notification_channels        = []
 
+# Phase 3 production edge design is checked in for planning only. Keep this false
+# until a later approved deployment slice estimates and intentionally creates
+# paid load balancer, Cloud Armor, certificate, DNS, and mTLS resources.
+phase3_prod_edge_design_enabled = false
+phase3_prod_edge_custom_domain  = ""
+phase3_prod_edge_admin_oidc_issuer = ""
+phase3_prod_edge_allowed_institution_certificate_fingerprints = {}
+
 labels = {
   owner = "kani"
 }

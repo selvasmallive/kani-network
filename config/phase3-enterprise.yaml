@@ -73,6 +73,8 @@ workstreams:
     forbidden:
       - allUsers
       - allAuthenticatedUsers
+    design_checkpoint: phase3-prod-edge-design-rc1
+    terraform_design_file: infra/terraform/phase3_prod_edge_design.tf
 
   key_management:
     target:
@@ -192,3 +194,33 @@ implementation_slices:
       - HSM or KMS signing
       - GKE validator operations
       - production finality claims
+  phase3_prod_edge_design_rc1:
+    status: design_ready
+    creates_paid_resources: false
+    creates_real_value_capability: false
+    terraform_design_file: infra/terraform/phase3_prod_edge_design.tf
+    guard_variable: phase3_prod_edge_design_enabled
+    guard_default: false
+    declares_google_cloud_resources: false
+    target_components:
+      - global_external_https_load_balancer_or_api_gateway
+      - certificate_manager_tls_certificate
+      - certificate_manager_trust_config
+      - institution_mtls
+      - cloud_armor_waf
+      - cloud_armor_rate_limiting
+      - serverless_neg_to_kani_api
+      - private_cloud_run_ingress
+      - admin_oidc
+      - private_api_to_database_path
+    forbidden:
+      - allUsers
+      - allAuthenticatedUsers
+    deferred:
+      - load_balancer_apply
+      - cloud_armor_policy_apply
+      - certificate_manager_apply
+      - mtls_trust_config_apply
+      - cloud_run_ingress_change
+      - production_dns_changes
+      - real_value_enablement

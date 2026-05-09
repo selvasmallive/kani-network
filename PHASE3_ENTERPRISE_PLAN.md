@@ -211,3 +211,5 @@ Phase 3 planning is accepted when:
 `phase3-consensus-interface-rc1` adds a `ConsensusEngine` abstraction, a config-built PoA adapter, and shared consensus proposal/vote/quorum/finality types for the later BFT prototype. Current validator behavior remains Phase 1 PoA. Details are recorded in `PHASE3_CONSENSUS_INTERFACE.md`.
 
 `phase3-bft-prototype-rc1` adds a sandbox-only `BftConsensus` engine behind the explicit `sandbox-bft-prototype` config id. It simulates proposal, prevote, precommit, quorum-certificate, and finality-proof objects in tests only; the live node and validator runtime still default to Phase 1 PoA. Details are recorded in `PHASE3_BFT_PROTOTYPE.md`.
+
+`phase3-prod-edge-design-rc1` adds a design-only Terraform boundary for the future production ingress path: external HTTPS load balancing or API Gateway, Certificate Manager, institution mTLS, Cloud Armor WAF/rate limits, private Cloud Run ingress, and admin OIDC. The guard variable remains disabled and the slice creates no Google Cloud resources. Details are recorded in `PHASE3_PROD_EDGE_DESIGN.md`.
