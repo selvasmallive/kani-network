@@ -9,10 +9,13 @@ $requiredFiles = @(
     "PHASE3_PROD_EDGE_DESIGN.md",
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
     "PHASE3_REGULATORY_READINESS_GATE.md",
+    "PHASE3_AUDIT_REPORTING_HARDENING.md",
     "config/phase3-enterprise.yaml",
     "config/phase3-regulatory-readiness.yaml",
+    "config/phase3-audit-reporting.yaml",
     "scripts/phase3-validate.ps1",
     "scripts/phase3-regulatory-readiness-gate.ps1",
+    "scripts/phase3-audit-reporting-hardening.ps1",
     "infra/terraform/phase3_prod_edge_design.tf",
     "infra/terraform/phase3_key_management_design.tf",
     "PHASE2_OBSERVATION_REPORT.md",
@@ -52,6 +55,7 @@ foreach ($expected in @(
     "phase3-prod-edge-design-rc1",
     "phase3-key-management-design-rc1",
     "phase3-regulatory-readiness-gate-rc1",
+    "phase3-audit-reporting-hardening-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
@@ -59,7 +63,8 @@ foreach ($expected in @(
     "PHASE3_BFT_PROTOTYPE.md",
     "PHASE3_PROD_EDGE_DESIGN.md",
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
-    "PHASE3_REGULATORY_READINESS_GATE.md"
+    "PHASE3_REGULATORY_READINESS_GATE.md",
+    "PHASE3_AUDIT_REPORTING_HARDENING.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -228,6 +233,31 @@ foreach ($expected in @(
     }
 }
 
+$auditReportingHardening = Get-Content "PHASE3_AUDIT_REPORTING_HARDENING.md" -Raw
+foreach ($expected in @(
+    "Status: hardening slice ready",
+    "phase3-audit-reporting-hardening-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "does not create paid resources",
+    "settlement summary by asset, institution, block height, and settlement day",
+    "immutable event identifiers and hash-chain readiness",
+    "metadata_hash",
+    "previous_event_hash",
+    "event_hash",
+    "Daily reconciliation must be reproducible",
+    "Retention Matrix",
+    "Export Controls",
+    "admin authorization",
+    "secrets and API keys",
+    "Current validator behavior remains Phase 1 PoA"
+)) {
+    if ($auditReportingHardening -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 audit/reporting hardening content in PHASE3_AUDIT_REPORTING_HARDENING.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -306,7 +336,25 @@ foreach ($expected in @(
     "custody_for_others_allowed: false",
     "trading_allowed: false",
     "signed_approval_record",
-    "legal_determinations"
+    "legal_determinations",
+    "phase3_audit_reporting_hardening_rc1:",
+    "status: hardening_ready",
+    "hardening_config: config/phase3-audit-reporting.yaml",
+    "hardening_script: scripts/phase3-audit-reporting-hardening.ps1",
+    "production_reporting_enabled: false",
+    "external_report_delivery_enabled: false",
+    "real_value_reporting_ready: false",
+    "audit_event_export",
+    "metadata_hash",
+    "previous_event_hash",
+    "event_hash",
+    "reconciliation_sources:",
+    "finalized_blocks",
+    "issued_supply",
+    "admin_authorization_required",
+    "privacy_legal_review_required",
+    "production_hash_chain_enforcement",
+    "legal_approved_retention_periods"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -323,6 +371,7 @@ foreach ($expected in @(
     "PHASE3_PROD_EDGE_DESIGN.md",
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
     "PHASE3_REGULATORY_READINESS_GATE.md",
+    "PHASE3_AUDIT_REPORTING_HARDENING.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
@@ -335,10 +384,63 @@ foreach ($expected in @(
     "phase3_prod_edge_design_enabled",
     "phase3_key_management_design.tf",
     "phase3_key_management_design_enabled",
-    "phase3-regulatory-readiness-gate.ps1"
+    "phase3-regulatory-readiness-gate.ps1",
+    "phase3-audit-reporting-hardening.ps1"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
+    }
+}
+
+$auditReportingConfig = Get-Content "config/phase3-audit-reporting.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase3-audit-reporting-hardening-rc1",
+    "status: hardening_ready",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "creates_paid_resources: false",
+    "creates_real_value_capability: false",
+    "external_report_delivery_enabled: false",
+    "production_reporting_enabled: false",
+    "export_requires_admin_authorization: true",
+    "settlement_summary:",
+    "compliance_decisions:",
+    "validator_finality:",
+    "reconciliation:",
+    "immutable_audit_contract:",
+    "hash_chain_enforced: false",
+    "signing_enforced: false",
+    "event_id",
+    "metadata_hash",
+    "previous_event_hash",
+    "event_hash",
+    "retention_matrix:",
+    "requires_legal_privacy_approval",
+    "export_controls:",
+    "secrets_redacted: true",
+    "privacy_legal_review_required: true",
+    "production_reporting_ready: false",
+    "real_value_reporting_ready: false"
+)) {
+    if ($auditReportingConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 audit/reporting hardening config content: $expected"
+    }
+}
+
+$auditReportingScript = Get-Content "scripts/phase3-audit-reporting-hardening.ps1" -Raw
+foreach ($expected in @(
+    "phase3-audit-reporting-hardening-rc1",
+    "Production reporting must remain disabled",
+    "External report delivery must remain disabled",
+    "Real-value reporting must remain disabled",
+    "immutable_audit_field_count",
+    "production_reporting_enabled = `$false",
+    "external_report_delivery_enabled = `$false",
+    "real_value_reporting_ready = `$false"
+)) {
+    if ($auditReportingScript -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 audit/reporting hardening script content: $expected"
     }
 }
 
@@ -621,5 +723,6 @@ foreach ($expected in @(
     prod_edge_design_rc1 = $true
     key_management_design_rc1 = $true
     regulatory_readiness_gate_rc1 = $true
+    audit_reporting_hardening_rc1 = $true
     result = "ok"
 }

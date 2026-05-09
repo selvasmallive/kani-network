@@ -192,6 +192,7 @@ Recommended slices:
 6. `phase3-prod-edge-design-rc1`: Terraform design for mTLS/WAF/private ingress without apply by default.
 7. `phase3-key-management-design-rc1`: KMS/HSM interfaces and runbooks.
 8. `phase3-regulatory-readiness-gate-rc1`: blocking legal, compliance, privacy, security, and executive approval gate.
+9. `phase3-audit-reporting-hardening-rc1`: immutable audit contract, reconciliation boundaries, retention matrix, and export controls.
 
 ## Acceptance Criteria
 
@@ -218,3 +219,5 @@ Phase 3 planning is accepted when:
 `phase3-key-management-design-rc1` adds a design-only Terraform boundary and runbook for KMS/HSM key inventory, purpose-scoped signing, dual-control ceremonies, rotation, revocation, and signing-service audit contracts. The guard variable remains disabled and the slice creates no KMS, HSM, or signing-service resources. Details are recorded in `PHASE3_KEY_MANAGEMENT_DESIGN.md`.
 
 `phase3-regulatory-readiness-gate-rc1` adds a blocking readiness gate for legal classification, registration analysis, AML/KYC, sanctions, privacy, institution agreements, custody safeguards, incident response, penetration testing, and production go-live approval. The gate is intentionally blocked and does not authorize production or real-value capability. Details are recorded in `PHASE3_REGULATORY_READINESS_GATE.md`.
+
+`phase3-audit-reporting-hardening-rc1` adds a sandbox-only hardening contract for immutable audit fields, reconciliation source boundaries, retention categories, and export controls. Production hash-chain signing, external delivery, SIEM export, and legal-approved retention periods remain deferred. Details are recorded in `PHASE3_AUDIT_REPORTING_HARDENING.md`.

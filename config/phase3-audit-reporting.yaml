@@ -1,0 +1,103 @@
+phase: phase-3-enterprise
+release_candidate: phase3-audit-reporting-hardening-rc1
+status: hardening_ready
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+
+controls:
+  creates_paid_resources: false
+  creates_real_value_capability: false
+  external_report_delivery_enabled: false
+  production_reporting_enabled: false
+  export_requires_admin_authorization: true
+  export_records_audit_event: true
+  secrets_redacted_from_exports: true
+
+reporting_surfaces:
+  settlement_summary:
+    status: implemented
+    dimensions:
+      - asset
+      - institution
+      - block_height
+      - settlement_day
+  compliance_decisions:
+    status: implemented
+    dimensions:
+      - policy_version
+      - rule_id
+      - decision
+      - institution
+  validator_finality:
+    status: implemented
+    dimensions:
+      - validator_id
+      - block_height
+      - finalized_vote_count
+      - produced_block_count
+  reconciliation:
+    status: design_ready
+    source_tables:
+      - finalized_blocks
+      - finalized_transactions
+      - journal_entries
+      - account_balances
+      - issued_supply
+      - compliance_decisions
+      - validator_finality_records
+
+immutable_audit_contract:
+  status: design_ready
+  hash_chain_enforced: false
+  signing_enforced: false
+  required_fields:
+    - event_id
+    - event_type
+    - created_at
+    - actor_institution_id
+    - resource_type
+    - resource_id
+    - decision
+    - block_height
+    - transaction_id
+    - metadata_hash
+    - previous_event_hash
+    - event_hash
+
+retention_matrix:
+  status: requires_legal_privacy_approval
+  ledger_state: long_lived_financial_record
+  audit_events: long_lived_compliance_record
+  compliance_cases: long_lived_compliance_record
+  api_access_decisions: security_and_compliance_record
+  validator_finality_records: operational_integrity_record
+  cloud_run_logs: operational_support_record
+  cloud_sql_backups: recovery_record
+
+export_controls:
+  admin_authorization_required: true
+  requester_identity_required: true
+  export_purpose_required: true
+  deterministic_filters_required: true
+  time_window_required: true
+  secrets_redacted: true
+  external_delivery_default: disabled
+  privacy_legal_review_required: true
+
+deferred:
+  - production_hash_chain_enforcement
+  - signed_audit_envelope
+  - external_report_delivery
+  - siem_export
+  - data_warehouse_replication
+  - legal_approved_retention_periods
+  - production_reconciliation_operations
+  - real_value_reporting
+
+result:
+  audit_reporting_hardening_status: ready
+  production_reporting_ready: false
+  real_value_reporting_ready: false
