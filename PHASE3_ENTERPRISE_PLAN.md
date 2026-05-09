@@ -213,3 +213,5 @@ Phase 3 planning is accepted when:
 `phase3-bft-prototype-rc1` adds a sandbox-only `BftConsensus` engine behind the explicit `sandbox-bft-prototype` config id. It simulates proposal, prevote, precommit, quorum-certificate, and finality-proof objects in tests only; the live node and validator runtime still default to Phase 1 PoA. Details are recorded in `PHASE3_BFT_PROTOTYPE.md`.
 
 `phase3-prod-edge-design-rc1` adds a design-only Terraform boundary for the future production ingress path: external HTTPS load balancing or API Gateway, Certificate Manager, institution mTLS, Cloud Armor WAF/rate limits, private Cloud Run ingress, and admin OIDC. The guard variable remains disabled and the slice creates no Google Cloud resources. Details are recorded in `PHASE3_PROD_EDGE_DESIGN.md`.
+
+`phase3-key-management-design-rc1` adds a design-only Terraform boundary and runbook for KMS/HSM key inventory, purpose-scoped signing, dual-control ceremonies, rotation, revocation, and signing-service audit contracts. The guard variable remains disabled and the slice creates no KMS, HSM, or signing-service resources. Details are recorded in `PHASE3_KEY_MANAGEMENT_DESIGN.md`.

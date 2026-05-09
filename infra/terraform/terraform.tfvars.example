@@ -57,6 +57,14 @@ phase3_prod_edge_custom_domain  = ""
 phase3_prod_edge_admin_oidc_issuer = ""
 phase3_prod_edge_allowed_institution_certificate_fingerprints = {}
 
+# Phase 3 key management design is checked in for planning only. Keep this false
+# until a later approved deployment slice estimates and intentionally creates
+# Cloud KMS, Cloud HSM, signing-service, and ceremony automation resources.
+phase3_key_management_design_enabled = false
+phase3_key_management_primary_location = "northamerica-northeast1"
+phase3_key_management_crypto_profile = "hybrid-pqc-v1"
+phase3_key_management_dual_control_approvers = []
+
 labels = {
   owner = "kani"
 }

@@ -44,7 +44,7 @@ The first post-wrap-up observation gate is recorded in `PHASE2_OBSERVATION_REPOR
 
 ## Phase 3 Enterprise
 
-Phase 3 has moved from planning into sandbox-only implementation slices. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the institution checkpoint, `PHASE3_COMPLIANCE_CASES.md` records the compliance-case checkpoint, `PHASE3_CONSENSUS_INTERFACE.md` records the consensus-interface checkpoint, `PHASE3_BFT_PROTOTYPE.md` records the sandbox BFT prototype checkpoint, `PHASE3_PROD_EDGE_DESIGN.md` records the production edge design checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
+Phase 3 has moved from planning into sandbox-only implementation slices. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the institution checkpoint, `PHASE3_COMPLIANCE_CASES.md` records the compliance-case checkpoint, `PHASE3_CONSENSUS_INTERFACE.md` records the consensus-interface checkpoint, `PHASE3_BFT_PROTOTYPE.md` records the sandbox BFT prototype checkpoint, `PHASE3_PROD_EDGE_DESIGN.md` records the production edge design checkpoint, `PHASE3_KEY_MANAGEMENT_DESIGN.md` records the KMS/HSM key management design checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
 
 The first Phase 3 implementation slice adds institution records, credential metadata, per-institution limits, admin institution endpoints, and account-operation blocking for suspended institutions:
 
@@ -71,6 +71,8 @@ The third Phase 3 implementation slice adds a `ConsensusEngine` abstraction and 
 The fourth Phase 3 implementation slice adds a sandbox-only `BftConsensus` prototype behind `ConsensusEngineConfig::sandbox_bft_prototype()`. It simulates proposal, prevote, precommit, quorum-certificate, and finality-proof objects in tests, while the live node and validator runtime still default to `phase1-poa`.
 
 The fifth Phase 3 implementation slice adds design-only Terraform scaffolding for the future production edge. `infra/terraform/phase3_prod_edge_design.tf` documents the external HTTPS load balancer or API Gateway, Certificate Manager, institution mTLS, Cloud Armor WAF, private Cloud Run ingress, and admin OIDC boundary. `phase3_prod_edge_design_enabled` defaults to `false` and this slice declares no Google Cloud resources.
+
+The sixth Phase 3 implementation slice adds design-only Terraform scaffolding and runbook guidance for future KMS/HSM key management. `infra/terraform/phase3_key_management_design.tf` documents purpose-scoped keys, signing-service boundaries, dual-control ceremonies, key states, rotation, revocation, and audit requirements. `phase3_key_management_design_enabled` defaults to `false` and this slice declares no Google Cloud resources.
 
 Run the static Phase 3 planning check from PowerShell:
 
