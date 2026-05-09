@@ -887,6 +887,8 @@ dependencies = [
 name = "kani-consensus"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "kani-types",
  "serde",
  "thiserror 1.0.69",
 ]

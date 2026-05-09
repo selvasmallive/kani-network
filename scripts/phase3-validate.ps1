@@ -5,6 +5,7 @@ $requiredFiles = @(
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
+    "PHASE3_BFT_PROTOTYPE.md",
     "config/phase3-enterprise.yaml",
     "scripts/phase3-validate.ps1",
     "PHASE2_OBSERVATION_REPORT.md",
@@ -40,10 +41,12 @@ foreach ($expected in @(
     "phase3-institution-model-rc1",
     "phase3-compliance-cases-rc1",
     "phase3-consensus-interface-rc1",
+    "phase3-bft-prototype-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
-    "PHASE3_CONSENSUS_INTERFACE.md"
+    "PHASE3_CONSENSUS_INTERFACE.md",
+    "PHASE3_BFT_PROTOTYPE.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -107,6 +110,30 @@ foreach ($expected in @(
     }
 }
 
+$bftPrototype = Get-Content "PHASE3_BFT_PROTOTYPE.md" -Raw
+foreach ($expected in @(
+    "Status: implementation slice ready",
+    "phase3-bft-prototype-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "BftConsensus",
+    "sandbox-bft-prototype",
+    "ConsensusEngineConfig::sandbox_bft_prototype",
+    "ConsensusProposal",
+    "ConsensusVote",
+    "PREVOTE",
+    "PRECOMMIT",
+    "QuorumCertificate",
+    "FinalityProof",
+    "strict greater-than-two-thirds finality",
+    "Current validator behavior remains Phase 1 PoA"
+)) {
+    if ($bftPrototype -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 BFT prototype content in PHASE3_BFT_PROTOTYPE.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -139,7 +166,14 @@ foreach ($expected in @(
     "phase3_consensus_interface_rc1:",
     "default_engine: phase1-poa",
     "ConsensusEngine trait",
-    "production finality claims"
+    "production finality claims",
+    "phase3_bft_prototype_rc1:",
+    "sandbox_engine: sandbox-bft-prototype",
+    "BftConsensus sandbox prototype",
+    "ConsensusEngineConfig::sandbox_bft_prototype",
+    "strict greater-than-two-thirds quorum tests",
+    "bft_enabled_by_default: false",
+    "validator peer networking"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -152,12 +186,15 @@ foreach ($expected in @(
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
+    "PHASE3_BFT_PROTOTYPE.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
     "GET  /v1/compliance/cases",
     "POST /v1/compliance/cases/{id}/approve",
-    "ConsensusEngine"
+    "ConsensusEngine",
+    "BftConsensus",
+    "ConsensusEngineConfig::sandbox_bft_prototype"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
@@ -199,6 +236,14 @@ foreach ($expected in @(
     "pub struct ConsensusEngineConfig",
     "pub enum ConfiguredConsensusEngine",
     "impl ConsensusEngine for PoAConsensus",
+    "pub struct BftConsensus",
+    "impl ConsensusEngine for BftConsensus",
+    "pub struct BftFinalityPrototype",
+    "SANDBOX_BFT_ENGINE_ID",
+    "sandbox_bft_prototype",
+    "simulate_finality_proof",
+    "verify_quorum_certificate",
+    "verify_finality_proof",
     "phase1_default_validators",
     "UnsupportedEngine"
 )) {
@@ -246,7 +291,8 @@ $nodeConsensusExpected = @(
     "ConfiguredConsensusEngine",
     "ConsensusEngineConfig::phase1_poa",
     "pub fn consensus(&self) -> &dyn ConsensusEngine",
-    "consensus: &dyn ConsensusEngine"
+    "consensus: &dyn ConsensusEngine",
+    "sandbox_default_keeps_phase1_poa_consensus_engine"
 )
 foreach ($expected in $nodeConsensusExpected) {
     if ($node -notmatch [regex]::Escape($expected)) {
@@ -328,5 +374,6 @@ foreach ($expected in @(
     institution_model_rc1 = $true
     compliance_cases_rc1 = $true
     consensus_interface_rc1 = $true
+    bft_prototype_rc1 = $true
     result = "ok"
 }

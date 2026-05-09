@@ -209,3 +209,5 @@ Phase 3 planning is accepted when:
 `phase3-compliance-cases-rc1` adds held payments and manual-review compliance cases. `ComplianceDecision::Review` now opens a `ComplianceCase`, marks the payment `HELD`, keeps it out of validator settlement, and lets sandbox admins approve it into `PENDING` or reject it. Details are recorded in `PHASE3_COMPLIANCE_CASES.md`.
 
 `phase3-consensus-interface-rc1` adds a `ConsensusEngine` abstraction, a config-built PoA adapter, and shared consensus proposal/vote/quorum/finality types for the later BFT prototype. Current validator behavior remains Phase 1 PoA. Details are recorded in `PHASE3_CONSENSUS_INTERFACE.md`.
+
+`phase3-bft-prototype-rc1` adds a sandbox-only `BftConsensus` engine behind the explicit `sandbox-bft-prototype` config id. It simulates proposal, prevote, precommit, quorum-certificate, and finality-proof objects in tests only; the live node and validator runtime still default to Phase 1 PoA. Details are recorded in `PHASE3_BFT_PROTOTYPE.md`.

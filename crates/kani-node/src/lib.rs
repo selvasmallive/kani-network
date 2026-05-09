@@ -1131,6 +1131,7 @@ fn verify_phase1_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kani_consensus::{ConsensusAlgorithm, PHASE1_POA_ENGINE_ID};
     use kani_types::{
         TransactionStatus, KCAD_TEST, SANDBOX_CORP_A_ACCOUNT, SANDBOX_CORP_B_ACCOUNT,
         SANDBOX_TREASURY_ACCOUNT,
@@ -1148,6 +1149,15 @@ mod tests {
         assert_eq!(config.environment(), "SANDBOX");
         assert!(!config.real_value());
         assert!(!config.redeemable());
+    }
+
+    #[test]
+    fn sandbox_default_keeps_phase1_poa_consensus_engine() {
+        let node = KaniNode::sandbox_default();
+
+        assert_eq!(node.consensus().engine_id(), PHASE1_POA_ENGINE_ID);
+        assert_eq!(node.consensus().algorithm(), ConsensusAlgorithm::Poa);
+        assert_eq!(node.consensus().finality_threshold(), 2);
     }
 
     #[test]

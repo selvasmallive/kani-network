@@ -169,3 +169,26 @@ implementation_slices:
       - validator network transport
       - GKE validator operations
       - production finality claims
+  phase3_bft_prototype_rc1:
+    status: implementation_ready
+    creates_paid_resources: false
+    creates_real_value_capability: false
+    default_engine: phase1-poa
+    sandbox_engine: sandbox-bft-prototype
+    implemented:
+      - BftConsensus sandbox prototype
+      - ConsensusEngineConfig::sandbox_bft_prototype
+      - proposal prevote precommit quorum certificate finality proof simulation
+      - strict greater-than-two-thirds quorum tests
+      - invalid quorum duplicate vote and wrong validator set rejection tests
+    runtime_boundary:
+      node_default: phase1-poa
+      validator_runtime_default: phase1-poa
+      bft_enabled_by_default: false
+    deferred:
+      - validator peer networking
+      - timeout and round change protocol
+      - equivocation evidence persistence
+      - HSM or KMS signing
+      - GKE validator operations
+      - production finality claims

@@ -39,7 +39,7 @@ The default configured engine is `phase1-poa`, which preserves the existing 3-va
 - `QuorumCertificate`
 - `FinalityProof`
 
-These types are inert in this slice. They give the next BFT prototype a stable message/proof vocabulary without changing the current settlement path.
+These types are inert in this slice. They give the BFT prototype a stable message/proof vocabulary without changing the current settlement path.
 
 ## Node Wiring
 
@@ -61,7 +61,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase2-validate.ps1
 
 ## Deferred
 
-- BFT consensus implementation.
+- Production BFT consensus implementation.
 - Network message transport.
 - Equivocation evidence handling.
 - Multi-node validator operations in GKE.
