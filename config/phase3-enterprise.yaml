@@ -91,6 +91,12 @@ workstreams:
   regulatory_readiness:
     legal_advice: false
     requires_external_review: true
+    gate_checkpoint: phase3-regulatory-readiness-gate-rc1
+    gate_config: config/phase3-regulatory-readiness.yaml
+    gate_script: scripts/phase3-regulatory-readiness-gate.ps1
+    gate_status: blocked
+    production_go_live_allowed: false
+    real_value_capability_allowed: false
     gates:
       - legal_classification
       - registration_analysis
@@ -266,3 +272,43 @@ implementation_slices:
       - validator_hsm_signing
       - treasury_hsm_signing
       - real_value_enablement
+  phase3_regulatory_readiness_gate_rc1:
+    status: gate_ready
+    gate_status: blocked
+    creates_paid_resources: false
+    creates_real_value_capability: false
+    legal_advice: false
+    requires_external_review: true
+    gate_config: config/phase3-regulatory-readiness.yaml
+    gate_script: scripts/phase3-regulatory-readiness-gate.ps1
+    production_go_live_allowed: false
+    real_value_capability_allowed: false
+    external_customer_access_allowed: false
+    fiat_deposit_or_redemption_allowed: false
+    custody_for_others_allowed: false
+    trading_allowed: false
+    required_gates:
+      - legal_classification
+      - registration_analysis
+      - aml_kyc_program
+      - sanctions_process
+      - privacy_data_retention
+      - institution_agreements
+      - custody_safeguarding
+      - incident_response
+      - security_penetration_test
+      - production_go_live_approval
+    required_evidence:
+      - named_owner
+      - qualified_reviewer
+      - evidence_link
+      - approval_date
+      - signed_approval_record
+    deferred:
+      - legal_determinations
+      - registration_or_licensing_action
+      - customer_onboarding
+      - real_money_transfer
+      - fiat_deposit_or_redemption
+      - custody_for_others
+      - production_go_live_approval

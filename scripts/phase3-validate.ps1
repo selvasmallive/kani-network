@@ -8,8 +8,11 @@ $requiredFiles = @(
     "PHASE3_BFT_PROTOTYPE.md",
     "PHASE3_PROD_EDGE_DESIGN.md",
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
+    "PHASE3_REGULATORY_READINESS_GATE.md",
     "config/phase3-enterprise.yaml",
+    "config/phase3-regulatory-readiness.yaml",
     "scripts/phase3-validate.ps1",
+    "scripts/phase3-regulatory-readiness-gate.ps1",
     "infra/terraform/phase3_prod_edge_design.tf",
     "infra/terraform/phase3_key_management_design.tf",
     "PHASE2_OBSERVATION_REPORT.md",
@@ -48,13 +51,15 @@ foreach ($expected in @(
     "phase3-bft-prototype-rc1",
     "phase3-prod-edge-design-rc1",
     "phase3-key-management-design-rc1",
+    "phase3-regulatory-readiness-gate-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
     "PHASE3_BFT_PROTOTYPE.md",
     "PHASE3_PROD_EDGE_DESIGN.md",
-    "PHASE3_KEY_MANAGEMENT_DESIGN.md"
+    "PHASE3_KEY_MANAGEMENT_DESIGN.md",
+    "PHASE3_REGULATORY_READINESS_GATE.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -194,6 +199,35 @@ foreach ($expected in @(
     }
 }
 
+$regulatoryGate = Get-Content "PHASE3_REGULATORY_READINESS_GATE.md" -Raw
+foreach ($expected in @(
+    "Status: gate slice ready",
+    "phase3-regulatory-readiness-gate-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "This is not legal advice",
+    "production_go_live_allowed = false",
+    "real_value_capability_allowed = false",
+    "config/phase3-regulatory-readiness.yaml",
+    "phase3-regulatory-readiness-gate.ps1",
+    "legal_classification",
+    "registration_analysis",
+    "aml_kyc_program",
+    "sanctions_process",
+    "privacy_data_retention",
+    "institution_agreements",
+    "custody_safeguarding",
+    "incident_response",
+    "security_penetration_test",
+    "production_go_live_approval",
+    "Current validator behavior remains Phase 1 PoA"
+)) {
+    if ($regulatoryGate -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 regulatory readiness gate content in PHASE3_REGULATORY_READINESS_GATE.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -259,7 +293,20 @@ foreach ($expected in @(
     "canonical_signing_request",
     "two_operator_key_creation_approval",
     "emergency_revocation_break_glass_path",
-    "kms_key_ring_apply"
+    "kms_key_ring_apply",
+    "phase3_regulatory_readiness_gate_rc1:",
+    "status: gate_ready",
+    "gate_status: blocked",
+    "gate_config: config/phase3-regulatory-readiness.yaml",
+    "gate_script: scripts/phase3-regulatory-readiness-gate.ps1",
+    "production_go_live_allowed: false",
+    "real_value_capability_allowed: false",
+    "external_customer_access_allowed: false",
+    "fiat_deposit_or_redemption_allowed: false",
+    "custody_for_others_allowed: false",
+    "trading_allowed: false",
+    "signed_approval_record",
+    "legal_determinations"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -275,6 +322,7 @@ foreach ($expected in @(
     "PHASE3_BFT_PROTOTYPE.md",
     "PHASE3_PROD_EDGE_DESIGN.md",
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
+    "PHASE3_REGULATORY_READINESS_GATE.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
@@ -286,7 +334,8 @@ foreach ($expected in @(
     "phase3_prod_edge_design.tf",
     "phase3_prod_edge_design_enabled",
     "phase3_key_management_design.tf",
-    "phase3_key_management_design_enabled"
+    "phase3_key_management_design_enabled",
+    "phase3-regulatory-readiness-gate.ps1"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
@@ -345,6 +394,54 @@ foreach ($expected in @(
 
 if ($keyManagementTerraform -match 'resource\s+"google_') {
     throw "phase3_key_management_design.tf must remain design-only and must not declare Google Cloud resources in this slice"
+}
+
+$regulatoryGateConfig = Get-Content "config/phase3-regulatory-readiness.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase3-regulatory-readiness-gate-rc1",
+    "status: blocked",
+    "legal_advice: false",
+    "requires_external_review: true",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "production_go_live_allowed: false",
+    "real_value_capability_allowed: false",
+    "external_customer_access_allowed: false",
+    "fiat_deposit_or_redemption_allowed: false",
+    "custody_for_others_allowed: false",
+    "trading_allowed: false",
+    "legal_classification:",
+    "registration_analysis:",
+    "aml_kyc_program:",
+    "sanctions_process:",
+    "privacy_data_retention:",
+    "institution_agreements:",
+    "custody_safeguarding:",
+    "incident_response:",
+    "security_penetration_test:",
+    "production_go_live_approval:",
+    "gate_status: blocked",
+    "production_ready: false",
+    "real_value_ready: false"
+)) {
+    if ($regulatoryGateConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 regulatory readiness gate config content: $expected"
+    }
+}
+
+$regulatoryGateScript = Get-Content "scripts/phase3-regulatory-readiness-gate.ps1" -Raw
+foreach ($expected in @(
+    "phase3-regulatory-readiness-gate-rc1",
+    "Production go-live must remain blocked",
+    "Real-value capability must remain blocked",
+    "required_gate_count",
+    "production_go_live_allowed = `$false",
+    "real_value_capability_allowed = `$false"
+)) {
+    if ($regulatoryGateScript -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 regulatory readiness gate script content: $expected"
+    }
 }
 
 $observation = Get-Content "PHASE2_OBSERVATION_REPORT.md" -Raw
@@ -523,5 +620,6 @@ foreach ($expected in @(
     bft_prototype_rc1 = $true
     prod_edge_design_rc1 = $true
     key_management_design_rc1 = $true
+    regulatory_readiness_gate_rc1 = $true
     result = "ok"
 }

@@ -191,6 +191,7 @@ Recommended slices:
 5. `phase3-bft-prototype-rc1`: sandbox-only BFT message model and tests.
 6. `phase3-prod-edge-design-rc1`: Terraform design for mTLS/WAF/private ingress without apply by default.
 7. `phase3-key-management-design-rc1`: KMS/HSM interfaces and runbooks.
+8. `phase3-regulatory-readiness-gate-rc1`: blocking legal, compliance, privacy, security, and executive approval gate.
 
 ## Acceptance Criteria
 
@@ -215,3 +216,5 @@ Phase 3 planning is accepted when:
 `phase3-prod-edge-design-rc1` adds a design-only Terraform boundary for the future production ingress path: external HTTPS load balancing or API Gateway, Certificate Manager, institution mTLS, Cloud Armor WAF/rate limits, private Cloud Run ingress, and admin OIDC. The guard variable remains disabled and the slice creates no Google Cloud resources. Details are recorded in `PHASE3_PROD_EDGE_DESIGN.md`.
 
 `phase3-key-management-design-rc1` adds a design-only Terraform boundary and runbook for KMS/HSM key inventory, purpose-scoped signing, dual-control ceremonies, rotation, revocation, and signing-service audit contracts. The guard variable remains disabled and the slice creates no KMS, HSM, or signing-service resources. Details are recorded in `PHASE3_KEY_MANAGEMENT_DESIGN.md`.
+
+`phase3-regulatory-readiness-gate-rc1` adds a blocking readiness gate for legal classification, registration analysis, AML/KYC, sanctions, privacy, institution agreements, custody safeguards, incident response, penetration testing, and production go-live approval. The gate is intentionally blocked and does not authorize production or real-value capability. Details are recorded in `PHASE3_REGULATORY_READINESS_GATE.md`.

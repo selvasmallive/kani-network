@@ -1,0 +1,115 @@
+phase: phase-3-enterprise
+release_candidate: phase3-regulatory-readiness-gate-rc1
+status: blocked
+legal_advice: false
+requires_external_review: true
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+
+production_controls:
+  production_go_live_allowed: false
+  real_value_capability_allowed: false
+  external_customer_access_allowed: false
+  fiat_deposit_or_redemption_allowed: false
+  custody_for_others_allowed: false
+  trading_allowed: false
+
+gate_requirements:
+  required_status_before_production: approved
+  approval_records_required: true
+  named_owner_required: true
+  reviewer_role_required: true
+  evidence_link_required: true
+  approval_date_required: true
+  independent_security_review_required: true
+  qualified_legal_review_required: true
+
+required_gates:
+  legal_classification:
+    status: not_started
+    owner: unassigned
+    required_reviewer: qualified_legal_counsel
+    evidence_required:
+      - legal_classification_memo
+      - jurisdiction_scope
+      - product_activity_description
+  registration_analysis:
+    status: not_started
+    owner: unassigned
+    required_reviewer: qualified_legal_counsel
+    evidence_required:
+      - registration_obligation_analysis
+      - operating_jurisdiction_matrix
+      - go_no_go_recommendation
+  aml_kyc_program:
+    status: not_started
+    owner: unassigned
+    required_reviewer: compliance_officer
+    evidence_required:
+      - aml_policy
+      - kyc_kyb_procedure
+      - suspicious_activity_escalation
+  sanctions_process:
+    status: not_started
+    owner: unassigned
+    required_reviewer: compliance_officer
+    evidence_required:
+      - sanctions_screening_procedure
+      - match_resolution_runbook
+      - blocked_party_escalation
+  privacy_data_retention:
+    status: not_started
+    owner: unassigned
+    required_reviewer: privacy_officer
+    evidence_required:
+      - data_inventory
+      - retention_matrix
+      - privacy_impact_review
+  institution_agreements:
+    status: not_started
+    owner: unassigned
+    required_reviewer: qualified_legal_counsel
+    evidence_required:
+      - institution_participation_agreement
+      - operating_rules
+      - liability_model
+  custody_safeguarding:
+    status: not_started
+    owner: unassigned
+    required_reviewer: finance_and_legal
+    evidence_required:
+      - safeguarding_analysis
+      - reconciliation_controls
+      - treasury_control_model
+  incident_response:
+    status: not_started
+    owner: unassigned
+    required_reviewer: security_lead
+    evidence_required:
+      - incident_response_plan
+      - notification_matrix
+      - tabletop_exercise_record
+  security_penetration_test:
+    status: not_started
+    owner: unassigned
+    required_reviewer: independent_security_reviewer
+    evidence_required:
+      - penetration_test_report
+      - remediation_tracker
+      - retest_evidence
+  production_go_live_approval:
+    status: not_started
+    owner: unassigned
+    required_reviewer: executive_approver
+    evidence_required:
+      - signed_go_live_record
+      - residual_risk_acceptance
+      - production_change_plan
+
+result:
+  gate_status: blocked
+  production_ready: false
+  real_value_ready: false
