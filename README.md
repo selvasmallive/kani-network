@@ -42,6 +42,16 @@ Cloud SQL recovery settings, restore commands, and monitoring alert policies are
 The current lean no-GKE release-candidate status, live sandbox resources, verification evidence, and intentional deferrals are summarized in `PHASE2_LEAN_WRAPUP.md`.
 The first post-wrap-up observation gate is recorded in `PHASE2_OBSERVATION_REPORT.md`.
 
+## Phase 3 Enterprise Planning
+
+Phase 3 planning has started in `PHASE3_ENTERPRISE_PLAN.md` with a structured config in `config/phase3-enterprise.yaml`. This planning slice keeps the same sandbox boundary and does not create GKE, HSM, production ingress, or real-value capabilities.
+
+Run the static Phase 3 planning check from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\phase3-validate.ps1
+```
+
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
 
 ```powershell

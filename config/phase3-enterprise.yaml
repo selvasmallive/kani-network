@@ -1,0 +1,114 @@
+phase: phase-3-enterprise
+status: planning
+inherits_from: phase2-lean-no-gke
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+workstreams:
+  consensus:
+    current: PoA
+    target: BFT
+    implementation_order:
+      - consensus engine abstraction
+      - shared proposal vote quorum certificate types
+      - PoA adapter behind common interface
+      - sandbox BFT prototype
+      - multi-node validator operations later
+    deferred:
+      - production BFT claims
+      - GKE validator operations
+
+  institution_onboarding:
+    entities:
+      - Institution
+      - InstitutionCredential
+      - InstitutionAccount
+      - InstitutionRole
+      - OnboardingCase
+    states:
+      - requested
+      - due_diligence
+      - approved
+      - rejected
+      - suspended
+      - offboarded
+    credential_controls:
+      - mtls_certificate_fingerprint
+      - api_key_metadata
+      - rotation_state
+      - revocation_reason
+
+  compliance:
+    target_profile: enterprise-policy-versioned
+    decisions:
+      - allow
+      - review
+      - reject
+      - hold
+    case_states:
+      - opened
+      - assigned
+      - evidence_requested
+      - escalated
+      - approved
+      - rejected
+      - closed
+    adapters:
+      sanctions_screening: vendor_boundary_only
+      pep_screening: vendor_boundary_only
+      adverse_media: vendor_boundary_only
+
+  ingress:
+    current: direct-cloud-run-with-iam
+    target:
+      - https_load_balancer_or_api_gateway
+      - cloud_armor_waf
+      - institution_mtls
+      - private_api_to_database_path
+      - admin_oidc
+    forbidden:
+      - allUsers
+      - allAuthenticatedUsers
+
+  key_management:
+    target:
+      - cloud_kms_hsm_inventory
+      - purpose_scoped_keys
+      - signing_service_boundary
+      - dual_control_key_ceremony
+      - rotation_and_revocation
+      - crypto_profile_registry
+    profiles_remain_config_driven: true
+
+  regulatory_readiness:
+    legal_advice: false
+    requires_external_review: true
+    gates:
+      - legal_classification
+      - registration_analysis
+      - aml_kyc_program
+      - sanctions_process
+      - privacy_data_retention
+      - institution_agreements
+      - custody_safeguarding
+      - incident_response
+      - security_penetration_test
+      - production_go_live_approval
+
+  reporting:
+    target:
+      - immutable_audit_contract
+      - reconciliation_by_asset_institution_block_and_day
+      - export_boundaries
+      - retention_matrix
+
+acceptance:
+  phase3_plan_checked_in: true
+  static_validator_required: true
+  phase2_lean_unchanged: true
+  creates_paid_resources: false
+  creates_real_value_capability: false

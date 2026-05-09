@@ -157,7 +157,7 @@ Watch items:
 
 ## Recommended Next Step
 
-Move into Phase 3 planning while keeping the Phase 2 sandbox under observation. The first Phase 3 planning slice should define the enterprise roadmap in code terms:
+Move into Phase 3 planning while keeping the Phase 2 sandbox under observation. The first Phase 3 planning slice is tracked in `PHASE3_ENTERPRISE_PLAN.md` and should define the enterprise roadmap in code terms:
 
 1. BFT consensus design boundary.
 2. Institution onboarding model.
