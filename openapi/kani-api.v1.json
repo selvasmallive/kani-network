@@ -560,6 +560,199 @@
         }
       }
     },
+    "/v1/compliance/cases": {
+      "get": {
+        "summary": "Read compliance cases",
+        "description": "Sandbox admin credentials are required. Returns manual-review cases for held sandbox payments.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated compliance cases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedComplianceCaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/compliance/cases/{id}": {
+      "get": {
+        "summary": "Read a compliance case",
+        "description": "Sandbox admin credentials are required.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compliance case with payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceCaseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/compliance/cases/{id}/approve": {
+      "post": {
+        "summary": "Approve a compliance case",
+        "description": "Sandbox admin credentials are required. Releases the held payment to the pending validator queue.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceCaseResolutionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compliance case approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceCaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/v1/compliance/cases/{id}/reject": {
+      "post": {
+        "summary": "Reject a compliance case",
+        "description": "Sandbox admin credentials are required. Marks the held payment rejected.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceCaseResolutionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compliance case rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceCaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/v1/reports/settlement-summary": {
       "get": {
         "summary": "Read settlement summary report",
@@ -1306,6 +1499,148 @@
           }
         ]
       },
+      "PaginatedComplianceCaseResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PageMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "items"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ComplianceCase"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ComplianceCaseResponse": {
+        "type": "object",
+        "required": [
+          "case",
+          "payment"
+        ],
+        "properties": {
+          "case": {
+            "$ref": "#/components/schemas/ComplianceCase"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentResponse"
+          }
+        }
+      },
+      "ComplianceCaseResolutionRequest": {
+        "type": "object",
+        "properties": {
+          "reviewer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComplianceCase": {
+        "type": "object",
+        "required": [
+          "id",
+          "payment_id",
+          "status",
+          "policy_version",
+          "rule_id",
+          "reason",
+          "opened_by_institution",
+          "assigned_to",
+          "reviewer",
+          "resolution_reason",
+          "created_at",
+          "updated_at",
+          "resolved_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ComplianceCaseStatus"
+          },
+          "policy_version": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "opened_by_institution": {
+            "type": "string"
+          },
+          "assigned_to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolution_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resolved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ComplianceCaseStatus": {
+        "type": "string",
+        "enum": [
+          "OPENED",
+          "ASSIGNED",
+          "EVIDENCE_REQUESTED",
+          "ESCALATED",
+          "APPROVED",
+          "REJECTED",
+          "CLOSED"
+        ]
+      },
       "SettlementSummaryReport": {
         "type": "object",
         "required": [
@@ -1826,6 +2161,7 @@
         "type": "string",
         "enum": [
           "PENDING",
+          "HELD",
           "FINALIZED",
           "REJECTED"
         ]

@@ -133,3 +133,23 @@ implementation_slices:
     enforcement:
       - suspended_institutions_cannot_operate_accounts
       - credential_and_limit_changes_are_audit_logged
+  phase3_compliance_cases_rc1:
+    status: implementation_ready
+    creates_paid_resources: false
+    creates_real_value_capability: false
+    migration: migrations/0009_phase3_compliance_cases.sql
+    payment_statuses:
+      - HELD
+      - PENDING
+      - FINALIZED
+      - REJECTED
+    admin_api:
+      - GET /v1/compliance/cases
+      - GET /v1/compliance/cases/{id}
+      - POST /v1/compliance/cases/{id}/approve
+      - POST /v1/compliance/cases/{id}/reject
+    enforcement:
+      - review_decisions_open_compliance_cases
+      - held_payments_are_not_validator_pending
+      - approved_cases_release_payment_to_pending
+      - rejected_cases_mark_payment_rejected

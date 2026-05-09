@@ -6,8 +6,9 @@ use kani_ledger::{
     LedgerStorageError, PostgresLedgerStore, ValidatorStatus,
 };
 use kani_types::{
-    Account, AuditEvent, Block, Institution, InstitutionCredential, InstitutionLimit, JournalEntry,
-    PaymentRecord, Transaction, TransactionKind,
+    Account, AuditEvent, Block, ComplianceCase, ComplianceCaseOpen, Institution,
+    InstitutionCredential, InstitutionLimit, JournalEntry, PaymentRecord, Transaction,
+    TransactionKind,
 };
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -251,6 +252,106 @@ impl KaniNode {
         self.produce_and_apply_locked(&mut ledger, vec![tx]).await
     }
 
+    pub async fn hold_payment_for_review(
+        &self,
+        from: impl Into<String>,
+        to: impl Into<String>,
+        asset: impl Into<String>,
+        amount: i128,
+        client_reference_id: Option<String>,
+        case_open: ComplianceCaseOpen,
+    ) -> Result<(PaymentRecord, ComplianceCase), NodeError> {
+        let from = from.into();
+        let to = to.into();
+        let asset = asset.into();
+        let request_fingerprint =
+            self.request_fingerprint(TransactionKind::Transfer, &from, &to, &asset, amount);
+
+        if let Some(storage) = &self.storage {
+            let nonce = storage.next_nonce_for_account(&from).await?;
+            let mut tx = Transaction::new_transfer(from, to, asset, amount, nonce);
+            if let Some(client_reference_id) = client_reference_id.as_deref() {
+                tx.metadata.insert(
+                    "client_reference_id".to_string(),
+                    client_reference_id.to_string(),
+                );
+                tx.metadata.insert(
+                    "request_fingerprint".to_string(),
+                    request_fingerprint.clone(),
+                );
+            }
+            let case_open = ComplianceCaseOpen {
+                payment_id: tx.id.clone(),
+                ..case_open
+            };
+            return storage
+                .hold_payment_for_review(
+                    tx,
+                    client_reference_id,
+                    Some(request_fingerprint),
+                    case_open,
+                )
+                .await
+                .map_err(|error| match error {
+                    LedgerStorageError::IdempotencyConflict {
+                        client_reference_id,
+                        ..
+                    } => NodeError::IdempotencyConflict {
+                        client_reference_id,
+                    },
+                    other => NodeError::Storage(other),
+                });
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        if let Some(client_reference_id) = client_reference_id.as_deref() {
+            if let Some(payment) = ledger.get_payment_by_client_reference_id(client_reference_id) {
+                ensure_idempotent_retry(
+                    &payment,
+                    IdempotencyAttempt {
+                        kind: TransactionKind::Transfer,
+                        from: &from,
+                        to: &to,
+                        asset: &asset,
+                        amount,
+                        request_fingerprint: &request_fingerprint,
+                        client_reference_id,
+                    },
+                )?;
+                let compliance_case = ledger
+                    .compliance_cases()
+                    .into_iter()
+                    .find(|compliance_case| compliance_case.payment_id == payment.transaction.id)
+                    .ok_or_else(|| {
+                        LedgerError::UnknownComplianceCase(payment.transaction.id.clone())
+                    })?;
+                return Ok((payment, compliance_case));
+            }
+        }
+
+        let nonce = ledger.next_nonce(&from);
+        let mut tx = Transaction::new_transfer(from, to, asset, amount, nonce);
+        if let Some(client_reference_id) = client_reference_id.as_deref() {
+            tx.metadata.insert(
+                "client_reference_id".to_string(),
+                client_reference_id.to_string(),
+            );
+            tx.metadata.insert(
+                "request_fingerprint".to_string(),
+                request_fingerprint.clone(),
+            );
+        }
+        let case_open = ComplianceCaseOpen {
+            payment_id: tx.id.clone(),
+            ..case_open
+        };
+        let payment = PaymentRecord::held(tx, case_open.reason.clone())
+            .with_client_reference_id(client_reference_id)
+            .with_request_fingerprint(Some(request_fingerprint));
+
+        Ok(ledger.hold_payment_for_review(payment, case_open)?)
+    }
+
     pub async fn mint_sandbox(
         &self,
         treasury: impl Into<String>,
@@ -463,6 +564,67 @@ impl KaniNode {
         Ok(())
     }
 
+    pub async fn compliance_cases(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ComplianceCase>, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.compliance_cases(limit, offset).await?);
+        }
+
+        let limit = usize::try_from(limit.max(0)).unwrap_or(usize::MAX);
+        let offset = usize::try_from(offset.max(0)).unwrap_or(usize::MAX);
+        Ok(self
+            .current_ledger()
+            .await?
+            .compliance_cases()
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect())
+    }
+
+    pub async fn compliance_case(&self, case_id: &str) -> Result<ComplianceCase, NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage.compliance_case(case_id).await?);
+        }
+
+        Ok(self.current_ledger().await?.get_compliance_case(case_id)?)
+    }
+
+    pub async fn approve_compliance_case(
+        &self,
+        case_id: &str,
+        reviewer: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(ComplianceCase, PaymentRecord), NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage
+                .approve_compliance_case(case_id, reviewer, reason)
+                .await?);
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        Ok(ledger.approve_compliance_case(case_id, reviewer, reason)?)
+    }
+
+    pub async fn reject_compliance_case(
+        &self,
+        case_id: &str,
+        reviewer: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(ComplianceCase, PaymentRecord), NodeError> {
+        if let Some(storage) = &self.storage {
+            return Ok(storage
+                .reject_compliance_case(case_id, reviewer, reason)
+                .await?);
+        }
+
+        let mut ledger = self.ledger.lock().await;
+        Ok(ledger.reject_compliance_case(case_id, reviewer, reason)?)
+    }
+
     pub async fn pending_transactions(
         &self,
         limit: i64,
@@ -472,7 +634,10 @@ impl KaniNode {
             return Ok(storage.pending_transactions(limit, offset).await?);
         }
 
-        Ok(Vec::new())
+        Ok(self
+            .current_ledger()
+            .await?
+            .pending_transactions(limit, offset))
     }
 
     pub async fn validators(&self) -> Result<Vec<ValidatorInfo>, NodeError> {

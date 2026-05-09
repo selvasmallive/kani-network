@@ -18,10 +18,11 @@ use kani_iso20022::{
 use kani_ledger::{AuditEventSearch, BlockSearch, JournalEntrySearch};
 use kani_node::{KaniNode, NodeError};
 use kani_types::{
-    Account, AccountType, AuditEvent, Block, Institution, InstitutionCredential,
-    InstitutionCredentialStatus, InstitutionCredentialType, InstitutionDefinition,
-    InstitutionLimit, InstitutionRiskTier, InstitutionRole, InstitutionStatus, JournalDirection,
-    JournalEntry, PaymentRecord, Transaction, TransactionStatus,
+    Account, AccountType, AuditEvent, Block, ComplianceCase, ComplianceCaseOpen, Institution,
+    InstitutionCredential, InstitutionCredentialStatus, InstitutionCredentialType,
+    InstitutionDefinition, InstitutionLimit, InstitutionRiskTier, InstitutionRole,
+    InstitutionStatus, JournalDirection, JournalEntry, PaymentRecord, Transaction,
+    TransactionStatus,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, env};
@@ -33,6 +34,7 @@ const SANDBOX_TREASURY_INSTITUTION_ID: &str = "KANI_TREASURY";
 const SANDBOX_CORP_A_INSTITUTION_ID: &str = "CORP_A";
 const SANDBOX_CORP_B_INSTITUTION_ID: &str = "CORP_B";
 const SANDBOX_ADMIN_ID: &str = "KANI_ADMIN";
+const SANDBOX_COMPLIANCE_POLICY_VERSION: &str = "sandbox-stp-v1";
 const DEFAULT_TREASURY_API_KEY: &str = "sandbox-treasury-token";
 const DEFAULT_CORP_A_API_KEY: &str = "sandbox-corp-a-token";
 const DEFAULT_CORP_B_API_KEY: &str = "sandbox-corp-b-token";
@@ -46,6 +48,8 @@ const DEFAULT_BLOCK_LIMIT: i64 = 100;
 const MAX_BLOCK_LIMIT: i64 = 500;
 const DEFAULT_AUDIT_EVENT_LIMIT: i64 = 100;
 const MAX_AUDIT_EVENT_LIMIT: i64 = 500;
+const DEFAULT_COMPLIANCE_CASE_LIMIT: i64 = 100;
+const MAX_COMPLIANCE_CASE_LIMIT: i64 = 500;
 const DEFAULT_REPORT_SCAN_LIMIT: i64 = 500;
 const MAX_REPORT_SCAN_LIMIT: i64 = 500;
 const DEFAULT_STATEMENT_ENTRY_LIMIT: i64 = 100;
@@ -407,6 +411,33 @@ pub struct InstitutionProfileResponse {
     pub limits: Vec<InstitutionLimit>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct ComplianceCaseResolutionRequest {
+    pub reviewer: Option<String>,
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct ValidatedComplianceCaseResolutionRequest {
+    reviewer: Option<String>,
+    reason: Option<String>,
+}
+
+impl ComplianceCaseResolutionRequest {
+    fn validate(self) -> ValidatedComplianceCaseResolutionRequest {
+        ValidatedComplianceCaseResolutionRequest {
+            reviewer: normalize_optional_text(self.reviewer),
+            reason: normalize_optional_text(self.reason),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ComplianceCaseResponse {
+    pub case: ComplianceCase,
+    pub payment: PaymentResponse,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct PaymentResponse {
     pub payment_id: String,
@@ -587,6 +618,12 @@ pub struct BlockQuery {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+pub struct ComplianceCaseQuery {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Camt053StatementQuery {
     pub asset: Option<String>,
     pub limit: Option<i64>,
@@ -646,6 +683,24 @@ impl From<NodeError> for ApiError {
             NodeError::Ledger(kani_ledger::LedgerError::UnknownInstitution(institution_id)) => {
                 ApiError::NotFound(format!("institution {institution_id} not found"))
             }
+            NodeError::Ledger(kani_ledger::LedgerError::UnknownComplianceCase(case_id)) => {
+                ApiError::NotFound(format!("compliance case {case_id} not found"))
+            }
+            NodeError::Ledger(kani_ledger::LedgerError::TerminalComplianceCase {
+                case_id,
+                status,
+            }) => ApiError::Conflict(format!(
+                "compliance case {case_id} is already terminal with status {status}"
+            )),
+            NodeError::Storage(kani_ledger::LedgerStorageError::UnknownComplianceCase(case_id)) => {
+                ApiError::NotFound(format!("compliance case {case_id} not found"))
+            }
+            NodeError::Storage(kani_ledger::LedgerStorageError::TerminalComplianceCase {
+                case_id,
+                status,
+            }) => ApiError::Conflict(format!(
+                "compliance case {case_id} is already terminal with status {status}"
+            )),
             NodeError::Ledger(kani_ledger_error) => {
                 ApiError::BadRequest(kani_ledger_error.to_string())
             }
@@ -742,6 +797,16 @@ pub fn build_router_with_auth(node: KaniNode, auth: SandboxAuthConfig) -> Router
             "/v1/admin/institutions/:id/limits",
             post(set_institution_limit),
         )
+        .route("/v1/compliance/cases", get(get_compliance_cases))
+        .route("/v1/compliance/cases/:id", get(get_compliance_case))
+        .route(
+            "/v1/compliance/cases/:id/approve",
+            post(approve_compliance_case),
+        )
+        .route(
+            "/v1/compliance/cases/:id/reject",
+            post(reject_compliance_case),
+        )
         .route("/v1/accounts", get(get_accounts))
         .route("/v1/transactions/pending", get(get_pending_transactions))
         .route("/v1/accounts/:account_id/balances/:asset", get(get_balance))
@@ -831,10 +896,47 @@ async fn submit_validated_payment(
     }
     audit_authorization_allowed(state, headers, &auth, action, &resource).await?;
     ensure_account_exists(&state.node, &request.to).await?;
-    enforce_payment_compliance(state, headers, &auth, action, &resource, &request).await?;
+    let client_reference_id = normalized_client_reference_id(
+        request.client_reference_id.clone(),
+        request.idempotency_key.clone(),
+    )?;
 
-    let client_reference_id =
-        normalized_client_reference_id(request.client_reference_id, request.idempotency_key)?;
+    if let Some(result) =
+        enforce_payment_compliance(state, headers, &auth, action, &resource, &request).await?
+    {
+        let case_open = ComplianceCaseOpen {
+            payment_id: String::new(),
+            policy_version: SANDBOX_COMPLIANCE_POLICY_VERSION.to_string(),
+            rule_id: result.rule_id.clone(),
+            reason: result.reason.clone(),
+            opened_by_institution: auth.institution_id.clone(),
+        };
+        let (payment, compliance_case) = state
+            .node
+            .hold_payment_for_review(
+                request.from,
+                request.to,
+                request.asset,
+                request.amount,
+                client_reference_id,
+                case_open,
+            )
+            .await?;
+        audit_compliance_case_event(
+            state,
+            &auth,
+            "COMPLIANCE_CASE_OPENED",
+            &compliance_case,
+            Some(&payment),
+            format!(
+                "compliance case {} opened for payment {}",
+                compliance_case.id, payment.transaction.id
+            ),
+        )
+        .await?;
+        return Ok(PaymentResponse::from(payment));
+    }
+
     let response = state
         .node
         .submit_payment(
@@ -857,7 +959,7 @@ async fn enforce_payment_compliance(
     action: &'static str,
     resource: &str,
     request: &ValidatedPaymentRequest,
-) -> Result<(), ApiError> {
+) -> Result<Option<ComplianceResult>, ApiError> {
     let payment = CompliancePayment {
         from: request.from.clone(),
         to: request.to.clone(),
@@ -869,7 +971,13 @@ async fn enforce_payment_compliance(
     if result.decision == ComplianceDecision::Allow {
         audit_compliance_decision(state, headers, auth, action, resource, &payment, &result)
             .await?;
-        return Ok(());
+        return Ok(None);
+    }
+
+    if result.decision == ComplianceDecision::Review {
+        audit_compliance_decision(state, headers, auth, action, resource, &payment, &result)
+            .await?;
+        return Ok(Some(result));
     }
 
     let error = ApiError::Forbidden(format!(
@@ -952,6 +1060,7 @@ fn original_pacs008_ids(record: &PaymentRecord) -> Option<(String, String)> {
 fn pacs002_transaction_status(status: TransactionStatus) -> Pacs002TransactionStatus {
     match status {
         TransactionStatus::Pending => Pacs002TransactionStatus::AcceptedSettlementInProcess,
+        TransactionStatus::Held => Pacs002TransactionStatus::AcceptedSettlementInProcess,
         TransactionStatus::Finalized => Pacs002TransactionStatus::AcceptedSettlementCompleted,
         TransactionStatus::Rejected => Pacs002TransactionStatus::Rejected,
     }
@@ -1338,6 +1447,66 @@ async fn audit_compliance_decision(
         ),
         None,
         None,
+    )
+    .with_metadata(metadata);
+
+    state.node.record_audit_event(event).await?;
+    Ok(())
+}
+
+async fn audit_compliance_case_event(
+    state: &AppState,
+    auth: &AuthenticatedInstitution,
+    event_type: &'static str,
+    compliance_case: &ComplianceCase,
+    payment: Option<&PaymentRecord>,
+    message: String,
+) -> Result<(), ApiError> {
+    let mut metadata = BTreeMap::new();
+    metadata.insert("case_id".to_string(), compliance_case.id.clone());
+    metadata.insert(
+        "case_status".to_string(),
+        format!("{:?}", compliance_case.status),
+    );
+    metadata.insert(
+        "institution_id".to_string(),
+        compliance_case.opened_by_institution.clone(),
+    );
+    metadata.insert(
+        "operator_institution_id".to_string(),
+        auth.institution_id.clone(),
+    );
+    metadata.insert(
+        "policy_version".to_string(),
+        compliance_case.policy_version.clone(),
+    );
+    metadata.insert("reason".to_string(), compliance_case.reason.clone());
+    metadata.insert("role".to_string(), auth_role(auth).to_string());
+    metadata.insert("rule_id".to_string(), compliance_case.rule_id.clone());
+
+    if let Some(reviewer) = compliance_case.reviewer.as_deref() {
+        metadata.insert("reviewer".to_string(), reviewer.to_string());
+    }
+
+    if let Some(resolution_reason) = compliance_case.resolution_reason.as_deref() {
+        metadata.insert(
+            "resolution_reason".to_string(),
+            resolution_reason.to_string(),
+        );
+    }
+
+    if let Some(payment) = payment {
+        metadata.insert(
+            "payment_status".to_string(),
+            format!("{:?}", payment.status),
+        );
+    }
+
+    let event = AuditEvent::new(
+        event_type,
+        message,
+        payment.and_then(|payment| payment.block_height),
+        Some(compliance_case.payment_id.clone()),
     )
     .with_metadata(metadata);
 
@@ -1978,6 +2147,108 @@ async fn audit_institution_event(
         )
         .await?;
     Ok(())
+}
+
+async fn get_compliance_cases(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ComplianceCaseQuery>,
+) -> Result<Json<PaginatedResponse<ComplianceCase>>, ApiError> {
+    let resource = "network:compliance_cases";
+    authorize_admin_request(&state, &headers, "read_compliance_cases", resource).await?;
+    let (limit, offset) = validated_page(
+        query.limit,
+        query.offset,
+        DEFAULT_COMPLIANCE_CASE_LIMIT,
+        MAX_COMPLIANCE_CASE_LIMIT,
+    )?;
+    let items = state.node.compliance_cases(limit + 1, offset).await?;
+
+    Ok(Json(PaginatedResponse::from_limit_plus_one(
+        items, limit, offset,
+    )))
+}
+
+async fn get_compliance_case(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<ComplianceCaseResponse>, ApiError> {
+    let resource = format!("compliance_case:{id}");
+    authorize_admin_request(&state, &headers, "read_compliance_case", &resource).await?;
+    let compliance_case = state.node.compliance_case(&id).await?;
+    let payment = state.node.get_payment(&compliance_case.payment_id).await?;
+
+    Ok(Json(ComplianceCaseResponse {
+        case: compliance_case,
+        payment: PaymentResponse::from(payment),
+    }))
+}
+
+async fn approve_compliance_case(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(request): Json<ComplianceCaseResolutionRequest>,
+) -> Result<Json<ComplianceCaseResponse>, ApiError> {
+    let resource = format!("compliance_case:{id}");
+    let auth =
+        authorize_admin_request(&state, &headers, "approve_compliance_case", &resource).await?;
+    let request = request.validate();
+    let (compliance_case, payment) = state
+        .node
+        .approve_compliance_case(&id, request.reviewer, request.reason)
+        .await?;
+    audit_compliance_case_event(
+        &state,
+        &auth,
+        "COMPLIANCE_CASE_APPROVED",
+        &compliance_case,
+        Some(&payment),
+        format!(
+            "compliance case {} approved for payment {}",
+            compliance_case.id, payment.transaction.id
+        ),
+    )
+    .await?;
+
+    Ok(Json(ComplianceCaseResponse {
+        case: compliance_case,
+        payment: PaymentResponse::from(payment),
+    }))
+}
+
+async fn reject_compliance_case(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(request): Json<ComplianceCaseResolutionRequest>,
+) -> Result<Json<ComplianceCaseResponse>, ApiError> {
+    let resource = format!("compliance_case:{id}");
+    let auth =
+        authorize_admin_request(&state, &headers, "reject_compliance_case", &resource).await?;
+    let request = request.validate();
+    let (compliance_case, payment) = state
+        .node
+        .reject_compliance_case(&id, request.reviewer, request.reason)
+        .await?;
+    audit_compliance_case_event(
+        &state,
+        &auth,
+        "COMPLIANCE_CASE_REJECTED",
+        &compliance_case,
+        Some(&payment),
+        format!(
+            "compliance case {} rejected for payment {}",
+            compliance_case.id, payment.transaction.id
+        ),
+    )
+    .await?;
+
+    Ok(Json(ComplianceCaseResponse {
+        case: compliance_case,
+        payment: PaymentResponse::from(payment),
+    }))
 }
 
 async fn get_accounts(
@@ -3038,6 +3309,80 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn payment_submission_opens_compliance_case_for_manual_review() {
+        let state = AppState {
+            node: KaniNode::sandbox_default(),
+            auth: SandboxAuthConfig::new(vec![("CORP_A".to_string(), "corp-a-key".to_string())]),
+            compliance_policy: SandboxCompliancePolicy::sandbox_default(),
+        };
+        state
+            .node
+            .mint_sandbox(
+                SANDBOX_TREASURY_ACCOUNT,
+                SANDBOX_CORP_A_ACCOUNT,
+                "KCAD_TEST",
+                1_000_000,
+            )
+            .await
+            .unwrap();
+        let request = ValidatedPaymentRequest {
+            from: SANDBOX_CORP_A_ACCOUNT.to_string(),
+            to: SANDBOX_CORP_B_ACCOUNT.to_string(),
+            asset: "KCAD_TEST".to_string(),
+            amount: 600_000,
+            client_reference_id: Some("compliance-review".to_string()),
+            idempotency_key: None,
+        };
+
+        let response = submit_validated_payment(
+            &state,
+            &headers_for("CORP_A", "corp-a-key"),
+            request,
+            "create_payment",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.status, TransactionStatus::Held);
+        assert_eq!(
+            response.failure_reason.as_deref(),
+            Some("payment amount exceeds the sandbox straight-through-processing limit")
+        );
+        assert_eq!(
+            state
+                .node
+                .balance(SANDBOX_CORP_B_ACCOUNT, "KCAD_TEST")
+                .await
+                .unwrap(),
+            0
+        );
+
+        let cases = state.node.compliance_cases(10, 0).await.unwrap();
+        assert_eq!(cases.len(), 1);
+        assert_eq!(cases[0].status, kani_types::ComplianceCaseStatus::Opened);
+        assert_eq!(cases[0].payment_id, response.payment_id);
+        assert_eq!(cases[0].policy_version, SANDBOX_COMPLIANCE_POLICY_VERSION);
+
+        let pending = state.node.pending_transactions(10, 0).await.unwrap();
+        assert!(pending.is_empty());
+
+        let (_case, payment) = state
+            .node
+            .approve_compliance_case(
+                &cases[0].id,
+                Some("reviewer@example.test".to_string()),
+                Some("sandbox approval".to_string()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(payment.status, TransactionStatus::Pending);
+        assert_eq!(
+            state.node.pending_transactions(10, 0).await.unwrap().len(),
+            1
+        );
+    }
+
+    #[tokio::test]
     async fn treasury_account_is_controlled_by_treasury_institution() {
         let node = KaniNode::sandbox_default();
         let auth = AuthenticatedInstitution {
@@ -3115,6 +3460,10 @@ mod tests {
             "/v1/blocks",
             "/v1/blocks/latest",
             "/v1/audit-events",
+            "/v1/compliance/cases",
+            "/v1/compliance/cases/{id}",
+            "/v1/compliance/cases/{id}/approve",
+            "/v1/compliance/cases/{id}/reject",
             "/v1/reports/settlement-summary",
             "/v1/reports/compliance-decisions",
             "/v1/reports/validator-finality",
@@ -3136,6 +3485,11 @@ mod tests {
             "PaginatedBlockResponse",
             "PaginatedTransactionResponse",
             "PaginatedAuditEventResponse",
+            "PaginatedComplianceCaseResponse",
+            "ComplianceCase",
+            "ComplianceCaseResponse",
+            "ComplianceCaseResolutionRequest",
+            "ComplianceCaseStatus",
             "SettlementSummaryReport",
             "ComplianceDecisionReport",
             "ValidatorFinalityReport",

@@ -44,7 +44,7 @@ The first post-wrap-up observation gate is recorded in `PHASE2_OBSERVATION_REPOR
 
 ## Phase 3 Enterprise
 
-Phase 3 has moved from planning into the first sandbox-only implementation slice. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the first implementation checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
+Phase 3 has moved from planning into sandbox-only implementation slices. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the institution checkpoint, `PHASE3_COMPLIANCE_CASES.md` records the compliance-case checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
 
 The first Phase 3 implementation slice adds institution records, credential metadata, per-institution limits, admin institution endpoints, and account-operation blocking for suspended institutions:
 
@@ -55,6 +55,15 @@ GET  /v1/admin/institutions/{id}
 POST /v1/admin/institutions/{id}/credentials
 POST /v1/admin/institutions/{id}/suspend
 POST /v1/admin/institutions/{id}/limits
+```
+
+The second Phase 3 implementation slice turns manual-review compliance decisions into held payments and admin-review cases:
+
+```text
+GET  /v1/compliance/cases
+GET  /v1/compliance/cases/{id}
+POST /v1/compliance/cases/{id}/approve
+POST /v1/compliance/cases/{id}/reject
 ```
 
 Run the static Phase 3 planning check from PowerShell:

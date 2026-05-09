@@ -3,10 +3,13 @@ $ErrorActionPreference = "Stop"
 $requiredFiles = @(
     "PHASE3_ENTERPRISE_PLAN.md",
     "PHASE3_INSTITUTION_MODEL.md",
+    "PHASE3_COMPLIANCE_CASES.md",
     "config/phase3-enterprise.yaml",
     "scripts/phase3-validate.ps1",
     "PHASE2_OBSERVATION_REPORT.md",
-    "migrations/0002_phase3_institutions.sql"
+    "openapi/kani-api.v1.json",
+    "migrations/0002_phase3_institutions.sql",
+    "migrations/0009_phase3_compliance_cases.sql"
 )
 
 $missing = @()
@@ -37,7 +40,8 @@ foreach ($expected in @(
     "phase3-compliance-cases-rc1",
     "phase3-consensus-interface-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
-    "PHASE3_INSTITUTION_MODEL.md"
+    "PHASE3_INSTITUTION_MODEL.md",
+    "PHASE3_COMPLIANCE_CASES.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -66,6 +70,22 @@ foreach ($expected in @(
     }
 }
 
+$complianceCases = Get-Content "PHASE3_COMPLIANCE_CASES.md" -Raw
+foreach ($expected in @(
+    "Status: implementation slice ready",
+    "phase3-compliance-cases-rc1",
+    "TransactionStatus::HELD",
+    "ComplianceCase",
+    "GET  /v1/compliance/cases",
+    "POST /v1/compliance/cases/{id}/approve",
+    "POST /v1/compliance/cases/{id}/reject",
+    "keeps the transaction out of the validator pending queue"
+)) {
+    if ($complianceCases -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 compliance cases content in PHASE3_COMPLIANCE_CASES.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -89,7 +109,12 @@ foreach ($expected in @(
     "creates_real_value_capability: false",
     "phase3_institution_model_rc1:",
     "migrations/0002_phase3_institutions.sql",
-    "suspended_institutions_cannot_operate_accounts"
+    "suspended_institutions_cannot_operate_accounts",
+    "phase3_compliance_cases_rc1:",
+    "migrations/0009_phase3_compliance_cases.sql",
+    "held_payments_are_not_validator_pending",
+    "approved_cases_release_payment_to_pending",
+    "rejected_cases_mark_payment_rejected"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -100,9 +125,12 @@ $readme = Get-Content "README.md" -Raw
 foreach ($expected in @(
     "PHASE3_ENTERPRISE_PLAN.md",
     "PHASE3_INSTITUTION_MODEL.md",
+    "PHASE3_COMPLIANCE_CASES.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
-    "POST /v1/admin/institutions/{id}/suspend"
+    "POST /v1/admin/institutions/{id}/suspend",
+    "GET  /v1/compliance/cases",
+    "POST /v1/compliance/cases/{id}/approve"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
@@ -120,8 +148,12 @@ foreach ($expected in @(
     "pub struct InstitutionCredential",
     "pub struct InstitutionLimit",
     "pub struct OnboardingCase",
+    "pub struct ComplianceCase",
+    "pub struct ComplianceCaseOpen",
+    "pub enum ComplianceCaseStatus",
     "pub enum InstitutionStatus",
-    "pub enum InstitutionCredentialStatus"
+    "pub enum InstitutionCredentialStatus",
+    "Held"
 )) {
     if ($types -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution type in kani-types: $expected"
@@ -135,7 +167,11 @@ foreach ($expected in @(
     "institution_credentials",
     "institution_limits",
     "load_institution_credentials",
-    "load_institution_limits"
+    "load_institution_limits",
+    "hold_payment_for_review",
+    "approve_compliance_case",
+    "reject_compliance_case",
+    "compliance_cases"
 )) {
     if ($ledger -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution storage support in kani-ledger: $expected"
@@ -148,7 +184,11 @@ foreach ($expected in @(
     "pub async fn upsert_institution",
     "pub async fn suspend_institution",
     "pub async fn institution_credentials",
-    "pub async fn institution_limits"
+    "pub async fn institution_limits",
+    "pub async fn hold_payment_for_review",
+    "pub async fn compliance_cases",
+    "pub async fn approve_compliance_case",
+    "pub async fn reject_compliance_case"
 )) {
     if ($node -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution node support in kani-node: $expected"
@@ -161,12 +201,32 @@ foreach ($expected in @(
     '"/v1/admin/institutions/:id/credentials"',
     '"/v1/admin/institutions/:id/suspend"',
     '"/v1/admin/institutions/:id/limits"',
+    '"/v1/compliance/cases"',
+    '"/v1/compliance/cases/:id/approve"',
+    '"/v1/compliance/cases/:id/reject"',
     "InstitutionProfileResponse",
+    "ComplianceCaseResponse",
     "ensure_institution_can_operate",
-    "suspended_institution_cannot_authorize_account_control"
+    "suspended_institution_cannot_authorize_account_control",
+    "payment_submission_opens_compliance_case_for_manual_review"
 )) {
     if ($api -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution API support in kani-api: $expected"
+    }
+}
+
+$openapi = Get-Content "openapi/kani-api.v1.json" -Raw
+foreach ($expected in @(
+    '"/v1/compliance/cases"',
+    '"/v1/compliance/cases/{id}/approve"',
+    '"/v1/compliance/cases/{id}/reject"',
+    '"ComplianceCase"',
+    '"ComplianceCaseResponse"',
+    '"PaginatedComplianceCaseResponse"',
+    '"HELD"'
+)) {
+    if ($openapi -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 compliance OpenAPI content: $expected"
     }
 }
 
@@ -178,6 +238,17 @@ foreach ($expected in @(
 )) {
     if ($migration -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution migration content: $expected"
+    }
+}
+
+$complianceMigration = Get-Content "migrations/0009_phase3_compliance_cases.sql" -Raw
+foreach ($expected in @(
+    "CREATE TABLE IF NOT EXISTS compliance_cases",
+    "'HELD'",
+    "idx_compliance_cases_status"
+)) {
+    if ($complianceMigration -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 compliance migration content: $expected"
     }
 }
 
@@ -196,5 +267,6 @@ foreach ($expected in @(
     real_value_capability_created = $false
     gke_enabled = $false
     institution_model_rc1 = $true
+    compliance_cases_rc1 = $true
     result = "ok"
 }

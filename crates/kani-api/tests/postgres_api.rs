@@ -45,7 +45,7 @@ async fn run_postgres_api_flow(database_url: &str, test_id: &str) -> Result<()> 
         .chars()
         .rev()
         .collect();
-    let asset = format!("KCAD_{}", asset_suffix.to_ascii_uppercase());
+    let asset = format!("KCAD_TEST_{}", asset_suffix.to_ascii_uppercase());
 
     let (status, mint) = post_json(
         &app,
@@ -173,11 +173,98 @@ async fn run_postgres_api_flow(database_url: &str, test_id: &str) -> Result<()> 
     );
     ensure!(balance_b["amount"] == 100_000, "unexpected CORP_B balance");
 
+    let held_body = json!({
+        "from": CORP_A_ACCOUNT,
+        "to": CORP_B_ACCOUNT,
+        "asset": asset,
+        "amount": 600_000,
+        "client_reference_id": format!("{test_id}-manual-review")
+    });
+    let (status, held_payment) =
+        post_json(&reloaded_app, "/v1/payments", Headers::corp_a(), held_body).await?;
+    ensure!(
+        status == StatusCode::CREATED,
+        "manual-review transfer returned {status}: {held_payment}"
+    );
+    ensure!(
+        held_payment["status"] == "HELD",
+        "manual-review transfer was not held: {held_payment}"
+    );
+    let held_payment_id = required_string(&held_payment, "payment_id")?;
+
+    let (status, case_page) = get_json(
+        &reloaded_app,
+        "/v1/compliance/cases?limit=10&offset=0",
+        Headers::admin(),
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::OK,
+        "compliance case page returned {status}: {case_page}"
+    );
+    let case_items = case_page["items"]
+        .as_array()
+        .context("compliance case page items must be an array")?;
+    let review_case = case_items
+        .iter()
+        .find(|case| case["payment_id"].as_str() == Some(held_payment_id.as_str()))
+        .with_context(|| format!("missing compliance case for held payment: {case_page}"))?;
+    ensure!(
+        review_case["status"] == "OPENED",
+        "manual-review case was not opened: {review_case}"
+    );
+    let case_id = required_string(review_case, "id")?;
+
+    let (status, approved_case) = post_json(
+        &reloaded_app,
+        &format!("/v1/compliance/cases/{case_id}/approve"),
+        Headers::admin(),
+        json!({
+            "reviewer": "sandbox-reviewer@example.test",
+            "reason": "sandbox manual review approved"
+        }),
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::OK,
+        "case approval returned {status}: {approved_case}"
+    );
+    ensure!(
+        approved_case["case"]["status"] == "APPROVED",
+        "case was not approved: {approved_case}"
+    );
+    ensure!(
+        approved_case["payment"]["status"] == "PENDING",
+        "held payment was not released to pending: {approved_case}"
+    );
+
+    let held_block_height = finalize_next_block(database_url).await?;
+    ensure!(
+        held_block_height == 3,
+        "expected approved held payment block height 3"
+    );
+
+    let reloaded_app = build_router(KaniNode::postgres(database_url).await?);
+    let (status, finalized_held_payment) = get_json(
+        &reloaded_app,
+        &format!("/v1/payments/{held_payment_id}"),
+        Headers::corp_b(),
+    )
+    .await?;
+    ensure!(
+        status == StatusCode::OK,
+        "held payment lookup returned {status}: {finalized_held_payment}"
+    );
+    ensure!(
+        finalized_held_payment["status"] == "FINALIZED",
+        "approved held payment was not finalized: {finalized_held_payment}"
+    );
+
     let overdraw_body = json!({
         "from": CORP_A_ACCOUNT,
         "to": CORP_B_ACCOUNT,
         "asset": asset,
-        "amount": 2_000_000,
+        "amount": 500_000,
         "client_reference_id": format!("{test_id}-overdraw")
     });
     let (status, overdraw) = post_json(

@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use kani_types::{
-    Account, AccountType, AuditEvent, Block, Institution, InstitutionCredential,
-    InstitutionCredentialStatus, InstitutionCredentialType, InstitutionLimit, InstitutionRiskTier,
-    InstitutionRole, InstitutionStatus, JournalDirection, JournalEntry, PaymentRecord, Transaction,
-    TransactionKind, TransactionStatus, GENESIS_HASH, KCAD_TEST, KUSD_TEST, SANDBOX_CORP_A_ACCOUNT,
+    Account, AccountType, AuditEvent, Block, ComplianceCase, ComplianceCaseOpen,
+    ComplianceCaseStatus, Institution, InstitutionCredential, InstitutionCredentialStatus,
+    InstitutionCredentialType, InstitutionLimit, InstitutionRiskTier, InstitutionRole,
+    InstitutionStatus, JournalDirection, JournalEntry, PaymentRecord, Transaction, TransactionKind,
+    TransactionStatus, GENESIS_HASH, KCAD_TEST, KUSD_TEST, SANDBOX_CORP_A_ACCOUNT,
     SANDBOX_CORP_A_INSTITUTION, SANDBOX_CORP_B_ACCOUNT, SANDBOX_CORP_B_INSTITUTION,
     SANDBOX_FEE_ACCOUNT, SANDBOX_NETWORK_INSTITUTION, SANDBOX_TREASURY_ACCOUNT,
     SANDBOX_TREASURY_INSTITUTION,
@@ -23,6 +24,10 @@ pub enum LedgerError {
     UnknownInstitution(String),
     #[error("payment {0} does not exist")]
     UnknownPayment(String),
+    #[error("compliance case {0} does not exist")]
+    UnknownComplianceCase(String),
+    #[error("compliance case {case_id} is already terminal with status {status}")]
+    TerminalComplianceCase { case_id: String, status: String },
     #[error("asset code is required")]
     MissingAsset,
     #[error("amount must be positive")]
@@ -77,6 +82,14 @@ pub enum LedgerStorageError {
     UnknownTransactionKind(String),
     #[error("unknown transaction status {0}")]
     UnknownTransactionStatus(String),
+    #[error("unknown compliance case status {0}")]
+    UnknownComplianceCaseStatus(String),
+    #[error("payment {0} does not exist")]
+    UnknownPayment(String),
+    #[error("compliance case {0} does not exist")]
+    UnknownComplianceCase(String),
+    #[error("compliance case {case_id} is already terminal with status {status}")]
+    TerminalComplianceCase { case_id: String, status: String },
     #[error("unknown journal direction {0}")]
     UnknownJournalDirection(String),
     #[error("migration failed: {0}")]
@@ -224,6 +237,7 @@ pub struct LedgerSnapshot {
     pub institution_limits: Vec<InstitutionLimit>,
     pub balances: Vec<Balance>,
     pub payments: Vec<PaymentRecord>,
+    pub compliance_cases: Vec<ComplianceCase>,
     pub blocks: Vec<Block>,
     pub audit_events: Vec<AuditEvent>,
     pub journal_entries: Vec<JournalEntry>,
@@ -239,6 +253,7 @@ pub struct InMemoryLedger {
     institution_limits: HashMap<(String, String), InstitutionLimit>,
     balances: HashMap<(String, String), i128>,
     payments: HashMap<String, PaymentRecord>,
+    compliance_cases: HashMap<String, ComplianceCase>,
     blocks: Vec<Block>,
     audit_events: Vec<AuditEvent>,
     journal_entries: Vec<JournalEntry>,
@@ -255,6 +270,7 @@ impl InMemoryLedger {
             institution_limits: HashMap::new(),
             balances: HashMap::new(),
             payments: HashMap::new(),
+            compliance_cases: HashMap::new(),
             blocks: Vec::new(),
             audit_events: Vec::new(),
             journal_entries: Vec::new(),
@@ -295,6 +311,11 @@ impl InMemoryLedger {
                 .into_iter()
                 .map(|payment| (payment.transaction.id.clone(), payment))
                 .collect(),
+            compliance_cases: snapshot
+                .compliance_cases
+                .into_iter()
+                .map(|compliance_case| (compliance_case.id.clone(), compliance_case))
+                .collect(),
             blocks: snapshot.blocks,
             audit_events: snapshot.audit_events,
             journal_entries: snapshot.journal_entries,
@@ -319,6 +340,7 @@ impl InMemoryLedger {
                 })
                 .collect(),
             payments: self.payments.values().cloned().collect(),
+            compliance_cases: self.compliance_cases.values().cloned().collect(),
             blocks: self.blocks.clone(),
             audit_events: self.audit_events.clone(),
             journal_entries: self.journal_entries.clone(),
@@ -533,6 +555,98 @@ impl InMemoryLedger {
             .values()
             .find(|payment| payment.client_reference_id.as_deref() == Some(client_reference_id))
             .cloned()
+    }
+
+    pub fn hold_payment_for_review(
+        &mut self,
+        payment: PaymentRecord,
+        case_open: ComplianceCaseOpen,
+    ) -> Result<(PaymentRecord, ComplianceCase), LedgerError> {
+        let compliance_case = ComplianceCase::opened(case_open);
+        self.payments
+            .insert(payment.transaction.id.clone(), payment.clone());
+        self.compliance_cases
+            .insert(compliance_case.id.clone(), compliance_case.clone());
+        Ok((payment, compliance_case))
+    }
+
+    pub fn compliance_cases(&self) -> Vec<ComplianceCase> {
+        let mut cases: Vec<_> = self.compliance_cases.values().cloned().collect();
+        cases.sort_by_key(|compliance_case| compliance_case.created_at);
+        cases
+    }
+
+    pub fn get_compliance_case(&self, case_id: &str) -> Result<ComplianceCase, LedgerError> {
+        self.compliance_cases
+            .get(case_id)
+            .cloned()
+            .ok_or_else(|| LedgerError::UnknownComplianceCase(case_id.to_string()))
+    }
+
+    pub fn pending_transactions(&self, limit: i64, offset: i64) -> Vec<Transaction> {
+        let limit = usize::try_from(limit.max(0)).unwrap_or(usize::MAX);
+        let offset = usize::try_from(offset.max(0)).unwrap_or(usize::MAX);
+
+        let mut payments: Vec<_> = self
+            .payments
+            .values()
+            .filter(|payment| payment.status == TransactionStatus::Pending)
+            .cloned()
+            .collect();
+        payments.sort_by_key(|payment| payment.created_at);
+
+        payments
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .map(|payment| payment.transaction)
+            .collect()
+    }
+
+    pub fn approve_compliance_case(
+        &mut self,
+        case_id: &str,
+        reviewer: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(ComplianceCase, PaymentRecord), LedgerError> {
+        let compliance_case = self.get_compliance_case(case_id)?;
+        ensure_case_not_terminal(&compliance_case)?;
+
+        let payment = self
+            .get_payment(&compliance_case.payment_id)?
+            .mark_pending();
+        let compliance_case = compliance_case.approved(reviewer, reason);
+
+        self.payments
+            .insert(payment.transaction.id.clone(), payment.clone());
+        self.compliance_cases
+            .insert(compliance_case.id.clone(), compliance_case.clone());
+
+        Ok((compliance_case, payment))
+    }
+
+    pub fn reject_compliance_case(
+        &mut self,
+        case_id: &str,
+        reviewer: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(ComplianceCase, PaymentRecord), LedgerError> {
+        let compliance_case = self.get_compliance_case(case_id)?;
+        ensure_case_not_terminal(&compliance_case)?;
+        let rejection_reason = reason
+            .clone()
+            .unwrap_or_else(|| "compliance case rejected".to_string());
+        let payment = self
+            .get_payment(&compliance_case.payment_id)?
+            .mark_rejected(rejection_reason);
+        let compliance_case = compliance_case.rejected(reviewer, reason);
+
+        self.payments
+            .insert(payment.transaction.id.clone(), payment.clone());
+        self.compliance_cases
+            .insert(compliance_case.id.clone(), compliance_case.clone());
+
+        Ok((compliance_case, payment))
     }
 
     pub fn apply_block(&mut self, block: Block) -> Result<Vec<PaymentRecord>, LedgerError> {
@@ -1142,6 +1256,365 @@ impl PostgresLedgerStore {
         row.map(|row| payment_from_row(&row)).transpose()
     }
 
+    pub async fn payment(&self, payment_id: &str) -> Result<PaymentRecord, LedgerStorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+              t.id::text AS id,
+              t.block_height,
+              b.hash AS block_hash,
+              t.from_account,
+              t.to_account,
+              t.asset,
+              t.amount::text AS amount,
+              t.nonce,
+              t.kind,
+              t.status,
+              t.signatures,
+              t.metadata,
+              t.failure_reason,
+              t.client_reference_id,
+              t.request_fingerprint,
+              t.created_at,
+              t.updated_at
+            FROM transactions t
+            LEFT JOIN blocks b ON b.height = t.block_height
+            WHERE t.id = $1::uuid
+            "#,
+        )
+        .bind(payment_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| payment_from_row(&row))
+            .transpose()?
+            .ok_or_else(|| LedgerStorageError::UnknownPayment(payment_id.to_string()))
+    }
+
+    pub async fn hold_payment_for_review(
+        &self,
+        tx_record: Transaction,
+        client_reference_id: Option<String>,
+        request_fingerprint: Option<String>,
+        case_open: ComplianceCaseOpen,
+    ) -> Result<(PaymentRecord, ComplianceCase), LedgerStorageError> {
+        if let Some(client_reference_id) = client_reference_id.as_deref() {
+            if let Some(payment) = self
+                .payment_by_client_reference_id(client_reference_id)
+                .await?
+            {
+                ensure_idempotent_retry(
+                    &payment,
+                    &tx_record,
+                    client_reference_id,
+                    request_fingerprint.as_deref(),
+                )?;
+                let compliance_case = self
+                    .compliance_case_by_payment_id(&payment.transaction.id)
+                    .await?;
+                return Ok((payment, compliance_case));
+            }
+        }
+
+        let payment = PaymentRecord::held(tx_record, case_open.reason.clone())
+            .with_client_reference_id(client_reference_id.clone())
+            .with_request_fingerprint(request_fingerprint.clone());
+        let tx_record = &payment.transaction;
+        let compliance_case = ComplianceCase::opened(case_open);
+
+        let mut transaction = self.pool.begin().await?;
+        let result = sqlx::query(
+            r#"
+            INSERT INTO transactions (
+              id, block_height, from_account, to_account, asset, amount, nonce, kind, status,
+              signatures, metadata, failure_reason, client_reference_id, request_fingerprint,
+              created_at, updated_at
+            )
+            VALUES (
+              $1::uuid, NULL, $2, $3, $4, CAST($5 AS NUMERIC(38, 0)), $6, $7, $8,
+              $9, $10, $11, $12, $13, $14, $15
+            )
+            ON CONFLICT (client_reference_id) WHERE client_reference_id IS NOT NULL DO NOTHING
+            "#,
+        )
+        .bind(&tx_record.id)
+        .bind(&tx_record.from)
+        .bind(&tx_record.to)
+        .bind(&tx_record.asset)
+        .bind(tx_record.amount.to_string())
+        .bind(tx_record.nonce)
+        .bind(transaction_kind_to_db(&tx_record.kind))
+        .bind(transaction_status_to_db(&payment.status))
+        .bind(serde_json::to_value(&tx_record.signatures)?)
+        .bind(serde_json::to_value(&tx_record.metadata)?)
+        .bind(&payment.failure_reason)
+        .bind(&payment.client_reference_id)
+        .bind(&payment.request_fingerprint)
+        .bind(payment.created_at)
+        .bind(payment.updated_at)
+        .execute(&mut *transaction)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            transaction.rollback().await?;
+            if let Some(client_reference_id) = client_reference_id.as_deref() {
+                if let Some(payment) = self
+                    .payment_by_client_reference_id(client_reference_id)
+                    .await?
+                {
+                    ensure_idempotent_retry(
+                        &payment,
+                        tx_record,
+                        client_reference_id,
+                        request_fingerprint.as_deref(),
+                    )?;
+                    let compliance_case = self
+                        .compliance_case_by_payment_id(&payment.transaction.id)
+                        .await?;
+                    return Ok((payment, compliance_case));
+                }
+
+                return Err(LedgerStorageError::IdempotencyConflict {
+                    client_reference_id: client_reference_id.to_string(),
+                    payment_id: "unknown".to_string(),
+                });
+            }
+
+            return Err(LedgerStorageError::UnknownPayment(tx_record.id.clone()));
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO compliance_cases (
+              id, payment_id, status, policy_version, rule_id, reason, opened_by_institution,
+              assigned_to, reviewer, resolution_reason, created_at, updated_at, resolved_at
+            )
+            VALUES (
+              $1::uuid, $2::uuid, $3, $4, $5, $6, $7,
+              $8, $9, $10, $11, $12, $13
+            )
+            ON CONFLICT (payment_id) DO NOTHING
+            "#,
+        )
+        .bind(&compliance_case.id)
+        .bind(&compliance_case.payment_id)
+        .bind(compliance_case_status_to_db(&compliance_case.status))
+        .bind(&compliance_case.policy_version)
+        .bind(&compliance_case.rule_id)
+        .bind(&compliance_case.reason)
+        .bind(&compliance_case.opened_by_institution)
+        .bind(&compliance_case.assigned_to)
+        .bind(&compliance_case.reviewer)
+        .bind(&compliance_case.resolution_reason)
+        .bind(compliance_case.created_at)
+        .bind(compliance_case.updated_at)
+        .bind(compliance_case.resolved_at)
+        .execute(&mut *transaction)
+        .await?;
+
+        transaction.commit().await?;
+        Ok((payment, compliance_case))
+    }
+
+    pub async fn compliance_cases(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ComplianceCase>, LedgerStorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              payment_id::text AS payment_id,
+              status,
+              policy_version,
+              rule_id,
+              reason,
+              opened_by_institution,
+              assigned_to,
+              reviewer,
+              resolution_reason,
+              created_at,
+              updated_at,
+              resolved_at
+            FROM compliance_cases
+            ORDER BY created_at, id
+            LIMIT $1
+            OFFSET $2
+            "#,
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.iter().map(compliance_case_from_row).collect()
+    }
+
+    pub async fn compliance_case(
+        &self,
+        case_id: &str,
+    ) -> Result<ComplianceCase, LedgerStorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              payment_id::text AS payment_id,
+              status,
+              policy_version,
+              rule_id,
+              reason,
+              opened_by_institution,
+              assigned_to,
+              reviewer,
+              resolution_reason,
+              created_at,
+              updated_at,
+              resolved_at
+            FROM compliance_cases
+            WHERE id = $1::uuid
+            "#,
+        )
+        .bind(case_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| compliance_case_from_row(&row))
+            .transpose()?
+            .ok_or_else(|| LedgerStorageError::UnknownComplianceCase(case_id.to_string()))
+    }
+
+    pub async fn compliance_case_by_payment_id(
+        &self,
+        payment_id: &str,
+    ) -> Result<ComplianceCase, LedgerStorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+              id::text AS id,
+              payment_id::text AS payment_id,
+              status,
+              policy_version,
+              rule_id,
+              reason,
+              opened_by_institution,
+              assigned_to,
+              reviewer,
+              resolution_reason,
+              created_at,
+              updated_at,
+              resolved_at
+            FROM compliance_cases
+            WHERE payment_id = $1::uuid
+            "#,
+        )
+        .bind(payment_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| compliance_case_from_row(&row))
+            .transpose()?
+            .ok_or_else(|| LedgerStorageError::UnknownComplianceCase(payment_id.to_string()))
+    }
+
+    pub async fn approve_compliance_case(
+        &self,
+        case_id: &str,
+        reviewer: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(ComplianceCase, PaymentRecord), LedgerStorageError> {
+        let compliance_case = self.compliance_case(case_id).await?;
+        ensure_storage_case_not_terminal(&compliance_case)?;
+        let compliance_case = compliance_case.approved(reviewer, reason);
+        let payment_id = compliance_case.payment_id.clone();
+
+        let mut transaction = self.pool.begin().await?;
+        self.update_compliance_case_in_transaction(&mut transaction, &compliance_case)
+            .await?;
+        sqlx::query(
+            r#"
+            UPDATE transactions
+            SET status = 'PENDING',
+                failure_reason = NULL,
+                updated_at = now()
+            WHERE id = $1::uuid
+              AND status = 'HELD'
+            "#,
+        )
+        .bind(&compliance_case.payment_id)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        Ok((compliance_case, self.payment(&payment_id).await?))
+    }
+
+    pub async fn reject_compliance_case(
+        &self,
+        case_id: &str,
+        reviewer: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(ComplianceCase, PaymentRecord), LedgerStorageError> {
+        let compliance_case = self.compliance_case(case_id).await?;
+        ensure_storage_case_not_terminal(&compliance_case)?;
+        let rejection_reason = reason
+            .clone()
+            .unwrap_or_else(|| "compliance case rejected".to_string());
+        let compliance_case = compliance_case.rejected(reviewer, reason);
+        let payment_id = compliance_case.payment_id.clone();
+
+        let mut transaction = self.pool.begin().await?;
+        self.update_compliance_case_in_transaction(&mut transaction, &compliance_case)
+            .await?;
+        sqlx::query(
+            r#"
+            UPDATE transactions
+            SET status = 'REJECTED',
+                failure_reason = $2,
+                updated_at = now()
+            WHERE id = $1::uuid
+              AND status = 'HELD'
+            "#,
+        )
+        .bind(&compliance_case.payment_id)
+        .bind(rejection_reason)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        Ok((compliance_case, self.payment(&payment_id).await?))
+    }
+
+    async fn update_compliance_case_in_transaction(
+        &self,
+        transaction: &mut sqlx::Transaction<'_, Postgres>,
+        compliance_case: &ComplianceCase,
+    ) -> Result<(), LedgerStorageError> {
+        sqlx::query(
+            r#"
+            UPDATE compliance_cases
+            SET status = $2,
+                assigned_to = $3,
+                reviewer = $4,
+                resolution_reason = $5,
+                updated_at = $6,
+                resolved_at = $7
+            WHERE id = $1::uuid
+            "#,
+        )
+        .bind(&compliance_case.id)
+        .bind(compliance_case_status_to_db(&compliance_case.status))
+        .bind(&compliance_case.assigned_to)
+        .bind(&compliance_case.reviewer)
+        .bind(&compliance_case.resolution_reason)
+        .bind(compliance_case.updated_at)
+        .bind(compliance_case.resolved_at)
+        .execute(&mut **transaction)
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn pending_transactions(
         &self,
         limit: i64,
@@ -1616,6 +2089,43 @@ impl PostgresLedgerStore {
             .await?;
         }
 
+        for compliance_case in &snapshot.compliance_cases {
+            sqlx::query(
+                r#"
+                INSERT INTO compliance_cases (
+                  id, payment_id, status, policy_version, rule_id, reason, opened_by_institution,
+                  assigned_to, reviewer, resolution_reason, created_at, updated_at, resolved_at
+                )
+                VALUES (
+                  $1::uuid, $2::uuid, $3, $4, $5, $6, $7,
+                  $8, $9, $10, $11, $12, $13
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                  status = EXCLUDED.status,
+                  assigned_to = EXCLUDED.assigned_to,
+                  reviewer = EXCLUDED.reviewer,
+                  resolution_reason = EXCLUDED.resolution_reason,
+                  updated_at = EXCLUDED.updated_at,
+                  resolved_at = EXCLUDED.resolved_at
+                "#,
+            )
+            .bind(&compliance_case.id)
+            .bind(&compliance_case.payment_id)
+            .bind(compliance_case_status_to_db(&compliance_case.status))
+            .bind(&compliance_case.policy_version)
+            .bind(&compliance_case.rule_id)
+            .bind(&compliance_case.reason)
+            .bind(&compliance_case.opened_by_institution)
+            .bind(&compliance_case.assigned_to)
+            .bind(&compliance_case.reviewer)
+            .bind(&compliance_case.resolution_reason)
+            .bind(compliance_case.created_at)
+            .bind(compliance_case.updated_at)
+            .bind(compliance_case.resolved_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+
         for entry in &snapshot.journal_entries {
             sqlx::query(
                 r#"
@@ -1670,6 +2180,7 @@ impl PostgresLedgerStore {
         let institution_limits = self.load_institution_limits().await?;
         let balances = self.load_balances().await?;
         let (payments, nonces, issued, txs_by_block) = self.load_payments().await?;
+        let compliance_cases = self.compliance_cases(i64::MAX, 0).await?;
         let blocks = self.load_blocks(txs_by_block).await?;
         let journal_entries = self.load_journal_entries().await?;
         let audit_events = self.load_audit_events().await?;
@@ -1681,6 +2192,7 @@ impl PostgresLedgerStore {
             institution_limits,
             balances,
             payments,
+            compliance_cases,
             blocks,
             audit_events,
             journal_entries,
@@ -2073,6 +2585,26 @@ fn payment_from_row(row: &sqlx::postgres::PgRow) -> Result<PaymentRecord, Ledger
     })
 }
 
+fn compliance_case_from_row(
+    row: &sqlx::postgres::PgRow,
+) -> Result<ComplianceCase, LedgerStorageError> {
+    Ok(ComplianceCase {
+        id: row.try_get("id")?,
+        payment_id: row.try_get("payment_id")?,
+        status: compliance_case_status_from_db(row.try_get::<String, _>("status")?)?,
+        policy_version: row.try_get("policy_version")?,
+        rule_id: row.try_get("rule_id")?,
+        reason: row.try_get("reason")?,
+        opened_by_institution: row.try_get("opened_by_institution")?,
+        assigned_to: row.try_get("assigned_to")?,
+        reviewer: row.try_get("reviewer")?,
+        resolution_reason: row.try_get("resolution_reason")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+        resolved_at: row.try_get("resolved_at")?,
+    })
+}
+
 fn ensure_idempotent_retry(
     payment: &PaymentRecord,
     attempted_transaction: &Transaction,
@@ -2105,6 +2637,39 @@ fn payment_matches_transaction(
         && payment.transaction.to == attempted_transaction.to
         && payment.transaction.asset == attempted_transaction.asset
         && payment.transaction.amount == attempted_transaction.amount
+}
+
+fn ensure_case_not_terminal(compliance_case: &ComplianceCase) -> Result<(), LedgerError> {
+    if compliance_case_is_terminal(compliance_case.status) {
+        return Err(LedgerError::TerminalComplianceCase {
+            case_id: compliance_case.id.clone(),
+            status: compliance_case_status_to_db(&compliance_case.status).to_string(),
+        });
+    }
+
+    Ok(())
+}
+
+fn ensure_storage_case_not_terminal(
+    compliance_case: &ComplianceCase,
+) -> Result<(), LedgerStorageError> {
+    if compliance_case_is_terminal(compliance_case.status) {
+        return Err(LedgerStorageError::TerminalComplianceCase {
+            case_id: compliance_case.id.clone(),
+            status: compliance_case_status_to_db(&compliance_case.status).to_string(),
+        });
+    }
+
+    Ok(())
+}
+
+fn compliance_case_is_terminal(status: ComplianceCaseStatus) -> bool {
+    matches!(
+        status,
+        ComplianceCaseStatus::Approved
+            | ComplianceCaseStatus::Rejected
+            | ComplianceCaseStatus::Closed
+    )
 }
 
 fn metadata_matches(event: &AuditEvent, key: &str, expected: &str) -> bool {
@@ -2288,6 +2853,7 @@ fn transaction_kind_from_db(value: String) -> Result<TransactionKind, LedgerStor
 fn transaction_status_to_db(status: &TransactionStatus) -> &'static str {
     match status {
         TransactionStatus::Pending => "PENDING",
+        TransactionStatus::Held => "HELD",
         TransactionStatus::Finalized => "FINALIZED",
         TransactionStatus::Rejected => "REJECTED",
     }
@@ -2296,9 +2862,37 @@ fn transaction_status_to_db(status: &TransactionStatus) -> &'static str {
 fn transaction_status_from_db(value: String) -> Result<TransactionStatus, LedgerStorageError> {
     match value.as_str() {
         "PENDING" => Ok(TransactionStatus::Pending),
+        "HELD" => Ok(TransactionStatus::Held),
         "FINALIZED" => Ok(TransactionStatus::Finalized),
         "REJECTED" => Ok(TransactionStatus::Rejected),
         _ => Err(LedgerStorageError::UnknownTransactionStatus(value)),
+    }
+}
+
+fn compliance_case_status_to_db(status: &ComplianceCaseStatus) -> &'static str {
+    match status {
+        ComplianceCaseStatus::Opened => "OPENED",
+        ComplianceCaseStatus::Assigned => "ASSIGNED",
+        ComplianceCaseStatus::EvidenceRequested => "EVIDENCE_REQUESTED",
+        ComplianceCaseStatus::Escalated => "ESCALATED",
+        ComplianceCaseStatus::Approved => "APPROVED",
+        ComplianceCaseStatus::Rejected => "REJECTED",
+        ComplianceCaseStatus::Closed => "CLOSED",
+    }
+}
+
+fn compliance_case_status_from_db(
+    value: String,
+) -> Result<ComplianceCaseStatus, LedgerStorageError> {
+    match value.as_str() {
+        "OPENED" => Ok(ComplianceCaseStatus::Opened),
+        "ASSIGNED" => Ok(ComplianceCaseStatus::Assigned),
+        "EVIDENCE_REQUESTED" => Ok(ComplianceCaseStatus::EvidenceRequested),
+        "ESCALATED" => Ok(ComplianceCaseStatus::Escalated),
+        "APPROVED" => Ok(ComplianceCaseStatus::Approved),
+        "REJECTED" => Ok(ComplianceCaseStatus::Rejected),
+        "CLOSED" => Ok(ComplianceCaseStatus::Closed),
+        _ => Err(LedgerStorageError::UnknownComplianceCaseStatus(value)),
     }
 }
 

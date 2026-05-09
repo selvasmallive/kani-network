@@ -205,3 +205,5 @@ Phase 3 planning is accepted when:
 ## Implementation Progress
 
 `phase3-institution-model-rc1` is the first implementation slice. It adds institution, credential, onboarding, and limit types; in-memory and PostgreSQL persistence; sandbox admin institution APIs; and authorization checks that block suspended institutions from operating accounts. Details are recorded in `PHASE3_INSTITUTION_MODEL.md`.
+
+`phase3-compliance-cases-rc1` adds held payments and manual-review compliance cases. `ComplianceDecision::Review` now opens a `ComplianceCase`, marks the payment `HELD`, keeps it out of validator settlement, and lets sandbox admins approve it into `PENDING` or reject it. Details are recorded in `PHASE3_COMPLIANCE_CASES.md`.

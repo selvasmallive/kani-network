@@ -279,6 +279,85 @@ impl OnboardingCase {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ComplianceCaseStatus {
+    Opened,
+    Assigned,
+    EvidenceRequested,
+    Escalated,
+    Approved,
+    Rejected,
+    Closed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ComplianceCase {
+    pub id: String,
+    pub payment_id: String,
+    pub status: ComplianceCaseStatus,
+    pub policy_version: String,
+    pub rule_id: String,
+    pub reason: String,
+    pub opened_by_institution: String,
+    pub assigned_to: Option<String>,
+    pub reviewer: Option<String>,
+    pub resolution_reason: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ComplianceCaseOpen {
+    pub payment_id: String,
+    pub policy_version: String,
+    pub rule_id: String,
+    pub reason: String,
+    pub opened_by_institution: String,
+}
+
+impl ComplianceCase {
+    pub fn opened(request: ComplianceCaseOpen) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            payment_id: request.payment_id,
+            status: ComplianceCaseStatus::Opened,
+            policy_version: request.policy_version,
+            rule_id: request.rule_id,
+            reason: request.reason,
+            opened_by_institution: request.opened_by_institution,
+            assigned_to: None,
+            reviewer: None,
+            resolution_reason: None,
+            created_at: now,
+            updated_at: now,
+            resolved_at: None,
+        }
+    }
+
+    pub fn approved(mut self, reviewer: Option<String>, reason: Option<String>) -> Self {
+        let now = Utc::now();
+        self.status = ComplianceCaseStatus::Approved;
+        self.reviewer = reviewer;
+        self.resolution_reason = reason;
+        self.updated_at = now;
+        self.resolved_at = Some(now);
+        self
+    }
+
+    pub fn rejected(mut self, reviewer: Option<String>, reason: Option<String>) -> Self {
+        let now = Utc::now();
+        self.status = ComplianceCaseStatus::Rejected;
+        self.reviewer = reviewer;
+        self.resolution_reason = reason;
+        self.updated_at = now;
+        self.resolved_at = Some(now);
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TransactionKind {
     Mint,
     Burn,
@@ -357,6 +436,7 @@ impl Transaction {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TransactionStatus {
     Pending,
+    Held,
     Finalized,
     Rejected,
 }
@@ -409,6 +489,23 @@ impl PaymentRecord {
         }
     }
 
+    pub fn held(transaction: Transaction, reason: impl Into<String>) -> Self {
+        let now = Utc::now();
+        let client_reference_id = client_reference_id_from(&transaction);
+        let request_fingerprint = request_fingerprint_from(&transaction);
+        Self {
+            transaction,
+            status: TransactionStatus::Held,
+            block_height: None,
+            block_hash: None,
+            failure_reason: Some(reason.into()),
+            client_reference_id,
+            request_fingerprint,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
     pub fn rejected(transaction: Transaction, reason: impl Into<String>) -> Self {
         let now = Utc::now();
         let client_reference_id = client_reference_id_from(&transaction);
@@ -433,6 +530,20 @@ impl PaymentRecord {
 
     pub fn with_request_fingerprint(mut self, request_fingerprint: Option<String>) -> Self {
         self.request_fingerprint = request_fingerprint;
+        self
+    }
+
+    pub fn mark_pending(mut self) -> Self {
+        self.status = TransactionStatus::Pending;
+        self.failure_reason = None;
+        self.updated_at = Utc::now();
+        self
+    }
+
+    pub fn mark_rejected(mut self, reason: impl Into<String>) -> Self {
+        self.status = TransactionStatus::Rejected;
+        self.failure_reason = Some(reason.into());
+        self.updated_at = Utc::now();
         self
     }
 }
