@@ -262,6 +262,19 @@ variable "cloud_run_ingress" {
   }
 }
 
+variable "api_invoker_members" {
+  description = "Optional explicit IAM members allowed to invoke kani-api. Keep empty for owner/admin-only sandbox testing; never use allUsers or allAuthenticatedUsers."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for member in var.api_invoker_members : !contains(["allUsers", "allAuthenticatedUsers"], trimspace(member))
+    ])
+    error_message = "api_invoker_members must not include allUsers or allAuthenticatedUsers."
+  }
+}
+
 variable "deletion_protection" {
   description = "Enable deletion protection on stateful or expensive cloud resources."
   type        = bool

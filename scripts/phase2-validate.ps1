@@ -5,6 +5,8 @@ $requiredFiles = @(
     "cloudbuild.yaml",
     "config/cloud-sandbox.yaml",
     "scripts/phase2-cloud-smoke.ps1",
+    "scripts/phase2-security-smoke.ps1",
+    "scripts/rotate-sandbox-api-key.ps1",
     "infra/terraform/versions.tf",
     "infra/terraform/variables.tf",
     "infra/terraform/main.tf",
@@ -50,6 +52,7 @@ $leanExpectations = @{
     "Cloud SQL transaction log retention" = '(?s)variable\s+"cloud_sql_transaction_log_retention_days".*?default\s*=\s*7'
     "Cloud Run max instance cap" = '(?s)variable\s+"cloud_run_max_instances".*?default\s*=\s*1'
     "Cloud Run direct IAM ingress" = '(?s)variable\s+"cloud_run_ingress".*?default\s*=\s*"INGRESS_TRAFFIC_ALL"'
+    "Cloud Run explicit invoker list" = '(?s)variable\s+"api_invoker_members".*?default\s*=\s*\[\]'
     "Validator job timeout" = '(?s)variable\s+"validator_job_timeout_seconds".*?default\s*=\s*300'
     "Validator scheduler enabled" = '(?s)variable\s+"validator_scheduler_enabled".*?default\s*=\s*true'
     "Validator scheduler cadence" = '(?s)variable\s+"validator_schedule".*?default\s*=\s*"\*/15 \* \* \* \*"'
@@ -94,6 +97,8 @@ foreach ($expected in @(
     "KANI_BUDGET_BRAKE_THRESHOLD",
     "KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS",
     "KANI_SANDBOX_TREASURY_API_KEY",
+    "google_cloud_run_v2_service_iam_member",
+    "api_invoker",
     "google_secret_manager_secret.sandbox_api_key",
     "api_sandbox_api_key",
     "transaction_log_retention_days",
@@ -157,6 +162,12 @@ foreach ($expected in @("api_auth:", "source:\s*secret-manager", "require_config
     }
 }
 
+foreach ($expected in @("security_hardening:", "cloud_run_iam_required:\s*true", "public_invokers_forbidden:", "allUsers", "allAuthenticatedUsers", "secret_manager_public_access_forbidden:\s*true", "api_key_rotation:", "rotate-sandbox-api-key.ps1")) {
+    if ($cloudSandbox -notmatch $expected) {
+        throw "Expected cloud sandbox security hardening setting in config/cloud-sandbox.yaml: $expected"
+    }
+}
+
 foreach ($expected in @("compliance:", "sandbox-stp-v1", "allowed_accounts:", "allowed_asset_prefixes:", "max_payment_amount:\s*500000", "allow_self_transfers:\s*false", "SANDBOX_STP", "MAX_PAYMENT_AMOUNT", "NO_SELF_TRANSFER", "COMPLIANCE_DECISION")) {
     if ($cloudSandbox -notmatch $expected) {
         throw "Expected cloud sandbox compliance setting in config/cloud-sandbox.yaml: $expected"
@@ -206,6 +217,20 @@ foreach ($expected in @("/v1/reports/settlement-summary", "/v1/reports/complianc
     }
 }
 
+$securitySmokeScript = Get-Content "scripts/phase2-security-smoke.ps1" -Raw
+foreach ($expected in @("get-iam-policy", "Assert-NoPublicMembers", "allUsers", "allAuthenticatedUsers", "KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS", "Assert-SecretBackedEnv", "secrets get-iam-policy", "unauthenticated_health_denied_status", "invalid_sandbox_key_denied_status")) {
+    if ($securitySmokeScript -notmatch $expected) {
+        throw "Expected security smoke test to verify Cloud Run/IAM/Secret Manager posture: $expected"
+    }
+}
+
+$rotationScript = Get-Content "scripts/rotate-sandbox-api-key.ps1" -Raw
+foreach ($expected in @("random_password.sandbox_api_key", "google_secret_manager_secret_version.sandbox_api_key", "terraform", "-replace", "phase2-security-smoke.ps1")) {
+    if ($rotationScript -notmatch [regex]::Escape($expected)) {
+        throw "Expected sandbox API key rotation runbook script setting: $expected"
+    }
+}
+
 [pscustomobject]@{
     phase = "phase-2-cloud-mvp"
     cost_profile = "phase2-lean-no-gke"
@@ -218,6 +243,7 @@ foreach ($expected in @("/v1/reports/settlement-summary", "/v1/reports/complianc
     budget_brake_enabled = $true
     budget_pubsub_topic_attachment_configurable = $true
     api_keys_source = "secret-manager"
+    security_hardening_enabled = $true
     compliance_sandbox_stp_enabled = $true
     iso20022_pacs008_enabled = $true
     iso20022_pacs002_enabled = $true

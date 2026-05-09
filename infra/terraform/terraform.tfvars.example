@@ -18,6 +18,7 @@ cloud_sql_backup_retained_count              = 7
 cloud_sql_transaction_log_retention_days     = 7
 cloud_run_max_instances                      = 1
 cloud_run_ingress                            = "INGRESS_TRAFFIC_ALL"
+api_invoker_members                          = []
 validator_ids                                = ["validator-a", "validator-b", "validator-c"]
 validator_job_max_transactions_per_block     = 25
 validator_job_timeout_seconds                = 300

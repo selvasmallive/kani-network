@@ -49,6 +49,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1
 The lean cloud guardrails use a 15-minute validator schedule and a `50` unit monthly budget alert in the billing account currency. The current sandbox billing account reports `CAD`, and the budget is an alerting guardrail, not a hard cap. The budget also links an explicit Cloud Monitoring email notification channel for `selva@kani.network`; Google may require the recipient to verify that email channel before it can receive alerts. Pub/Sub and the `kani-cost-guard` Cloud Run service are connected for programmatic budget notifications, with the cost guard set to pause the validator Scheduler job if actual spend crosses `80%`.
 
 Cloud Run sets `KANI_REQUIRE_CONFIGURED_SANDBOX_API_KEYS=TRUE` and loads all sandbox API keys from Secret Manager. The checked-in default keys remain only for local simulation; the cloud smoke test reads the live keys from Secret Manager.
+The lean sandbox also has a security smoke test that verifies the API, validator job, cost-guard service, and Secret Manager keys are not publicly invokable/readable:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\phase2-security-smoke.ps1
+```
+
+Sandbox API keys are Terraform-managed Secret Manager versions. Rotate one with `scripts\rotate-sandbox-api-key.ps1 -Key corp_a -Apply`, then rerun the security and cloud smoke tests.
 
 The initial ISO 20022 endpoints are `POST /v1/iso20022/pacs008`, `GET /v1/iso20022/pacs002/{payment_id}`, and `GET /v1/iso20022/camt053/accounts/{account_id}?asset=KCAD_TEST`. They accept a single-transfer `pacs.008` XML document, map debtor and creditor account identifiers to sandbox accounts, submit the payment through the same ledger path as `POST /v1/payments`, return a basic `pacs.002` XML status report, and produce a sandbox `camt.053` XML account statement from finalized journal entries.
 

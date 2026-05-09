@@ -31,6 +31,22 @@ api_auth:
     corp_b: kani-sandbox-corp-b-api-key
     admin: kani-sandbox-admin-api-key
 
+security_hardening:
+  cloud_run_iam_required: true
+  cloud_run_ingress: INGRESS_TRAFFIC_ALL
+  public_invokers_forbidden:
+    - allUsers
+    - allAuthenticatedUsers
+  secret_manager_public_access_forbidden: true
+  api_invoker_members_default: []
+  security_smoke_script: scripts/phase2-security-smoke.ps1
+  api_key_rotation:
+    method: terraform replace managed sandbox key resources
+    script: scripts/rotate-sandbox-api-key.ps1
+    post_rotation_checks:
+      - scripts/phase2-security-smoke.ps1
+      - scripts/phase2-cloud-smoke.ps1
+
 compliance:
   enabled: true
   profile: sandbox-stp-v1

@@ -442,6 +442,16 @@ resource "google_cloud_run_v2_service" "api" {
   ]
 }
 
+resource "google_cloud_run_v2_service_iam_member" "api_invoker" {
+  for_each = toset(var.api_invoker_members)
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.api.name
+  role     = "roles/run.invoker"
+  member   = each.value
+}
+
 resource "google_cloud_run_v2_job" "validator" {
   name                = "${var.name_prefix}-validator"
   location            = var.region
