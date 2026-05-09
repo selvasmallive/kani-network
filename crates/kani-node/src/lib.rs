@@ -1,5 +1,8 @@
 use chrono::{DateTime, Utc};
-use kani_consensus::{ConsensusError, PoAConsensus, Validator};
+use kani_consensus::{
+    ConfiguredConsensusEngine, ConsensusEngine, ConsensusEngineConfig, ConsensusError,
+    PoAConsensus, Validator,
+};
 use kani_crypto::{hash_bytes, hash_json, sandbox_validator_signature, CryptoError, CryptoProfile};
 use kani_ledger::{
     AuditEventSearch, BlockSearch, InMemoryLedger, JournalEntrySearch, LedgerError,
@@ -129,7 +132,7 @@ impl SandboxRuntimeConfig {
 #[derive(Clone)]
 pub struct KaniNode {
     ledger: Arc<Mutex<InMemoryLedger>>,
-    consensus: PoAConsensus,
+    consensus: ConfiguredConsensusEngine,
     crypto_profile: CryptoProfile,
     storage: Option<PostgresLedgerStore>,
 }
@@ -151,6 +154,18 @@ impl KaniNode {
         consensus: PoAConsensus,
         crypto_profile: CryptoProfile,
     ) -> Self {
+        Self::new_with_consensus_engine(
+            ledger,
+            ConfiguredConsensusEngine::Poa(consensus),
+            crypto_profile,
+        )
+    }
+
+    pub fn new_with_consensus_engine(
+        ledger: InMemoryLedger,
+        consensus: ConfiguredConsensusEngine,
+        crypto_profile: CryptoProfile,
+    ) -> Self {
         Self {
             ledger: Arc::new(Mutex::new(ledger)),
             consensus,
@@ -160,9 +175,11 @@ impl KaniNode {
     }
 
     pub fn sandbox_default() -> Self {
-        Self::new(
+        Self::new_with_consensus_engine(
             InMemoryLedger::sandbox(),
-            PoAConsensus::phase1_default(),
+            ConsensusEngineConfig::phase1_poa()
+                .build_engine()
+                .expect("default phase 1 consensus engine is valid"),
             CryptoProfile::hybrid_pqc_v1(),
         )
     }
@@ -175,7 +192,9 @@ impl KaniNode {
 
         Ok(Self {
             ledger: Arc::new(Mutex::new(ledger)),
-            consensus: PoAConsensus::phase1_default(),
+            consensus: ConsensusEngineConfig::phase1_poa()
+                .build_engine()
+                .expect("default phase 1 consensus engine is valid"),
             crypto_profile: CryptoProfile::hybrid_pqc_v1(),
             storage: Some(storage),
         })
@@ -660,7 +679,7 @@ impl KaniNode {
             .collect())
     }
 
-    pub fn consensus(&self) -> &PoAConsensus {
+    pub fn consensus(&self) -> &dyn ConsensusEngine {
         &self.consensus
     }
 
@@ -766,7 +785,7 @@ impl KaniNode {
 #[derive(Clone)]
 pub struct ValidatorRuntime {
     storage: PostgresLedgerStore,
-    consensus: PoAConsensus,
+    consensus: ConfiguredConsensusEngine,
     crypto_profile: CryptoProfile,
     validator_id: String,
     max_transactions_per_block: i64,
@@ -783,7 +802,9 @@ impl ValidatorRuntime {
 
         Ok(Self {
             storage,
-            consensus: PoAConsensus::phase1_default(),
+            consensus: ConsensusEngineConfig::phase1_poa()
+                .build_engine()
+                .expect("default phase 1 consensus engine is valid"),
             crypto_profile: CryptoProfile::hybrid_pqc_v1(),
             validator_id: validator_id.into(),
             max_transactions_per_block: 25,
@@ -1007,7 +1028,7 @@ fn transaction_kind_fingerprint_value(kind: TransactionKind) -> &'static str {
 fn build_block_for_validator(
     ledger: &InMemoryLedger,
     txs: Vec<Transaction>,
-    consensus: &PoAConsensus,
+    consensus: &dyn ConsensusEngine,
     crypto_profile: &CryptoProfile,
     validator_id: &str,
 ) -> Result<Block, NodeError> {
@@ -1037,7 +1058,7 @@ fn build_block_for_validator(
 fn verify_phase1_block(
     ledger: &InMemoryLedger,
     block: &Block,
-    consensus: &PoAConsensus,
+    consensus: &dyn ConsensusEngine,
     crypto_profile: &CryptoProfile,
 ) -> Result<(), NodeError> {
     if block.txs.is_empty() {

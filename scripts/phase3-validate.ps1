@@ -4,6 +4,7 @@ $requiredFiles = @(
     "PHASE3_ENTERPRISE_PLAN.md",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
+    "PHASE3_CONSENSUS_INTERFACE.md",
     "config/phase3-enterprise.yaml",
     "scripts/phase3-validate.ps1",
     "PHASE2_OBSERVATION_REPORT.md",
@@ -41,7 +42,8 @@ foreach ($expected in @(
     "phase3-consensus-interface-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
     "PHASE3_INSTITUTION_MODEL.md",
-    "PHASE3_COMPLIANCE_CASES.md"
+    "PHASE3_COMPLIANCE_CASES.md",
+    "PHASE3_CONSENSUS_INTERFACE.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -86,6 +88,25 @@ foreach ($expected in @(
     }
 }
 
+$consensusInterface = Get-Content "PHASE3_CONSENSUS_INTERFACE.md" -Raw
+foreach ($expected in @(
+    "Status: implementation slice ready",
+    "phase3-consensus-interface-rc1",
+    "ConsensusEngine",
+    "ConsensusEngineConfig",
+    "ConfiguredConsensusEngine",
+    "PoAConsensus",
+    "ConsensusProposal",
+    "ConsensusVote",
+    "QuorumCertificate",
+    "FinalityProof",
+    "Current validator behavior remains Phase 1 PoA"
+)) {
+    if ($consensusInterface -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 consensus interface content in PHASE3_CONSENSUS_INTERFACE.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -114,7 +135,11 @@ foreach ($expected in @(
     "migrations/0009_phase3_compliance_cases.sql",
     "held_payments_are_not_validator_pending",
     "approved_cases_release_payment_to_pending",
-    "rejected_cases_mark_payment_rejected"
+    "rejected_cases_mark_payment_rejected",
+    "phase3_consensus_interface_rc1:",
+    "default_engine: phase1-poa",
+    "ConsensusEngine trait",
+    "production finality claims"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -126,11 +151,13 @@ foreach ($expected in @(
     "PHASE3_ENTERPRISE_PLAN.md",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
+    "PHASE3_CONSENSUS_INTERFACE.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
     "GET  /v1/compliance/cases",
-    "POST /v1/compliance/cases/{id}/approve"
+    "POST /v1/compliance/cases/{id}/approve",
+    "ConsensusEngine"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
@@ -153,10 +180,30 @@ foreach ($expected in @(
     "pub enum ComplianceCaseStatus",
     "pub enum InstitutionStatus",
     "pub enum InstitutionCredentialStatus",
-    "Held"
+    "Held",
+    "pub struct ConsensusProposal",
+    "pub struct ConsensusVote",
+    "pub struct QuorumCertificate",
+    "pub struct FinalityProof",
+    "pub struct ValidatorSet"
 )) {
     if ($types -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution type in kani-types: $expected"
+    }
+}
+
+$consensus = Get-Content "crates/kani-consensus/src/lib.rs" -Raw
+foreach ($expected in @(
+    "pub trait ConsensusEngine",
+    "pub enum ConsensusAlgorithm",
+    "pub struct ConsensusEngineConfig",
+    "pub enum ConfiguredConsensusEngine",
+    "impl ConsensusEngine for PoAConsensus",
+    "phase1_default_validators",
+    "UnsupportedEngine"
+)) {
+    if ($consensus -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 consensus interface support in kani-consensus: $expected"
     }
 }
 
@@ -192,6 +239,18 @@ foreach ($expected in @(
 )) {
     if ($node -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 institution node support in kani-node: $expected"
+    }
+}
+
+$nodeConsensusExpected = @(
+    "ConfiguredConsensusEngine",
+    "ConsensusEngineConfig::phase1_poa",
+    "pub fn consensus(&self) -> &dyn ConsensusEngine",
+    "consensus: &dyn ConsensusEngine"
+)
+foreach ($expected in $nodeConsensusExpected) {
+    if ($node -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 consensus interface node support in kani-node: $expected"
     }
 }
 
@@ -268,5 +327,6 @@ foreach ($expected in @(
     gke_enabled = $false
     institution_model_rc1 = $true
     compliance_cases_rc1 = $true
+    consensus_interface_rc1 = $true
     result = "ok"
 }

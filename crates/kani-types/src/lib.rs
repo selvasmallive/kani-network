@@ -598,6 +598,78 @@ impl JournalEntry {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ConsensusValidator {
+    pub id: String,
+    pub public_key: String,
+    pub voting_power: i64,
+    pub active: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ValidatorSet {
+    pub id: String,
+    pub epoch: i64,
+    pub validators: Vec<ConsensusValidator>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ConsensusProposal {
+    pub id: String,
+    pub height: i64,
+    pub round: i64,
+    pub epoch: i64,
+    pub proposer: String,
+    pub block_hash: String,
+    pub prev_hash: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ConsensusVoteKind {
+    Prevote,
+    Precommit,
+    Finality,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ConsensusVote {
+    pub id: String,
+    pub proposal_id: String,
+    pub height: i64,
+    pub round: i64,
+    pub epoch: i64,
+    pub voter: String,
+    pub vote_kind: ConsensusVoteKind,
+    pub block_hash: String,
+    pub signature: Vec<u8>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct QuorumCertificate {
+    pub id: String,
+    pub height: i64,
+    pub round: i64,
+    pub epoch: i64,
+    pub block_hash: String,
+    pub vote_kind: ConsensusVoteKind,
+    pub voters: Vec<String>,
+    pub signature: Vec<u8>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FinalityProof {
+    pub block_height: i64,
+    pub block_hash: String,
+    pub validator_set_id: String,
+    pub quorum_certificate: QuorumCertificate,
+    pub finalized_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Block {
     pub height: i64,
     pub prev_hash: String,
