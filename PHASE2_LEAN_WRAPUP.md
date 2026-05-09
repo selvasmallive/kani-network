@@ -4,6 +4,8 @@ Status: release candidate
 Date: 2026-05-09
 Scope: `phase2-lean-no-gke`
 
+Observation report: `PHASE2_OBSERVATION_REPORT.md`
+
 Phase 2 lean has reached an end-to-end sandbox cloud MVP without GKE. The system still runs only as an internal simulation and must not be used for real money movement, customer funds, fiat redemption, custody, trading, or production payment services.
 
 ## Runtime Boundary

@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 $requiredFiles = @(
     "PHASE2_CLOUD_MVP.md",
     "PHASE2_LEAN_WRAPUP.md",
+    "PHASE2_OBSERVATION_REPORT.md",
     "cloudbuild.yaml",
     "config/cloud-sandbox.yaml",
     "scripts/phase2-cloud-smoke.ps1",
@@ -46,6 +47,13 @@ $wrapup = Get-Content "PHASE2_LEAN_WRAPUP.md" -Raw
 foreach ($expected in @("phase2-lean-no-gke", "release candidate", "SANDBOX", "REAL_VALUE", "REDEEMABLE", "GKE", "terraform plan -detailed-exitcode", "phase2-security-smoke.ps1", "phase2-cloud-smoke.ps1", "status = ok", "No public API invocation", "No public Secret Manager access")) {
     if ($wrapup -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 2 wrap-up evidence in PHASE2_LEAN_WRAPUP.md: $expected"
+    }
+}
+
+$observation = Get-Content "PHASE2_OBSERVATION_REPORT.md" -Raw
+foreach ($expected in @("observation gate passed", "kani-network-sandbox", "Incidents firing: 1", "kani-sandbox Cloud SQL error logs", "State: ENABLED", "kani-sandbox-validator-zsmmt", "State: RUNNABLE", "api_public_invoker_absent = True", "asset = KCAD_TEST_20260509155011", "pending_count = 0", "Watch items", "Phase 3 planning")) {
+    if ($observation -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 2 observation evidence in PHASE2_OBSERVATION_REPORT.md: $expected"
     }
 }
 

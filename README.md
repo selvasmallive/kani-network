@@ -40,6 +40,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase2-validate.ps1
 
 Cloud SQL recovery settings, restore commands, and monitoring alert policies are documented in `PHASE2_CLOUD_MVP.md`.
 The current lean no-GKE release-candidate status, live sandbox resources, verification evidence, and intentional deferrals are summarized in `PHASE2_LEAN_WRAPUP.md`.
+The first post-wrap-up observation gate is recorded in `PHASE2_OBSERVATION_REPORT.md`.
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
 
