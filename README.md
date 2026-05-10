@@ -132,6 +132,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase4-wrapup.ps1
 
 Phase 5A has started on the `phase5a-no-gke-validator-hardening` track. `PHASE5A_VALIDATOR_HARDENING_PLAN.md`, `config/phase5a-validator-hardening-plan.yaml`, and `scripts/phase5a-validator-hardening-plan.ps1` define the first validator hardening checkpoint for the existing Cloud Run Job plus Cloud Scheduler model.
 
+The first Phase 5A implementation checkpoint is `phase5a-validator-reconciliation-rc1`. `PHASE5A_VALIDATOR_RECONCILIATION.md`, `config/phase5a-validator-reconciliation.yaml`, and `scripts/phase5a-validator-reconciliation.ps1` define the reconciliation evidence contract for pending transactions, issued supply, account balances, finalized blocks, audit events, settlement reports, compliance reports, validator finality reports, validator state, and `camt.053` journal evidence.
+
 This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
 
 ```text
@@ -156,6 +158,7 @@ Run the Phase 5A checks from PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validator-hardening-plan.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validator-reconciliation.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 ```
 

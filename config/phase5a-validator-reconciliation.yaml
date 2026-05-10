@@ -1,0 +1,173 @@
+release_candidate: phase5a-validator-reconciliation-rc1
+status: validator_reconciliation_checkpoint_ready
+inherits_from: phase5a-validator-hardening-plan-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  scheduler_changes_enabled: false
+  live_failure_drills_enabled: false
+
+validator_model:
+  runtime: cloud_run_job_plus_cloud_scheduler
+  run_mode: sweep
+  scheduler_cadence: "*/15 * * * *"
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+evidence_sources:
+  health: GET /health
+  pending_transactions: GET /v1/transactions/pending?limit=500&offset=0
+  issued_supply: GET /v1/assets/{asset}/issued
+  corp_a_balance: GET /v1/accounts/CORP_A/balances/{asset}
+  corp_b_balance: GET /v1/accounts/CORP_B/balances/{asset}
+  latest_block: GET /v1/blocks/latest
+  block_page: GET /v1/blocks?limit=500&offset=0
+  audit_events: GET /v1/audit-events?limit=500&offset=0
+  settlement_summary: GET /v1/reports/settlement-summary?limit=500&offset=0
+  compliance_decisions: GET /v1/reports/compliance-decisions?limit=500&offset=0
+  validator_finality: GET /v1/reports/validator-finality?limit=500&offset=0
+  validators: GET /v1/validators
+  camt053_statement: GET /v1/iso20022/camt053/accounts/CORP_A?asset={asset}&limit=500&offset=0
+
+required_reconciliation_checks:
+  pending_transactions_zero_after_sweep:
+    status: required
+    invariant: pending_count == 0
+  issued_supply_matches_reconciled_balances:
+    status: required
+    invariant: issued_supply == corp_a_balance + corp_b_balance for a fresh evidence-run asset
+  latest_block_finality_votes_at_least_two:
+    status: required
+    invariant: latest_block.finalized_by count >= 2
+  latest_block_validator_in_validator_set:
+    status: required
+    invariant: latest_block.validator in validator-a, validator-b, validator-c
+  validator_report_required_finality_votes_equals_two:
+    status: required
+    invariant: validator_finality.required_finality_votes == 2
+  validator_report_active_validator_count_equals_three:
+    status: required
+    invariant: validator_finality.active_validator_count == 3
+  settlement_report_minted_amount_matches_issued_supply:
+    status: required
+    invariant: settlement_summary.minted_amount_by_asset[asset] == issued_supply
+  settlement_report_transfer_amount_matches_payments:
+    status: required
+    invariant: settlement_summary.gross_transfer_amount_by_asset[asset] matches submitted payment flow
+  audit_events_include_authorization_and_finalization:
+    status: required
+    invariant: audit_events include authorization, transaction, compliance, and block-finalization evidence
+  camt053_entries_match_journal_debits_and_credits:
+    status: required
+    invariant: camt053 credit and debit entries match reconciled journal entries
+
+evidence_pack_schema:
+  required_fields:
+    - run_id
+    - environment
+    - operator
+    - started_at
+    - completed_at
+    - base_url
+    - asset
+    - validator_runtime
+    - validator_ids
+    - scheduler_cadence
+    - mint_transaction_id
+    - payment_transaction_id
+    - iso_transaction_id
+    - latest_block_height
+    - latest_block_hash
+    - latest_block_validator
+    - latest_block_finalized_by
+    - pending_count
+    - issued_supply
+    - corp_a_balance
+    - corp_b_balance
+    - settlement_report_snapshot
+    - compliance_report_snapshot
+    - validator_finality_report_snapshot
+    - validator_state_snapshot
+    - audit_event_snapshot
+    - camt053_statement_snapshot
+    - reconciliation_results
+  forbidden_fields:
+    - api_keys
+    - bearer_tokens
+    - secret_manager_values
+    - raw_private_keys
+    - customer_data
+    - real_value_records
+
+operator_procedure:
+  steps:
+    - confirm_sandbox_boundary
+    - run_sandbox_payment_and_iso20022_flow
+    - execute_or_wait_for_validator_sweep
+    - collect_evidence_sources
+    - verify_required_reconciliation_checks
+    - save_operator_evidence_pack
+    - record_failures_as_sandbox_incidents
+  scheduler_mutation_allowed: false
+  live_failure_drill_allowed: false
+
+non_enablement:
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  live_failure_drills_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_validator_reconciliation_checked_in: true
+  structured_phase5a_reconciliation_config_exists: true
+  static_phase5a_reconciliation_validator_required: true
+  aggregate_phase5a_validator_includes_reconciliation: true
+  phase5a_hardening_plan_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_scheduler_changes_enabled: true
+  no_live_failure_drills_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true
