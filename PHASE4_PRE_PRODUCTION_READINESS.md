@@ -133,3 +133,7 @@ Recommended Phase 4 slices:
 7. `phase4-legal-compliance-evidence-rc1`: evidence register for external legal/compliance review.
 
 Phase 4 remains planning and readiness until every gate has reviewed evidence.
+
+## Implementation Progress
+
+`phase4-cost-model-rc1` adds cost-estimate input structure for the current no-GKE baseline, deferred production ingress, deferred HSM/KMS signing, deferred GKE validator operations, disaster recovery, and security review. It records no fixed live prices, creates no Google Cloud resources, and keeps GKE deferred to `phase5b-gke-validator-ops`. Details are recorded in `PHASE4_COST_MODEL.md`.

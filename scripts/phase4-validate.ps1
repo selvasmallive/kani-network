@@ -2,8 +2,11 @@ $ErrorActionPreference = "Stop"
 
 $requiredFiles = @(
     "PHASE4_PRE_PRODUCTION_READINESS.md",
+    "PHASE4_COST_MODEL.md",
     "config/phase4-pre-production-readiness.yaml",
+    "config/phase4-cost-model.yaml",
     "scripts/phase4-validate.ps1",
+    "scripts/phase4-cost-model.ps1",
     "PHASE3_WRAPUP.md",
     "scripts/phase3-validate.ps1",
     "scripts/phase2-validate.ps1"
@@ -50,6 +53,31 @@ foreach ($expected in @(
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 4 readiness plan content: $expected"
+    }
+}
+
+$costModel = Get-Content "PHASE4_COST_MODEL.md" -Raw
+foreach ($expected in @(
+    "Status: cost model ready",
+    "phase4-cost-model-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "phase2-lean-no-gke",
+    "Cost Model Principle",
+    "Current No-GKE Baseline",
+    "Deferred Production-Style Estimates",
+    "GKE validator operations estimate",
+    "Scenario Matrix",
+    "preprod_no_gke",
+    "validator_ops_gke_lab",
+    "Approval Gates",
+    "phase5b-gke-validator-ops",
+    "Phase 5A remains no-GKE",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($costModel -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 cost model content: $expected"
     }
 }
 
@@ -113,6 +141,46 @@ foreach ($expected in @(
     }
 }
 
+$costConfig = Get-Content "config/phase4-cost-model.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase4-cost-model-rc1",
+    "status: cost_model_ready",
+    "inherits_from: phase4-pre-production-readiness-rc1",
+    "track: phase4-no-gke-preprod-readiness",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "enables_gke_validator_operations: false",
+    "fixed_live_prices_recorded: false",
+    "live_pricing_must_be_checked_before_apply: true",
+    "current_no_gke_baseline:",
+    "cloud_run_api:",
+    "cloud_run_validator_job:",
+    "cloud_sql_postgresql_ledger:",
+    "deferred_estimates:",
+    "production_ingress:",
+    "hsm_kms_signing:",
+    "gke_validator_operations:",
+    "deferred_to: phase5b-gke-validator-ops",
+    "scenario_matrix:",
+    "sandbox_minimal:",
+    "preprod_no_gke:",
+    "validator_ops_gke_lab:",
+    "approval_gates:",
+    "phase5a_remains_no_gke: true",
+    "google_cloud_resource_creation_allowed: false",
+    "paid_resource_enablement_allowed: false",
+    "gke_cluster_enabled: false",
+    "production_ingress_enabled: false",
+    "hsm_kms_production_signing_enabled: false",
+    "real_value_settlement_enabled: false",
+    "phase4_validator_includes_cost_model: true"
+)) {
+    if ($costConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 cost model config content: $expected"
+    }
+}
+
 foreach ($forbidden in @(
     "creates_paid_resources",
     "changes_google_cloud_resources",
@@ -138,6 +206,17 @@ foreach ($forbidden in @(
     if ($config -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 4 readiness must not enable $forbidden"
     }
+    if ($costConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 4 cost model must not enable $forbidden"
+    }
+}
+
+if ($costConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
+    throw "Phase 4 cost model must not allow Terraform apply"
+}
+
+if ($costConfig -match "(?m)^\s*fixed_live_prices_recorded:\s+true\s*$") {
+    throw "Phase 4 cost model must not record fixed live prices"
 }
 
 $gateCount = ([regex]::Matches($config, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
@@ -159,5 +238,6 @@ if ($gateCount -lt 13) {
     real_value_capability_enabled = $false
     phase5a_no_gke_available = $true
     phase5b_gke_deferred = $true
+    cost_model_rc1 = $true
     result = "ok"
 }

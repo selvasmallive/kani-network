@@ -1,0 +1,243 @@
+release_candidate: phase4-cost-model-rc1
+status: cost_model_ready
+inherits_from: phase4-pre-production-readiness-rc1
+track: phase4-no-gke-preprod-readiness
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_production_ingress: false
+  enables_real_value_settlement: false
+  authorizes_external_institution_onboarding: false
+
+pricing_policy:
+  fixed_live_prices_recorded: false
+  live_pricing_must_be_checked_before_apply: true
+  approved_sources:
+    - google_cloud_pricing_calculator
+    - google_cloud_billing_console
+    - google_cloud_sku_export_when_available
+  required_metadata:
+    - estimate_owner
+    - estimate_date
+    - billing_account_currency
+    - region
+    - monthly_usage_assumptions
+    - always_on_vs_scheduled_usage
+    - minimum_expected_and_stress_cases
+    - approval_record
+
+current_no_gke_baseline:
+  active: true
+  architecture_id: phase2-lean-no-gke
+  resources:
+    cloud_run_api:
+      required_inputs:
+        - region
+        - min_instances
+        - max_instances
+        - cpu
+        - memory
+        - request_count_per_month
+        - average_request_duration_ms
+    cloud_run_validator_job:
+      required_inputs:
+        - region
+        - schedule_frequency
+        - job_executions_per_month
+        - cpu
+        - memory
+        - average_execution_duration_seconds
+    cloud_scheduler_validator_trigger:
+      required_inputs:
+        - jobs
+        - executions_per_month
+    cloud_sql_postgresql_ledger:
+      required_inputs:
+        - region
+        - database_tier
+        - storage_gb
+        - backup_retention
+        - pitr_enabled
+        - high_availability
+    artifact_registry:
+      required_inputs:
+        - stored_image_gb
+        - image_pushes_per_month
+        - image_pulls_per_month
+    secret_manager:
+      required_inputs:
+        - active_secret_count
+        - secret_version_count
+        - access_operations_per_month
+    cloud_monitoring_logging_alerting:
+      required_inputs:
+        - log_ingestion_gb_per_month
+        - log_retention_days
+        - metric_volume
+        - alert_policy_count
+        - notification_channel_count
+    pubsub_budget_notifications:
+      required_inputs:
+        - topic_count
+        - messages_per_month
+    cost_guard_cloud_run_service:
+      required_inputs:
+        - invocations_per_month
+        - cpu
+        - memory
+        - average_duration_ms
+
+deferred_estimates:
+  production_ingress:
+    separate_estimate_required: true
+    apply_allowed: false
+    resources:
+      - external_https_load_balancer_or_api_gateway
+      - cloud_armor_waf
+      - certificate_manager
+      - static_ip
+      - dns
+      - serverless_neg
+      - load_balancer_logging
+  hsm_kms_signing:
+    separate_estimate_required: true
+    apply_allowed: false
+    resources:
+      - kms_key_ring
+      - kms_crypto_keys
+      - cloud_hsm_keys_when_selected
+      - signing_service_runtime
+      - signing_audit_logging
+      - key_ceremony_operations
+  gke_validator_operations:
+    separate_estimate_required: true
+    apply_allowed: false
+    deferred_to: phase5b-gke-validator-ops
+    resources:
+      - cluster_management
+      - node_pools
+      - compute_nodes
+      - boot_disks
+      - private_networking
+      - cloud_nat_when_required
+      - internal_load_balancing_when_required
+      - logging_monitoring
+      - validator_network_traffic
+  disaster_recovery:
+    separate_estimate_required: true
+    apply_allowed: false
+    resources:
+      - restore_target_instance
+      - backup_retention_storage
+      - restore_drill_storage
+      - operator_drill_time
+  security_review:
+    separate_estimate_required: true
+    apply_allowed: false
+    resources:
+      - penetration_test_scope
+      - external_reviewer_cost
+      - remediation_buffer
+      - retest_window
+
+scenario_matrix:
+  sandbox_minimal:
+    includes:
+      - current_no_gke_baseline
+    gke_included: false
+  sandbox_extended:
+    includes:
+      - current_no_gke_baseline
+      - longer_observation
+      - higher_log_retention
+      - repeated_smoke_tests
+    gke_included: false
+  preprod_no_gke:
+    includes:
+      - production_like_api_sizing
+      - production_like_database_sizing
+      - no_gke_validator_operations
+    gke_included: false
+  preprod_with_hsm_kms:
+    includes:
+      - preprod_no_gke
+      - hsm_kms_signing
+    gke_included: false
+  preprod_with_prod_ingress:
+    includes:
+      - preprod_no_gke
+      - production_ingress
+    gke_included: false
+  validator_ops_gke_lab:
+    includes:
+      - gke_validator_operations
+    gke_included: true
+    separate_from_active_baseline: true
+  validator_ops_gke_realistic:
+    includes:
+      - gke_validator_operations
+      - realistic_node_count
+      - validator_networking
+    gke_included: true
+    separate_from_active_baseline: true
+
+approval_gates:
+  finance_owner_review_required: true
+  technical_owner_review_required: true
+  security_owner_review_required: true
+  operations_owner_review_required: true
+  executive_cost_approval_required: true
+  terraform_plan_review_required: true
+  regulatory_gate_override_allowed: false
+  real_value_override_allowed: false
+
+gke_estimate_boundary:
+  deferred_to: phase5b-gke-validator-ops
+  phase5a_remains_no_gke: true
+  required_dimensions:
+    - cluster_mode_standard_or_autopilot
+    - zonal_or_regional
+    - node_count
+    - machine_type
+    - boot_disk_size_and_type
+    - private_or_public_cluster
+    - cloud_nat_requirement
+    - internal_load_balancing_requirement
+    - logging_and_monitoring_volume
+    - validator_pod_requests_and_limits
+    - validator_network_traffic
+
+non_enablement:
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  gke_cluster_enabled: false
+  production_ingress_enabled: false
+  hsm_kms_production_signing_enabled: false
+  external_institution_onboarding_enabled: false
+  real_value_settlement_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  cost_model_document_checked_in: true
+  structured_cost_model_config_exists: true
+  static_cost_model_validator_required: true
+  phase4_validator_includes_cost_model: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  no_google_cloud_resources_created: true
+  no_gke_enabled: true
+  no_hsm_kms_signing_enabled: true
+  no_production_ingress_enabled: true
+  no_external_institution_onboarding_enabled: true
+  no_real_value_capability_enabled: true

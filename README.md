@@ -92,6 +92,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase3-validate.ps1
 
 Phase 4 has started on the no-GKE track `phase4-no-gke-preprod-readiness`. `PHASE4_PRE_PRODUCTION_READINESS.md`, `config/phase4-pre-production-readiness.yaml`, and `scripts/phase4-validate.ps1` define the readiness gates, cost gate, Phase 5 split, and non-enablement controls for pre-production planning. This keeps the active runtime on `phase2-lean-no-gke` and does not create Google Cloud resources, enable GKE, apply production ingress, enable HSM/KMS production signing, onboard external institutions, or allow real-value settlement.
 
+The Phase 4 cost model checkpoint is recorded in `PHASE4_COST_MODEL.md`, `config/phase4-cost-model.yaml`, and `scripts/phase4-cost-model.ps1`. It captures cost-estimate inputs for the current no-GKE baseline, future production ingress, future HSM/KMS signing, future disaster recovery, security review, and separate GKE validator operations. It intentionally records no fixed live prices and requires live pricing to be checked before any paid-resource apply.
+
 The planned validator-operations split is:
 
 ```text
@@ -105,6 +107,7 @@ Run the static Phase 4 readiness check from PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-validate.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-cost-model.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
