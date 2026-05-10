@@ -1,0 +1,204 @@
+release_candidate: phase4-dr-readiness-rc1
+status: dr_readiness_ready
+inherits_from: phase4-prod-ingress-implementation-plan-rc1
+track: phase4-no-gke-preprod-readiness
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  executes_restore_drill: false
+  creates_restore_instance: false
+  changes_cloud_sql_backup_configuration: false
+  creates_cross_region_replica: false
+  creates_archive_bucket: false
+  changes_validator_scheduler: false
+  promotes_restored_database: false
+  executes_production_recovery: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_production_ingress: false
+  enables_real_value_settlement: false
+
+recovery_domains:
+  ledger_database:
+    source: cloud_sql_postgresql
+    backup_source: automated_backup_or_pitr
+    restore_target: separate_instance_or_approved_temporary_target
+    active_drill_execution: false
+  ledger_integrity:
+    checks:
+      - account_balances
+      - issued_supply
+      - journal_totals
+      - block_height
+      - block_hashes
+      - transaction_counts
+      - audit_event_counts
+    active_drill_execution: false
+  api_runtime:
+    components:
+      - cloud_run_service_image
+      - sandbox_environment_flags
+      - secret_manager_api_keys
+      - database_url
+      - rollback_image
+    active_drill_execution: false
+  validator_runtime:
+    components:
+      - cloud_run_job
+      - cloud_scheduler_trigger
+      - validator_identities
+      - sweep_mode
+      - finality_evidence
+    active_drill_execution: false
+  secrets_and_credentials:
+    components:
+      - secret_manager_versions
+      - sandbox_api_keys
+      - database_password
+      - future_kms_hsm_dependencies
+    active_drill_execution: false
+  artifact_and_config:
+    components:
+      - artifact_registry_image
+      - terraform_variables
+      - committed_config
+      - migrations
+      - release_tag
+    active_drill_execution: false
+  audit_and_reporting:
+    components:
+      - audit_event_retention
+      - settlement_reports
+      - compliance_reports
+      - validator_finality_reports
+    active_drill_execution: false
+  operator_runbooks:
+    components:
+      - incident_declaration
+      - write_freeze
+      - restore_decision
+      - validation_checklist
+      - post_drill_evidence
+    active_drill_execution: false
+
+target_rto_rpo:
+  sandbox_no_gke:
+    target_rto: 4h
+    target_rpo: 15m
+    restore_source: cloud_sql_backup_or_pitr
+    production_sla: false
+  preprod_no_gke_candidate:
+    target_rto: 2h
+    target_rpo: 15m
+    restore_source: cloud_sql_backup_or_pitr
+    production_sla: false
+  production_candidate:
+    target_rto: blocked_until_production_service_model_approved
+    target_rpo: blocked_until_production_service_model_approved
+    restore_source: blocked
+    production_sla: false
+
+evidence_drills:
+  backup_configuration_inventory:
+    status: planned
+    execution_allowed_now: false
+  backup_list_capture:
+    status: planned
+    execution_allowed_now: false
+  pitr_restore_to_separate_instance:
+    status: blocked
+    execution_allowed_now: false
+  migration_and_startup_check:
+    status: blocked
+    execution_allowed_now: false
+  ledger_reconciliation_check:
+    status: blocked
+    execution_allowed_now: false
+  validator_recovery_check:
+    status: blocked
+    execution_allowed_now: false
+  secret_recovery_check:
+    status: blocked
+    execution_allowed_now: false
+  reporting_recovery_check:
+    status: blocked
+    execution_allowed_now: false
+  abandon_or_cutover_decision:
+    status: blocked
+    execution_allowed_now: false
+  post_drill_report:
+    status: blocked
+    execution_allowed_now: false
+
+restore_runbook:
+  - declare_incident_or_drill_window
+  - confirm_sandbox_boundary
+  - pause_validator_scheduler_if_active_state_is_touched
+  - freeze_write_traffic_or_use_separate_restored_target
+  - capture_current_ledger_proof
+  - restore_cloud_sql_backup_or_pitr_to_separate_target
+  - apply_migrations_and_start_sandbox_api
+  - run_smoke_security_reconciliation_and_reporting_checks
+  - record_measured_rto_rpo_and_defects
+  - resume_scheduler_or_abandon_restored_target_after_approvals
+
+required_gates_before_drill_execution:
+  - cost_estimate_reviewed_and_approved
+  - drill_owner_and_reviewer_assigned
+  - maintenance_window_or_sandbox_isolation_approved
+  - terraform_plan_reviewed_if_temporary_resources_are_needed
+  - cloud_sql_restore_target_named_and_approved
+  - secret_access_and_rotation_plan_reviewed
+  - reconciliation_checklist_approved
+  - incident_response_and_communication_plan_approved
+  - data_retention_and_privacy_review_completed
+  - regulatory_readiness_non_override_confirmed
+
+terraform_boundary:
+  design_file: infra/terraform/phase4_dr_readiness.tf
+  guard_variable: phase4_dr_readiness_enabled
+  guard_default: false
+  declares_google_cloud_resources: false
+  output_only: true
+  deferred_resources:
+    - google_sql_database_instance_restore_target
+    - google_sql_backup_restore
+    - google_sql_database_instance_cross_region_replica
+    - google_storage_bucket_archive
+    - cloud_scheduler_pause_or_resume_change
+
+non_enablement:
+  restore_drill_executed: false
+  restore_instance_created: false
+  cloud_sql_backup_configuration_changed: false
+  cross_region_replica_created: false
+  archive_bucket_created: false
+  validator_scheduler_changed: false
+  restored_database_promoted: false
+  production_recovery_executed: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  real_value_settlement_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  dr_readiness_plan_checked_in: true
+  structured_dr_readiness_config_exists: true
+  design_only_terraform_guard_exists: true
+  static_dr_readiness_validator_required: true
+  phase4_validator_includes_dr_readiness: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  no_google_cloud_resources_created: true
+  no_restore_drill_executed: true
+  no_production_recovery_enabled: true
+  no_real_value_capability_enabled: true

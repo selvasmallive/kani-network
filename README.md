@@ -100,6 +100,8 @@ The Phase 4 HSM/KMS implementation plan checkpoint is recorded in `PHASE4_HSM_KM
 
 The Phase 4 production ingress implementation plan checkpoint is recorded in `PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md`, `config/phase4-prod-ingress-implementation-plan.yaml`, `infra/terraform/phase4_prod_ingress_implementation_plan.tf`, and `scripts/phase4-prod-ingress-implementation-plan.ps1`. It defines future edge components, request paths, mTLS trust, Cloud Armor, admin OIDC, Cloud Run ingress rollback gates, and design-only Terraform outputs without creating load balancers, API Gateway resources, DNS records, certificates, trust configs, Cloud Armor policies, public endpoint exposure, or production ingress capability.
 
+The Phase 4 disaster recovery readiness checkpoint is recorded in `PHASE4_DR_READINESS.md`, `config/phase4-dr-readiness.yaml`, `infra/terraform/phase4_dr_readiness.tf`, and `scripts/phase4-dr-readiness.ps1`. It defines recovery domains, sandbox/preprod RTO/RPO targets, restore-to-separate-target evidence drills, ledger reconciliation checks, validator recovery checks, secret recovery checks, and design-only Terraform outputs without executing restore drills, creating restore instances, changing backup settings, or enabling production recovery.
+
 The planned validator-operations split is:
 
 ```text
@@ -117,6 +119,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase4-cost-model.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-security-review-scope.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-hsm-kms-implementation-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-prod-ingress-implementation-plan.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-dr-readiness.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:

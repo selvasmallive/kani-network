@@ -6,18 +6,22 @@ $requiredFiles = @(
     "PHASE4_SECURITY_REVIEW_SCOPE.md",
     "PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md",
     "PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md",
+    "PHASE4_DR_READINESS.md",
     "config/phase4-pre-production-readiness.yaml",
     "config/phase4-cost-model.yaml",
     "config/phase4-security-review-scope.yaml",
     "config/phase4-hsm-kms-implementation-plan.yaml",
     "config/phase4-prod-ingress-implementation-plan.yaml",
+    "config/phase4-dr-readiness.yaml",
     "scripts/phase4-validate.ps1",
     "scripts/phase4-cost-model.ps1",
     "scripts/phase4-security-review-scope.ps1",
     "scripts/phase4-hsm-kms-implementation-plan.ps1",
     "scripts/phase4-prod-ingress-implementation-plan.ps1",
+    "scripts/phase4-dr-readiness.ps1",
     "infra/terraform/phase4_hsm_kms_implementation_plan.tf",
     "infra/terraform/phase4_prod_ingress_implementation_plan.tf",
+    "infra/terraform/phase4_dr_readiness.tf",
     "PHASE3_WRAPUP.md",
     "scripts/phase3-validate.ps1",
     "scripts/phase2-validate.ps1"
@@ -184,6 +188,45 @@ foreach ($expected in @(
 )) {
     if ($prodIngressPlan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 4 production ingress implementation plan content: $expected"
+    }
+}
+
+$drReadinessPlan = Get-Content "PHASE4_DR_READINESS.md" -Raw
+foreach ($expected in @(
+    "Status: DR readiness ready",
+    "phase4-dr-readiness-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "phase2-lean-no-gke",
+    "Readiness Objective",
+    "This plan is not an approval to execute production recovery",
+    "Recovery Domains",
+    "ledger_database",
+    "ledger_integrity",
+    "api_runtime",
+    "validator_runtime",
+    "secrets_and_credentials",
+    "audit_and_reporting",
+    "Target RTO/RPO",
+    "sandbox_no_gke",
+    'target RTO `4h`',
+    'target RPO `15m`',
+    "Evidence Drills",
+    "backup_configuration_inventory",
+    "pitr_restore_to_separate_instance",
+    "ledger_reconciliation_check",
+    "validator_recovery_check",
+    "post_drill_report",
+    "Restore Runbook",
+    "Required Gates Before Drill Execution",
+    "Terraform Boundary",
+    "phase4_dr_readiness_enabled = false",
+    'Declare no `resource "google_*"` blocks',
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($drReadinessPlan -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 DR readiness content: $expected"
     }
 }
 
@@ -426,6 +469,67 @@ foreach ($expected in @(
     }
 }
 
+$drReadinessConfig = Get-Content "config/phase4-dr-readiness.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase4-dr-readiness-rc1",
+    "status: dr_readiness_ready",
+    "inherits_from: phase4-prod-ingress-implementation-plan-rc1",
+    "track: phase4-no-gke-preprod-readiness",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "executes_restore_drill: false",
+    "creates_restore_instance: false",
+    "changes_cloud_sql_backup_configuration: false",
+    "creates_cross_region_replica: false",
+    "creates_archive_bucket: false",
+    "changes_validator_scheduler: false",
+    "promotes_restored_database: false",
+    "executes_production_recovery: false",
+    "recovery_domains:",
+    "ledger_database:",
+    "ledger_integrity:",
+    "api_runtime:",
+    "validator_runtime:",
+    "secrets_and_credentials:",
+    "artifact_and_config:",
+    "audit_and_reporting:",
+    "operator_runbooks:",
+    "target_rto_rpo:",
+    "sandbox_no_gke:",
+    "target_rto: 4h",
+    "target_rpo: 15m",
+    "preprod_no_gke_candidate:",
+    "production_candidate:",
+    "evidence_drills:",
+    "backup_configuration_inventory:",
+    "pitr_restore_to_separate_instance:",
+    "ledger_reconciliation_check:",
+    "validator_recovery_check:",
+    "post_drill_report:",
+    "restore_runbook:",
+    "required_gates_before_drill_execution:",
+    "terraform_boundary:",
+    "design_file: infra/terraform/phase4_dr_readiness.tf",
+    "guard_variable: phase4_dr_readiness_enabled",
+    "guard_default: false",
+    "declares_google_cloud_resources: false",
+    "output_only: true",
+    "restore_drill_executed: false",
+    "restore_instance_created: false",
+    "cloud_sql_backup_configuration_changed: false",
+    "production_recovery_executed: false",
+    "real_value_settlement_enabled: false",
+    "phase4_validator_includes_dr_readiness: true"
+)) {
+    if ($drReadinessConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 DR readiness config content: $expected"
+    }
+}
+
 $hsmKmsTerraform = Get-Content "infra/terraform/phase4_hsm_kms_implementation_plan.tf" -Raw
 foreach ($expected in @(
     'variable "phase4_hsm_kms_implementation_enabled"',
@@ -473,6 +577,32 @@ foreach ($expected in @(
     }
 }
 
+$drReadinessTerraform = Get-Content "infra/terraform/phase4_dr_readiness.tf" -Raw
+foreach ($expected in @(
+    'variable "phase4_dr_readiness_enabled"',
+    "default     = false",
+    "phase4-dr-readiness-rc1",
+    "active_runtime_baseline        = `"phase2-lean-no-gke`"",
+    "creates_paid_resources         = false",
+    "changes_google_cloud_resources = false",
+    "creates_real_value_capability  = false",
+    "restore_drill_executed         = false",
+    "restore_instance_created       = false",
+    "production_recovery_enabled    = false",
+    "ledger_database",
+    "ledger_integrity",
+    "backup_configuration_inventory",
+    "pitr_restore_to_separate_instance",
+    "google_sql_database_instance_restore_target",
+    "google_sql_backup_restore",
+    "google_storage_bucket_archive",
+    'output "phase4_dr_readiness"'
+)) {
+    if ($drReadinessTerraform -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 DR readiness Terraform design content: $expected"
+    }
+}
+
 foreach ($forbidden in @(
     "creates_paid_resources",
     "changes_google_cloud_resources",
@@ -495,6 +625,14 @@ foreach ($forbidden in @(
     "changes_cloud_run_ingress",
     "enables_institution_mtls",
     "enables_public_endpoint_exposure",
+    "executes_restore_drill",
+    "creates_restore_instance",
+    "changes_cloud_sql_backup_configuration",
+    "creates_cross_region_replica",
+    "creates_archive_bucket",
+    "changes_validator_scheduler",
+    "promotes_restored_database",
+    "executes_production_recovery",
     "external_https_load_balancer_created",
     "api_gateway_created",
     "reserved_static_ip_created",
@@ -507,6 +645,14 @@ foreach ($forbidden in @(
     "institution_mtls_enabled",
     "cloud_run_ingress_changed",
     "public_endpoint_exposure_enabled",
+    "restore_drill_executed",
+    "restore_instance_created",
+    "cloud_sql_backup_configuration_changed",
+    "cross_region_replica_created",
+    "archive_bucket_created",
+    "validator_scheduler_changed",
+    "restored_database_promoted",
+    "production_recovery_executed",
     "hsm_kms_production_signing_enabled",
     "external_institution_onboarding_enabled",
     "real_value_settlement_enabled",
@@ -529,6 +675,9 @@ foreach ($forbidden in @(
     }
     if ($prodIngressConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 4 production ingress implementation plan must not enable $forbidden"
+    }
+    if ($drReadinessConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 4 DR readiness must not enable $forbidden"
     }
 }
 
@@ -560,12 +709,32 @@ if ($prodIngressConfig -match "(?m)^\s*production_ingress_enabled:\s+true\s*$") 
     throw "Phase 4 production ingress implementation plan must not enable production ingress"
 }
 
+if ($drReadinessConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
+    throw "Phase 4 DR readiness must not allow Terraform apply"
+}
+
+if ($drReadinessConfig -match "(?m)^\s*executes_restore_drill:\s+true\s*$") {
+    throw "Phase 4 DR readiness must not execute restore drills"
+}
+
+if ($drReadinessConfig -match "(?m)^\s*creates_restore_instance:\s+true\s*$") {
+    throw "Phase 4 DR readiness must not create restore instances"
+}
+
+if ($drReadinessConfig -match "(?m)^\s*executes_production_recovery:\s+true\s*$") {
+    throw "Phase 4 DR readiness must not execute production recovery"
+}
+
 if ($hsmKmsTerraform -match 'resource\s+"google_') {
     throw "phase4_hsm_kms_implementation_plan.tf must remain design-only and must not declare Google Cloud resources"
 }
 
 if ($prodIngressTerraform -match 'resource\s+"google_') {
     throw "phase4_prod_ingress_implementation_plan.tf must remain design-only and must not declare Google Cloud resources"
+}
+
+if ($drReadinessTerraform -match 'resource\s+"google_') {
+    throw "phase4_dr_readiness.tf must remain design-only and must not declare Google Cloud resources"
 }
 
 if ($costConfig -match "(?m)^\s*fixed_live_prices_recorded:\s+true\s*$") {
@@ -595,5 +764,6 @@ if ($gateCount -lt 13) {
     security_review_scope_rc1 = $true
     hsm_kms_implementation_plan_rc1 = $true
     prod_ingress_implementation_plan_rc1 = $true
+    dr_readiness_rc1 = $true
     result = "ok"
 }
