@@ -142,6 +142,8 @@ The fourth Phase 5A implementation checkpoint is `phase5a-ledger-replay-finality
 
 The fifth Phase 5A implementation checkpoint is `phase5a-operator-evidence-packs-rc1`. `PHASE5A_OPERATOR_EVIDENCE_PACKS.md`, `config/phase5a-operator-evidence-packs.yaml`, and `scripts/phase5a-operator-evidence-packs.ps1` define common evidence pack types, metadata, required sections, redaction rules, review states, and retention labels for the no-GKE validator hardening track.
 
+The sixth Phase 5A implementation checkpoint is `phase5a-alert-response-recovery-rc1`. `PHASE5A_ALERT_RESPONSE_RECOVERY.md`, `config/phase5a-alert-response-recovery.yaml`, and `scripts/phase5a-alert-response-recovery.ps1` define sandbox alert classes, response stages, evidence sources, recovery action boundaries, approval gates, and recovery evidence requirements without approving live recovery drills or mutating recovery actions.
+
 This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
 
 ```text
@@ -171,6 +173,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-scheduler-runbooks.ps
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-failure-retry-drills.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-ledger-replay-finality.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-operator-evidence-packs.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-alert-response-recovery.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 ```
 

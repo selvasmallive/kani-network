@@ -7,18 +7,21 @@ $requiredFiles = @(
     "PHASE5A_FAILURE_RETRY_DRILLS.md",
     "PHASE5A_LEDGER_REPLAY_FINALITY.md",
     "PHASE5A_OPERATOR_EVIDENCE_PACKS.md",
+    "PHASE5A_ALERT_RESPONSE_RECOVERY.md",
     "config/phase5a-validator-hardening-plan.yaml",
     "config/phase5a-validator-reconciliation.yaml",
     "config/phase5a-scheduler-runbooks.yaml",
     "config/phase5a-failure-retry-drills.yaml",
     "config/phase5a-ledger-replay-finality.yaml",
     "config/phase5a-operator-evidence-packs.yaml",
+    "config/phase5a-alert-response-recovery.yaml",
     "scripts/phase5a-validator-hardening-plan.ps1",
     "scripts/phase5a-validator-reconciliation.ps1",
     "scripts/phase5a-scheduler-runbooks.ps1",
     "scripts/phase5a-failure-retry-drills.ps1",
     "scripts/phase5a-ledger-replay-finality.ps1",
     "scripts/phase5a-operator-evidence-packs.ps1",
+    "scripts/phase5a-alert-response-recovery.ps1",
     "PHASE4_WRAPUP.md",
     "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
@@ -202,6 +205,43 @@ foreach ($expected in @(
 )) {
     if ($operatorEvidencePacks -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5A operator evidence pack content: $expected"
+    }
+}
+
+$alertResponseRecovery = Get-Content "PHASE5A_ALERT_RESPONSE_RECOVERY.md" -Raw
+foreach ($expected in @(
+    "Status: alert response and recovery checkpoint ready",
+    "phase5a-alert-response-recovery-rc1",
+    "alert_response_and_recovery_drills",
+    "phase5a-operator-evidence-packs-rc1",
+    "phase2-lean-no-gke",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Response Objective",
+    "Alert Classes",
+    "api_error_logs",
+    "validator_job_error_logs",
+    "scheduler_error_logs",
+    "cloud_sql_error_logs",
+    "budget_brake_activity_logs",
+    "validator_finality_gap",
+    "pending_transaction_backlog",
+    "ledger_reconciliation_discrepancy",
+    "Required Response Stages",
+    "collect_evidence",
+    "Evidence Sources",
+    "Cloud Monitoring alert incident",
+    "Cloud Logging query/export summary",
+    "Cloud Run validator job execution state",
+    "Cloud Scheduler job state",
+    "Cloud SQL health and error evidence",
+    "Recovery Action Catalog",
+    "Required Gates Before Live Recovery Drill Or Action",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($alertResponseRecovery -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A alert response and recovery content: $expected"
     }
 }
 
@@ -408,6 +448,90 @@ foreach ($expected in @(
     }
 }
 
+$alertResponseConfig = Get-Content "config/phase5a-alert-response-recovery.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5a-alert-response-recovery-rc1",
+    "status: alert_response_recovery_checkpoint_ready",
+    "inherits_from: phase5a-operator-evidence-packs-rc1",
+    "track: phase5a-no-gke-validator-hardening",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_phase: phase5b-gke-validator-ops",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "scheduler_changes_enabled: false",
+    "automatic_scheduler_mutation_enabled: false",
+    "manual_scheduler_action_approved_by_this_checkpoint: false",
+    "cloud_run_job_execution_approved_by_this_checkpoint: false",
+    "secret_rotation_approved_by_this_checkpoint: false",
+    "failure_injection_enabled: false",
+    "live_failure_drills_enabled: false",
+    "live_retry_drills_enabled: false",
+    "live_recovery_drills_enabled: false",
+    "production_replay_enabled: false",
+    "external_evidence_export_enabled: false",
+    "production_approval_via_evidence_pack_enabled: false",
+    "runtime: cloud_run_job_plus_cloud_scheduler",
+    "run_mode: sweep",
+    'scheduler_cadence: "*/15 * * * *"',
+    "consensus: phase1-poa",
+    "required_finality_votes: 2",
+    "validator_count: 3",
+    "validator-a",
+    "validator-b",
+    "validator-c",
+    "alert_classes:",
+    "api_error_logs:",
+    "validator_job_error_logs:",
+    "scheduler_error_logs:",
+    "cloud_sql_error_logs:",
+    "budget_brake_activity_logs:",
+    "validator_finality_gap:",
+    "pending_transaction_backlog:",
+    "ledger_reconciliation_discrepancy:",
+    "required_response_stages:",
+    "detect:",
+    "classify:",
+    "contain:",
+    "collect_evidence:",
+    "recover:",
+    "reconcile:",
+    "review:",
+    "archive:",
+    "evidence_sources:",
+    "cloud_monitoring_incident: Cloud Monitoring alert incident",
+    "cloud_logging_query_export_summary: Cloud Logging query/export summary",
+    "cloud_run_validator_job_execution_state: Cloud Run validator job execution state",
+    "cloud_scheduler_job_state: Cloud Scheduler job state",
+    "cloud_sql_health_error_evidence: Cloud SQL health and error evidence",
+    'pending_transactions: GET /v1/transactions/pending?limit=500&offset=0',
+    'validator_finality: GET /v1/reports/validator-finality?limit=500&offset=0',
+    "recovery_action_catalog:",
+    "required_gates_before_live_recovery_drill_or_action:",
+    "sandbox_only_purpose_recorded: blocked",
+    "incident_owner_assigned: blocked",
+    "recovery_owner_assigned: blocked",
+    "approver_identified: blocked",
+    "change_window_approved: blocked",
+    "expected_alert_signal_documented: blocked",
+    "expected_recovery_signal_documented: blocked",
+    "operator_evidence_pack_location_selected: blocked",
+    "rollback_path_documented: blocked",
+    "cost_impact_reviewed: blocked",
+    "no_real_value_capability_enabled: blocked",
+    "phase5a_alert_response_recovery_checked_in: true",
+    "structured_phase5a_alert_response_recovery_config_exists: true",
+    "static_phase5a_alert_response_recovery_validator_required: true",
+    "aggregate_phase5a_validator_includes_alert_response_recovery: true"
+)) {
+    if ($alertResponseConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A alert response and recovery config content: $expected"
+    }
+}
+
 $phase4Wrapup = Get-Content "config/phase4-wrapup.yaml" -Raw
 foreach ($expected in @(
     "next_phase: phase5a-no-gke-validator-hardening",
@@ -438,9 +562,12 @@ foreach ($forbidden in @(
     "scheduler_changes_enabled",
     "automatic_scheduler_mutation_enabled",
     "manual_scheduler_action_approved_by_this_checkpoint",
+    "cloud_run_job_execution_approved_by_this_checkpoint",
+    "secret_rotation_approved_by_this_checkpoint",
     "failure_injection_enabled",
     "live_failure_drills_enabled",
     "live_retry_drills_enabled",
+    "live_recovery_drills_enabled",
     "production_replay_enabled",
     "external_evidence_export_enabled",
     "production_approval_via_evidence_pack_enabled",
@@ -472,6 +599,9 @@ foreach ($forbidden in @(
     }
     if ($operatorEvidenceConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5A aggregate validator must not allow $forbidden in operator evidence packs"
+    }
+    if ($alertResponseConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5A aggregate validator must not allow $forbidden in alert response and recovery"
     }
 }
 
@@ -511,6 +641,11 @@ if ($ledgerReplayValidatorCount -ne 3) {
 $operatorEvidenceValidatorCount = ([regex]::Matches($operatorEvidenceConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
 if ($operatorEvidenceValidatorCount -ne 3) {
     throw "Expected exactly 3 Phase 5A operator evidence validators, found $operatorEvidenceValidatorCount"
+}
+
+$alertResponseValidatorCount = ([regex]::Matches($alertResponseConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
+if ($alertResponseValidatorCount -ne 3) {
+    throw "Expected exactly 3 Phase 5A alert response validators, found $alertResponseValidatorCount"
 }
 
 $workstreamCount = ([regex]::Matches($config, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
@@ -578,6 +713,50 @@ if ($operatorEvidenceForbiddenFieldCount -lt 9) {
     throw "Expected at least 9 Phase 5A operator evidence redaction fields, found $operatorEvidenceForbiddenFieldCount"
 }
 
+$requiredAlertClasses = @(
+    "api_error_logs",
+    "validator_job_error_logs",
+    "scheduler_error_logs",
+    "cloud_sql_error_logs",
+    "budget_brake_activity_logs",
+    "validator_finality_gap",
+    "pending_transaction_backlog",
+    "ledger_reconciliation_discrepancy"
+)
+
+foreach ($class in $requiredAlertClasses) {
+    if ($alertResponseConfig -notmatch "(?m)^\s{2}$($class):\s*$") {
+        throw "Missing Phase 5A alert response class: $class"
+    }
+}
+
+$requiredAlertResponseStages = @(
+    "detect",
+    "classify",
+    "contain",
+    "collect_evidence",
+    "recover",
+    "reconcile",
+    "review",
+    "archive"
+)
+
+foreach ($stage in $requiredAlertResponseStages) {
+    if ($alertResponseConfig -notmatch "(?m)^\s{2}$($stage):\s*$") {
+        throw "Missing Phase 5A alert response stage: $stage"
+    }
+}
+
+$alertResponseEvidenceSourceCount = ([regex]::Matches($alertResponseConfig, "(?m)^\s{2}[a-z0-9_]+:\s+(GET|Cloud|Budget|phase5a-)")).Count
+if ($alertResponseEvidenceSourceCount -lt 15) {
+    throw "Expected at least 15 Phase 5A alert response evidence sources, found $alertResponseEvidenceSourceCount"
+}
+
+$alertResponseRecoveryGateCount = ([regex]::Matches($alertResponseConfig, ":\s+blocked")).Count
+if ($alertResponseRecoveryGateCount -lt 11) {
+    throw "Expected at least 11 Phase 5A alert response recovery gates, found $alertResponseRecoveryGateCount"
+}
+
 $blockedGateCount = ([regex]::Matches($config, ":\s+blocked")).Count
 if ($blockedGateCount -lt 7) {
     throw "Expected at least 7 blocked Phase 5A live-drill gates, found $blockedGateCount"
@@ -594,6 +773,7 @@ if ($blockedGateCount -lt 7) {
     failure_retry_drills_rc1 = $true
     ledger_replay_finality_rc1 = $true
     operator_evidence_packs_rc1 = $true
+    alert_response_recovery_rc1 = $true
     evidence_source_count = $evidenceSourceCount
     reconciliation_check_count = 10
     scheduler_approval_gate_count = $schedulerApprovalGateCount
@@ -606,6 +786,10 @@ if ($blockedGateCount -lt 7) {
     ledger_replay_check_count = 12
     operator_evidence_pack_type_count = 7
     operator_evidence_redaction_field_count = $operatorEvidenceForbiddenFieldCount
+    alert_class_count = 8
+    alert_response_stage_count = 8
+    alert_response_evidence_source_count = $alertResponseEvidenceSourceCount
+    alert_response_recovery_gate_count = $alertResponseRecoveryGateCount
     blocked_live_drill_gate_count = $blockedGateCount
     active_runtime_baseline = "phase2-lean-no-gke"
     gke_required = $false
@@ -616,6 +800,7 @@ if ($blockedGateCount -lt 7) {
     failure_injection_enabled = $false
     live_failure_drills_enabled = $false
     live_retry_drills_enabled = $false
+    live_recovery_drills_enabled = $false
     production_replay_enabled = $false
     external_evidence_export_enabled = $false
     production_approval_via_evidence_pack_enabled = $false
