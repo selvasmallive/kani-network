@@ -9,6 +9,7 @@ $requiredFiles = @(
     "PHASE5A_OPERATOR_EVIDENCE_PACKS.md",
     "PHASE5A_ALERT_RESPONSE_RECOVERY.md",
     "PHASE5A_SANDBOX_SMOKE_COVERAGE.md",
+    "PHASE5A_WRAPUP.md",
     "config/phase5a-validator-hardening-plan.yaml",
     "config/phase5a-validator-reconciliation.yaml",
     "config/phase5a-scheduler-runbooks.yaml",
@@ -17,6 +18,7 @@ $requiredFiles = @(
     "config/phase5a-operator-evidence-packs.yaml",
     "config/phase5a-alert-response-recovery.yaml",
     "config/phase5a-sandbox-smoke-coverage.yaml",
+    "config/phase5a-wrapup.yaml",
     "scripts/phase5a-validator-hardening-plan.ps1",
     "scripts/phase5a-validator-reconciliation.ps1",
     "scripts/phase5a-scheduler-runbooks.ps1",
@@ -25,6 +27,7 @@ $requiredFiles = @(
     "scripts/phase5a-operator-evidence-packs.ps1",
     "scripts/phase5a-alert-response-recovery.ps1",
     "scripts/phase5a-sandbox-smoke-coverage.ps1",
+    "scripts/phase5a-wrapup.ps1",
     "PHASE4_WRAPUP.md",
     "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
@@ -286,6 +289,43 @@ foreach ($expected in @(
 )) {
     if ($sandboxSmokeCoverage -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5A sandbox smoke coverage content: $expected"
+    }
+}
+
+$phase5aWrapup = Get-Content "PHASE5A_WRAPUP.md" -Raw
+foreach ($expected in @(
+    "Status: no-GKE validator hardening complete",
+    "phase5a-wrapup-rc1",
+    "phase5a-no-gke-validator-hardening",
+    "phase5a-sandbox-smoke-coverage-rc1",
+    "phase2-lean-no-gke",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Completed Phase 5A Checkpoints",
+    "phase5a-validator-hardening-plan-rc1",
+    "phase5a-validator-reconciliation-rc1",
+    "phase5a-scheduler-runbooks-rc1",
+    "phase5a-failure-retry-drills-rc1",
+    "phase5a-ledger-replay-finality-rc1",
+    "phase5a-operator-evidence-packs-rc1",
+    "phase5a-alert-response-recovery-rc1",
+    "phase5a-sandbox-smoke-coverage-rc1",
+    "Phase 5A Result",
+    "No-GKE validator hardening plan",
+    "Aggregate Phase 5A validator coverage",
+    "GKE validator operations",
+    "Live failure, retry, recovery, or smoke execution approval",
+    'move into `phase5b-gke-validator-ops`',
+    "Required Blocks That Remain",
+    "GKE resource approval",
+    "Production authorization",
+    "Real-value settlement",
+    "Non-Enablement",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($phase5aWrapup -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A wrap-up content: $expected"
     }
 }
 
@@ -671,6 +711,65 @@ foreach ($expected in @(
     }
 }
 
+$phase5aWrapupConfig = Get-Content "config/phase5a-wrapup.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5a-wrapup-rc1",
+    "status: no_gke_validator_hardening_complete",
+    "inherits_from: phase5a-sandbox-smoke-coverage-rc1",
+    "track: phase5a-no-gke-validator-hardening",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "next_phase: phase5b-gke-validator-ops",
+    "gke_phase: phase5b-gke-validator-ops",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "completed_release_candidates:",
+    "phase5a_validator_hardening_plan_rc1: true",
+    "phase5a_validator_reconciliation_rc1: true",
+    "phase5a_scheduler_runbooks_rc1: true",
+    "phase5a_failure_retry_drills_rc1: true",
+    "phase5a_ledger_replay_finality_rc1: true",
+    "phase5a_operator_evidence_packs_rc1: true",
+    "phase5a_alert_response_recovery_rc1: true",
+    "phase5a_sandbox_smoke_coverage_rc1: true",
+    "phase_result:",
+    "no_gke_validator_hardening_complete: true",
+    "planning_validation_and_evidence_only: true",
+    "cloud_run_scheduler_runtime_preserved: true",
+    "aggregate_phase5a_validator_coverage_complete: true",
+    "phase5a_ready_to_close: true",
+    "phase5b_ready_for_planning: true",
+    "phase5b_execution_deferred: true",
+    "production_ready: false",
+    "real_value_ready: false",
+    "google_cloud_resources_created: false",
+    "paid_resources_created: false",
+    "terraform_apply_allowed: false",
+    "gke_required: false",
+    "gke_cluster_enabled: false",
+    "phase5b_handoff:",
+    "gke_required_for_phase5a: false",
+    "execution_deferred_until_explicit_approval: true",
+    "gke_validator_operations_cost_estimate",
+    "remaining_blocked_gates:",
+    "gke_resource_approval: blocked",
+    "gke_cost_estimate_approval: blocked",
+    "terraform_plan_review: blocked",
+    "live_validator_operations_approval: blocked",
+    "production_authorization: blocked",
+    "real_value_settlement: blocked",
+    "non_enablement:",
+    "live_drill_execution_approved_by_this_checkpoint: false",
+    "phase5a_wrapup_checked_in: true",
+    "structured_phase5a_wrapup_config_exists: true",
+    "static_phase5a_wrapup_validator_required: true",
+    "aggregate_phase5a_validator_includes_wrapup: true"
+)) {
+    if ($phase5aWrapupConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A wrap-up config content: $expected"
+    }
+}
+
 $phase4Wrapup = Get-Content "config/phase4-wrapup.yaml" -Raw
 foreach ($expected in @(
     "next_phase: phase5a-no-gke-validator-hardening",
@@ -712,6 +811,7 @@ foreach ($forbidden in @(
     "live_failure_drills_enabled",
     "live_retry_drills_enabled",
     "live_recovery_drills_enabled",
+    "live_drill_execution_approved_by_this_checkpoint",
     "production_replay_enabled",
     "external_evidence_export_enabled",
     "production_approval_via_evidence_pack_enabled",
@@ -749,6 +849,9 @@ foreach ($forbidden in @(
     }
     if ($sandboxSmokeConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5A aggregate validator must not allow $forbidden in sandbox smoke coverage"
+    }
+    if ($phase5aWrapupConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5A aggregate validator must not allow $forbidden in wrap-up"
     }
 }
 
@@ -949,6 +1052,21 @@ if ($sandboxSmokeEvidenceFieldCount -lt 30) {
     throw "Expected at least 30 Phase 5A sandbox smoke evidence fields, found $sandboxSmokeEvidenceFieldCount"
 }
 
+$phase5aWrapupCompletedCount = ([regex]::Matches($phase5aWrapupConfig, "phase5a_[a-z0-9_]+_rc1:\s+true")).Count
+if ($phase5aWrapupCompletedCount -lt 8) {
+    throw "Expected at least 8 completed Phase 5A release candidates, found $phase5aWrapupCompletedCount"
+}
+
+$phase5aWrapupBlockedGateCount = ([regex]::Matches($phase5aWrapupConfig, ":\s+blocked")).Count
+if ($phase5aWrapupBlockedGateCount -lt 24) {
+    throw "Expected at least 24 Phase 5A wrap-up blocked gates, found $phase5aWrapupBlockedGateCount"
+}
+
+$phase5bHandoffFocusCount = ([regex]::Matches($phase5aWrapupConfig, "(?m)^\s{4}- [a-z0-9_]+\s*$")).Count
+if ($phase5bHandoffFocusCount -lt 8) {
+    throw "Expected at least 8 Phase 5B handoff focus items, found $phase5bHandoffFocusCount"
+}
+
 $blockedGateCount = ([regex]::Matches($config, ":\s+blocked")).Count
 if ($blockedGateCount -lt 7) {
     throw "Expected at least 7 blocked Phase 5A live-drill gates, found $blockedGateCount"
@@ -967,6 +1085,7 @@ if ($blockedGateCount -lt 7) {
     operator_evidence_packs_rc1 = $true
     alert_response_recovery_rc1 = $true
     sandbox_smoke_coverage_rc1 = $true
+    phase5a_wrapup_rc1 = $true
     evidence_source_count = $evidenceSourceCount
     reconciliation_check_count = 10
     scheduler_approval_gate_count = $schedulerApprovalGateCount
@@ -987,8 +1106,14 @@ if ($blockedGateCount -lt 7) {
     sandbox_smoke_evidence_source_count = $sandboxSmokeEvidenceSourceCount
     sandbox_smoke_execution_gate_count = $sandboxSmokeExecutionGateCount
     sandbox_smoke_evidence_field_count = $sandboxSmokeEvidenceFieldCount
+    phase5a_completed_release_candidate_count = $phase5aWrapupCompletedCount
+    phase5a_wrapup_blocked_gate_count = $phase5aWrapupBlockedGateCount
+    phase5b_handoff_focus_count = $phase5bHandoffFocusCount
     blocked_live_drill_gate_count = $blockedGateCount
     active_runtime_baseline = "phase2-lean-no-gke"
+    next_phase = "phase5b-gke-validator-ops"
+    phase5a_ready_to_close = $true
+    phase5b_execution_deferred = $true
     gke_required = $false
     gke_deferred_to = "phase5b-gke-validator-ops"
     google_cloud_resources_changed = $false
@@ -1001,6 +1126,7 @@ if ($blockedGateCount -lt 7) {
     live_sandbox_smoke_execution_enabled = $false
     cloud_smoke_execution_approved_by_this_checkpoint = $false
     local_smoke_execution_approved_by_this_checkpoint = $false
+    live_drill_execution_approved_by_this_checkpoint = $false
     production_replay_enabled = $false
     external_evidence_export_enabled = $false
     production_approval_via_evidence_pack_enabled = $false

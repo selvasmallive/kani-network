@@ -146,6 +146,8 @@ The sixth Phase 5A implementation checkpoint is `phase5a-alert-response-recovery
 
 The seventh Phase 5A implementation checkpoint is `phase5a-sandbox-smoke-coverage-rc1`. `PHASE5A_SANDBOX_SMOKE_COVERAGE.md`, `config/phase5a-sandbox-smoke-coverage.yaml`, and `scripts/phase5a-sandbox-smoke-coverage.ps1` define required sandbox smoke controls across API health, mint, transfer, validator sweep, PoA finality, balances, ISO 20022, compliance, reports, and audit evidence without executing or approving live smoke tests.
 
+The final Phase 5A checkpoint is `phase5a-wrapup-rc1`. `PHASE5A_WRAPUP.md`, `config/phase5a-wrapup.yaml`, and `scripts/phase5a-wrapup.ps1` close the no-GKE validator hardening track, confirm all Phase 5A release candidates, preserve the sandbox boundary, and hand off to `phase5b-gke-validator-ops` for future GKE planning when approved.
+
 This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
 
 ```text
@@ -177,6 +179,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-ledger-replay-finalit
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-operator-evidence-packs.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-alert-response-recovery.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-sandbox-smoke-coverage.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-wrapup.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 ```
 
