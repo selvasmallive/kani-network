@@ -4,12 +4,16 @@ $requiredFiles = @(
     "PHASE4_PRE_PRODUCTION_READINESS.md",
     "PHASE4_COST_MODEL.md",
     "PHASE4_SECURITY_REVIEW_SCOPE.md",
+    "PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md",
     "config/phase4-pre-production-readiness.yaml",
     "config/phase4-cost-model.yaml",
     "config/phase4-security-review-scope.yaml",
+    "config/phase4-hsm-kms-implementation-plan.yaml",
     "scripts/phase4-validate.ps1",
     "scripts/phase4-cost-model.ps1",
     "scripts/phase4-security-review-scope.ps1",
+    "scripts/phase4-hsm-kms-implementation-plan.ps1",
+    "infra/terraform/phase4_hsm_kms_implementation_plan.tf",
     "PHASE3_WRAPUP.md",
     "scripts/phase3-validate.ps1",
     "scripts/phase2-validate.ps1"
@@ -106,6 +110,33 @@ foreach ($expected in @(
 )) {
     if ($securityScope -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 4 security review scope content: $expected"
+    }
+}
+
+$hsmKmsPlan = Get-Content "PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md" -Raw
+foreach ($expected in @(
+    "Status: implementation plan ready",
+    "phase4-hsm-kms-implementation-plan-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "phase2-lean-no-gke",
+    "Target Signing Purposes",
+    "validator_block_signing",
+    "treasury_asset_authority",
+    "Implementation Stages",
+    "stage_0_design_only",
+    "stage_2_kms_mock_adapter",
+    "Signing Request Contract",
+    "Raw private keys must never leave managed custody",
+    "Required Gates Before Apply",
+    "Terraform Boundary",
+    "phase4_hsm_kms_implementation_enabled = false",
+    'Declare no `resource "google_*"` blocks',
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($hsmKmsPlan -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 HSM/KMS implementation plan content: $expected"
     }
 }
 
@@ -244,6 +275,63 @@ foreach ($expected in @(
     }
 }
 
+$hsmKmsConfig = Get-Content "config/phase4-hsm-kms-implementation-plan.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase4-hsm-kms-implementation-plan-rc1",
+    "status: implementation_plan_ready",
+    "inherits_from: phase4-security-review-scope-rc1",
+    "track: phase4-no-gke-preprod-readiness",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "creates_kms_key_ring: false",
+    "creates_kms_crypto_key: false",
+    "creates_hsm_key: false",
+    "deploys_signing_service: false",
+    "enables_kms_hsm_signing: false",
+    "target_signing_purposes:",
+    "validator_block_signing:",
+    "treasury_asset_authority:",
+    "implementation_stages:",
+    "stage_0_design_only:",
+    "stage_6_production_candidate:",
+    "signing_request_contract:",
+    "private_keys_exportable: false",
+    "key_lifecycle:",
+    "required_gates_before_apply:",
+    "terraform_boundary:",
+    "design_file: infra/terraform/phase4_hsm_kms_implementation_plan.tf",
+    "guard_variable: phase4_hsm_kms_implementation_enabled",
+    "declares_google_cloud_resources: false",
+    "output_only: true",
+    "kms_key_ring_created: false",
+    "signing_service_deployed: false",
+    "phase4_validator_includes_hsm_kms_plan: true"
+)) {
+    if ($hsmKmsConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 HSM/KMS implementation plan config content: $expected"
+    }
+}
+
+$hsmKmsTerraform = Get-Content "infra/terraform/phase4_hsm_kms_implementation_plan.tf" -Raw
+foreach ($expected in @(
+    'variable "phase4_hsm_kms_implementation_enabled"',
+    "default     = false",
+    "phase4-hsm-kms-implementation-plan-rc1",
+    "creates_paid_resources         = false",
+    "changes_google_cloud_resources = false",
+    "production_signing_enabled     = false",
+    "validator_block_signing",
+    "treasury_asset_authority",
+    "stage_0_design_only",
+    "google_kms_key_ring",
+    'output "phase4_hsm_kms_implementation_plan"'
+)) {
+    if ($hsmKmsTerraform -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 HSM/KMS Terraform design content: $expected"
+    }
+}
+
 foreach ($forbidden in @(
     "creates_paid_resources",
     "changes_google_cloud_resources",
@@ -275,6 +363,9 @@ foreach ($forbidden in @(
     if ($securityConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 4 security review scope must not enable $forbidden"
     }
+    if ($hsmKmsConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 4 HSM/KMS implementation plan must not enable $forbidden"
+    }
 }
 
 if ($costConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
@@ -287,6 +378,14 @@ if ($securityConfig -match "(?m)^\s*penetration_test_execution_allowed:\s+true\s
 
 if ($securityConfig -match "(?m)^\s*production_target_testing_allowed:\s+true\s*$") {
     throw "Phase 4 security review scope must not allow production target testing"
+}
+
+if ($hsmKmsConfig -match "(?m)^\s*enables_kms_hsm_signing:\s+true\s*$") {
+    throw "Phase 4 HSM/KMS implementation plan must not enable KMS/HSM signing"
+}
+
+if ($hsmKmsTerraform -match 'resource\s+"google_') {
+    throw "phase4_hsm_kms_implementation_plan.tf must remain design-only and must not declare Google Cloud resources"
 }
 
 if ($costConfig -match "(?m)^\s*fixed_live_prices_recorded:\s+true\s*$") {
@@ -314,5 +413,6 @@ if ($gateCount -lt 13) {
     phase5b_gke_deferred = $true
     cost_model_rc1 = $true
     security_review_scope_rc1 = $true
+    hsm_kms_implementation_plan_rc1 = $true
     result = "ok"
 }

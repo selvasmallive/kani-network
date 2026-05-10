@@ -1,0 +1,172 @@
+release_candidate: phase4-hsm-kms-implementation-plan-rc1
+status: implementation_plan_ready
+inherits_from: phase4-security-review-scope-rc1
+track: phase4-no-gke-preprod-readiness
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  creates_kms_key_ring: false
+  creates_kms_crypto_key: false
+  creates_hsm_key: false
+  deploys_signing_service: false
+  enables_kms_hsm_signing: false
+  enables_gke_validator_operations: false
+  enables_production_ingress: false
+  enables_real_value_settlement: false
+
+target_signing_purposes:
+  validator_block_signing:
+    custody_target: cloud_kms_or_hsm
+    dual_control_required: true
+    rotation_cadence: 90d
+    audit_event: KEY_SIGN_VALIDATOR_BLOCK
+  treasury_asset_authority:
+    custody_target: cloud_hsm
+    dual_control_required: true
+    rotation_cadence: 180d
+    audit_event: KEY_SIGN_TREASURY_AUTHORITY
+  api_request_signing:
+    custody_target: cloud_kms
+    dual_control_required: false
+    rotation_cadence: 90d
+    audit_event: KEY_SIGN_API_REQUEST
+  audit_log_signing:
+    custody_target: cloud_kms_or_hsm
+    dual_control_required: true
+    rotation_cadence: 180d
+    audit_event: KEY_SIGN_AUDIT_EVENT
+  iso20022_message_signing:
+    custody_target: cloud_kms_or_hsm
+    dual_control_required: true
+    rotation_cadence: 180d
+    audit_event: KEY_SIGN_ISO20022_MESSAGE
+
+implementation_stages:
+  stage_0_design_only:
+    status: active
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_1_local_signing_adapter:
+    status: planned
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_2_kms_mock_adapter:
+    status: planned
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_3_sandbox_kms_apply_candidate:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_4_sandbox_kms_pilot:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_5_hsm_candidate:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_6_production_candidate:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+
+signing_request_contract:
+  request_fields:
+    - request_id
+    - key_purpose
+    - crypto_profile
+    - payload_hash
+    - payload_type
+    - caller_principal
+    - institution_id
+    - approval_reference
+    - idempotency_key
+    - created_at
+  response_fields:
+    - request_id
+    - key_purpose
+    - key_version
+    - crypto_profile
+    - signature
+    - signature_algorithm
+    - signed_at
+    - audit_event_id
+  private_keys_exportable: false
+
+key_lifecycle:
+  states:
+    - pending
+    - active
+    - retiring
+    - retired
+    - compromised
+    - revoked
+  dual_control_required_for:
+    - treasury_asset_authority
+    - validator_block_signing
+    - audit_log_signing
+    - iso20022_message_signing
+  audit_logged_transitions_required: true
+
+required_gates_before_apply:
+  - cost_estimate_reviewed_and_approved
+  - security_architecture_review_completed
+  - terraform_plan_reviewed
+  - dual_control_approvers_assigned
+  - key_ceremony_runbook_approved
+  - break_glass_revocation_path_approved
+  - signing_service_threat_model_reviewed
+  - audit_event_schema_approved
+  - backup_recovery_and_ledger_replay_impact_reviewed
+  - regulatory_readiness_non_override_confirmed
+
+terraform_boundary:
+  design_file: infra/terraform/phase4_hsm_kms_implementation_plan.tf
+  guard_variable: phase4_hsm_kms_implementation_enabled
+  guard_default: false
+  declares_google_cloud_resources: false
+  output_only: true
+  deferred_resources:
+    - google_kms_key_ring
+    - google_kms_crypto_key
+    - google_kms_crypto_key_iam_binding
+    - cloud_hsm_key_generation
+    - production_signing_service
+
+non_enablement:
+  kms_key_ring_created: false
+  kms_crypto_key_created: false
+  hsm_key_created: false
+  signing_service_deployed: false
+  validator_kms_hsm_signing_enabled: false
+  treasury_kms_hsm_signing_enabled: false
+  audit_kms_hsm_signing_enabled: false
+  iso20022_kms_hsm_signing_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  real_value_settlement_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  hsm_kms_implementation_plan_checked_in: true
+  structured_hsm_kms_plan_config_exists: true
+  design_only_terraform_guard_exists: true
+  static_hsm_kms_plan_validator_required: true
+  phase4_validator_includes_hsm_kms_plan: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  no_google_cloud_resources_created: true
+  no_kms_hsm_resources_created: true
+  no_signing_service_deployed: true
+  no_production_signing_enabled: true
+  no_real_value_capability_enabled: true

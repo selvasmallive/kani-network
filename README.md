@@ -96,6 +96,8 @@ The Phase 4 cost model checkpoint is recorded in `PHASE4_COST_MODEL.md`, `config
 
 The Phase 4 security review scope checkpoint is recorded in `PHASE4_SECURITY_REVIEW_SCOPE.md`, `config/phase4-security-review-scope.yaml`, and `scripts/phase4-security-review-scope.ps1`. It defines security review objectives, in-scope assets, out-of-scope testing, threat areas, evidence requirements, and blocked review workstreams without executing a penetration test or changing infrastructure.
 
+The Phase 4 HSM/KMS implementation plan checkpoint is recorded in `PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md`, `config/phase4-hsm-kms-implementation-plan.yaml`, `infra/terraform/phase4_hsm_kms_implementation_plan.tf`, and `scripts/phase4-hsm-kms-implementation-plan.ps1`. It defines future signing purposes, key lifecycle, staged adapters, signing request contracts, required apply gates, and design-only Terraform outputs without creating key rings, keys, HSM resources, signing services, or production signing capability.
+
 The planned validator-operations split is:
 
 ```text
@@ -111,6 +113,7 @@ Run the static Phase 4 readiness check from PowerShell:
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-validate.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-cost-model.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-security-review-scope.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-hsm-kms-implementation-plan.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
