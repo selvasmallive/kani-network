@@ -1,0 +1,27 @@
+﻿{
+    "collection_id":  "20260510T081257Z",
+    "captured_at_utc":  "2026-05-10T08:12:57.2392808Z",
+    "captured_at_local":  "2026-05-10T04:12:57.2392808-04:00",
+    "project_id":  "kani-network-sandbox",
+    "region":  "northamerica-northeast1",
+    "zone":  "northamerica-northeast1-a",
+    "cluster_name":  "kani-sandbox-validators",
+    "namespace":  "kani-system",
+    "service_name":  "kani-sandbox-api",
+    "environment":  "SANDBOX",
+    "real_value":  false,
+    "redeemable":  false,
+    "collector_version":  "research-observation-v1",
+    "status":  "failed",
+    "errors":  [
+                   "ERROR: (gcloud.logging.read) INVALID_ARGUMENT: Unparseable filter: syntax error at line 1, column 132, token \u0027:\u0027"
+               ],
+    "artifacts":  {
+                      "session_dir":  "C:\\dev\\kani\\docs\\research\\observations\\20260510T081257Z",
+                      "raw_dir":  "C:\\dev\\kani\\docs\\research\\observations\\20260510T081257Z\\raw",
+                      "derived_dir":  "C:\\dev\\kani\\docs\\research\\observations\\20260510T081257Z\\derived"
+                  },
+    "gcloud_account":  "selva@kani.network",
+    "gcloud_project":  "kani-network-sandbox",
+    "completed_at_utc":  "2026-05-10T08:13:19.3470710Z"
+}

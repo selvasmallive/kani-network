@@ -1,0 +1,80 @@
+release_candidate: research-observation-schedule-rc1
+status: scheduled_research_collection_ready
+created_for: enterprise_sandbox_research_and_powerpoint_evidence
+
+boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+  external_institution_onboarding_enabled: false
+  fiat_deposit_redemption_enabled: false
+
+schedule:
+  cadence: daily
+  total_days: 21
+  first_checkpoint_days: 7
+  second_checkpoint_days: 14
+  third_checkpoint_days: 21
+  default_local_start_time: "09:00"
+  scheduler_type: windows_task_scheduler
+  requires_workstation_available: true
+  requires_gcloud_credentials_available: true
+
+collector:
+  script: scripts/research-daily-collection.ps1
+  output_root: docs/research/observations
+  run_smoke_test_daily: true
+  generate_summary_after_collection: true
+
+summary:
+  script: scripts/research-summarize-observations.ps1
+  seven_day_report: docs/research/observations/KANI_RESEARCH_7_DAY_REPORT.md
+  fourteen_day_report: docs/research/observations/KANI_RESEARCH_14_DAY_REPORT.md
+  twenty_one_day_report: docs/research/observations/KANI_RESEARCH_21_DAY_REPORT.md
+  presentation_series: docs/research/observations/kani_research_presentation_series.csv
+
+signals:
+  - cloud_run_api_status
+  - cloud_sql_state
+  - gke_cluster_status
+  - validator_pod_readiness
+  - validator_restart_count
+  - latest_block_height
+  - pending_transaction_count
+  - settlement_report_transaction_count
+  - compliance_report_event_count
+  - validator_finality_report_block_count
+  - health_latency_ms
+  - admin_latest_block_latency_ms
+  - corp_a_balance_latency_ms
+  - corp_b_balance_latency_ms
+  - smoke_lifecycle_duration_ms
+  - api_error_count_24h
+  - kani_system_error_count_24h
+  - cloud_sql_error_count_24h
+  - warning_count_24h
+  - daily_smoke_status
+
+latency_scope:
+  current_topology: single_region_single_zone
+  client_probe_location: workstation_running_collector
+  cloud_region: northamerica-northeast1
+  gke_zone: northamerica-northeast1-a
+  institution_paths:
+    - KANI_ADMIN
+    - CORP_A
+    - CORP_B
+  global_latency_probe_enabled: false
+  note: true_global_measurements_require_regional_probes_or_multi_region_gke
+
+presentation_outputs:
+  - docs/research/observations/kani_research_daily_observations.csv
+  - docs/research/observations/kani_research_presentation_series.csv
+  - docs/research/observations/kani_research_observation_rollup.json
+  - docs/research/observations/KANI_RESEARCH_OBSERVATION_REPORT.md
+
+non_claims:
+  production_readiness: false
+  regulatory_approval: false
+  real_value_settlement: false

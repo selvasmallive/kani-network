@@ -10,3 +10,6 @@
 *.log
 *.pdb
 *.rs.bk
+~$*
+**/~$*
+docs/research/observations/*/raw/

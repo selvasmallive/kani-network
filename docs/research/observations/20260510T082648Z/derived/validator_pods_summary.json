@@ -1,0 +1,29 @@
+﻿[
+    {
+        "name":  "validator-a-5d9c6d7669-74mbn",
+        "phase":  "Running",
+        "ready_containers":  2,
+        "total_containers":  2,
+        "restarts":  0,
+        "node":  "gke-kani-sandbox-val-kani-sandbox-val-9421d5d2-i4xv",
+        "started_at":  "2026-05-10T05:32:26Z"
+    },
+    {
+        "name":  "validator-b-5ffbf579d5-lf9ch",
+        "phase":  "Running",
+        "ready_containers":  2,
+        "total_containers":  2,
+        "restarts":  0,
+        "node":  "gke-kani-sandbox-val-kani-sandbox-val-9421d5d2-i4xv",
+        "started_at":  "2026-05-10T05:32:14Z"
+    },
+    {
+        "name":  "validator-c-845b96c77c-xzsbm",
+        "phase":  "Running",
+        "ready_containers":  2,
+        "total_containers":  2,
+        "restarts":  0,
+        "node":  "gke-kani-sandbox-val-kani-sandbox-val-9421d5d2-i4xv",
+        "started_at":  "2026-05-10T05:32:14Z"
+    }
+]
