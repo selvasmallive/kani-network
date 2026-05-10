@@ -1,0 +1,153 @@
+release_candidate: phase5b-k8s-manifest-design-plan-rc1
+status: design_only_manifest_blueprint
+track: phase5b-gke-validator-ops
+active_runtime_baseline: phase2-lean-no-gke
+inherits_from: phase5b-gke-terraform-design-plan-rc1
+
+design_boundary:
+  do_not_apply_with_kubectl: true
+  not_included_in_kustomization: true
+  contains_deployable_kubernetes_objects: false
+  declares_top_level_api_version_or_kind: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  kustomization_inclusion_allowed: false
+  gke_validator_workloads_deferred: true
+  live_validator_operations_enabled: false
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+future_manifest_blueprint:
+  namespace:
+    kubernetes_kind: Namespace
+    planned_name: kani-validator
+    apply_status: deferred
+    labels_required:
+      - app.kubernetes.io/part-of
+      - kani.environment
+      - kani.phase
+  service_account:
+    kubernetes_kind: ServiceAccount
+    planned_name: kani-gke-validator
+    apply_status: deferred
+    workload_identity_annotation_required: true
+    google_service_account_placeholder: kani-gke-validator@PROJECT_ID.iam.gserviceaccount.com
+  validator_config:
+    kubernetes_kind: ConfigMap
+    planned_name: kani-validator-config
+    apply_status: deferred
+    required_runtime_flags:
+      ENV: SANDBOX
+      REAL_VALUE: "FALSE"
+      REDEEMABLE: "FALSE"
+  secret_delivery:
+    kubernetes_kind: SecretProviderClass_or_ExternalSecret
+    planned_name: kani-validator-secrets
+    apply_status: deferred
+    real_secret_values_committed: false
+    source: Google Secret Manager
+  validator_a_workload:
+    kubernetes_kind: Deployment
+    planned_name: validator-a
+    validator_id: validator-a
+    replicas: 1
+    apply_status: deferred
+  validator_b_workload:
+    kubernetes_kind: Deployment
+    planned_name: validator-b
+    validator_id: validator-b
+    replicas: 1
+    apply_status: deferred
+  validator_c_workload:
+    kubernetes_kind: Deployment
+    planned_name: validator-c
+    validator_id: validator-c
+    replicas: 1
+    apply_status: deferred
+  disruption_budget:
+    kubernetes_kind: PodDisruptionBudget
+    planned_name: kani-validator-pdb
+    apply_status: deferred
+    minimum_available_design: two_of_three
+  network_policy:
+    kubernetes_kind: NetworkPolicy
+    planned_name: kani-validator-network-policy
+    apply_status: deferred
+    public_ingress_allowed: false
+  resource_quota:
+    kubernetes_kind: ResourceQuota
+    planned_name: kani-validator-quota
+    apply_status: deferred
+    cost_guardrail_required: true
+  limit_range:
+    kubernetes_kind: LimitRange
+    planned_name: kani-validator-limits
+    apply_status: deferred
+    default_limits_required: true
+  smoke_test_job:
+    kubernetes_kind: Job
+    planned_name: kani-validator-smoke
+    apply_status: deferred
+    execution_approved_by_this_checkpoint: false
+
+future_pod_requirements:
+  image_policy: pinned_digest_required_before_apply
+  image_pull_source: Artifact Registry
+  command: kani-node
+  cloud_sql_connectivity: cloud_sql_proxy_sidecar_or_connector_design_pending
+  run_as_non_root_required: true
+  read_only_root_filesystem_required: true
+  allow_privilege_escalation: false
+  drop_linux_capabilities: true
+  cpu_request_per_validator: 100m_initial_design
+  memory_request_per_validator: 128Mi_initial_design
+  liveness_probe_required: true
+  readiness_probe_required: true
+  topology_spread_required: true
+  anti_affinity_required: true
+  structured_logs_required: true
+
+review_gates:
+  cost_estimate_attached: blocked
+  selected_profile_approved: blocked
+  terraform_design_reviewed: blocked
+  gke_cluster_available: blocked
+  kubectl_context_verified: blocked
+  manifest_design_reviewed: blocked
+  manifest_dry_run_reviewed: blocked
+  workload_identity_reviewed: blocked
+  secret_access_reviewed: blocked
+  database_connectivity_reviewed: blocked
+  network_policy_reviewed: blocked
+  pod_security_reviewed: blocked
+  observability_reviewed: blocked
+  rollback_plan_approved: blocked
+  teardown_plan_approved: blocked
+  no_real_value_capability_enabled: blocked
+
+non_enablement:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  gke_cluster_enabled: false
+  gke_node_pool_creation_enabled: false
+  workload_identity_iam_mutation_enabled: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  kustomization_inclusion_allowed: false
+  live_validator_operations_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false

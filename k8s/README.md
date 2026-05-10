@@ -10,6 +10,12 @@ validator-c
 
 The API remains a Cloud Run service in Phase 2. These Kubernetes manifests are only for validator processes.
 
+## Phase 5B Design Boundary
+
+`phase5b-validator-manifest-design.yaml` is a non-deployable design contract for the later `phase5b-gke-validator-ops` track. It is not included in `kustomization.yaml`, must not be applied with `kubectl`, and does not approve GKE validator deployment.
+
+The active runtime remains `phase2-lean-no-gke` until a later approved GKE apply checkpoint.
+
 ## Before Applying
 
 1. Build and push the shared image to Artifact Registry.

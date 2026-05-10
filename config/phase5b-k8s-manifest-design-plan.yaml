@@ -1,0 +1,223 @@
+release_candidate: phase5b-k8s-manifest-design-plan-rc1
+status: k8s_manifest_design_plan_ready
+inherits_from: phase5b-gke-terraform-design-plan-rc1
+track: phase5b-gke-validator-ops
+active_runtime_baseline: phase2-lean-no-gke
+phase5a_baseline: phase5a-wrapup-rc1
+terraform_design_baseline: phase5b-gke-terraform-design-plan-rc1
+manifest_design_file: k8s/phase5b-validator-manifest-design.yaml
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+manifest_boundary:
+  design_only: true
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  kustomization_inclusion_allowed: false
+  included_in_kustomization: false
+  contains_deployable_kubernetes_objects: false
+  declares_top_level_api_version_or_kind: false
+  produces_planning_metadata_only: true
+  gke_validator_workloads_deferred: true
+  workload_identity_iam_mutation_deferred: true
+  live_validator_operations_enabled: false
+
+current_phase2_manifest_inventory:
+  namespace_yaml: present_placeholder
+  validator_rbac_yaml: present_placeholder
+  validator_configmap_yaml: present_placeholder
+  validator_secret_example_yaml: present_placeholder
+  validators_yaml: present_placeholder
+  kustomization_yaml: present_placeholder
+  phase5b_design_file_included_in_kustomization: false
+  phase5b_manifest_deployment_approved: false
+
+selected_manifest_defaults:
+  selected_resource_profile: lean_sandbox_standard_zonal
+  cluster_mode: standard_zonal
+  region: northamerica-northeast1
+  zones:
+    - northamerica-northeast1-a
+  validator_namespace: kani-validator
+  kubernetes_service_account: kani-gke-validator
+  google_service_account: kani-gke-validator@PROJECT_ID.iam.gserviceaccount.com
+  workload_identity_annotation: iam.gke.io/gcp-service-account
+  image_repository: northamerica-northeast1-docker.pkg.dev/PROJECT_ID/kani/kani-api
+  image_tag_policy: pinned_digest_required_before_apply
+  validator_replicas: 3
+  validator_instances:
+    - validator-a
+    - validator-b
+    - validator-c
+  workload_shape: three_single_replica_deployments_initial_design
+  database_connectivity_model: cloud_sql_proxy_sidecar_or_connector_design_pending
+  secret_delivery_model: secret_manager_csi_or_external_secret_design_pending
+  public_ingress_required: false
+  service_type: ClusterIP_or_none_for_internal_validator_only
+  smoke_test_mode: dry_run_only_until_apply_approved
+  teardown_model: remove_manifest_release_or_delete_namespace_after_approved_test_window
+
+future_manifest_component_families:
+  Namespace: deferred
+  ServiceAccount: deferred
+  ConfigMap: deferred
+  SecretProviderClass: deferred
+  ExternalSecret: deferred
+  Deployment: deferred
+  StatefulSet: deferred
+  PodDisruptionBudget: deferred
+  NetworkPolicy: deferred
+  ResourceQuota: deferred
+  LimitRange: deferred
+  Service: deferred
+  CronJob: deferred
+  Job: deferred
+
+required_design_sections:
+  namespace_model: required
+  service_account_model: required
+  workload_identity_annotation_model: required
+  image_model: required
+  config_model: required
+  secret_model: required
+  database_connectivity_model: required
+  validator_identity_model: required
+  replica_topology_model: required
+  scheduling_model: required
+  resource_request_model: required
+  security_context_model: required
+  network_policy_model: required
+  disruption_budget_model: required
+  health_probe_model: required
+  observability_model: required
+  rollout_model: required
+  smoke_test_model: required
+  rollback_model: required
+  teardown_model: required
+  evidence_model: required
+
+required_review_gates:
+  cost_estimate_attached: blocked
+  selected_profile_approved: blocked
+  terraform_design_reviewed: blocked
+  gke_cluster_available: blocked
+  kubectl_context_verified: blocked
+  manifest_design_reviewed: blocked
+  manifest_dry_run_reviewed: blocked
+  security_architecture_reviewed: blocked
+  namespace_isolation_reviewed: blocked
+  workload_identity_reviewed: blocked
+  artifact_registry_pull_access_reviewed: blocked
+  secret_access_reviewed: blocked
+  database_connectivity_reviewed: blocked
+  network_policy_reviewed: blocked
+  pod_security_reviewed: blocked
+  resource_limits_reviewed: blocked
+  scheduling_reviewed: blocked
+  observability_reviewed: blocked
+  budget_guardrail_reviewed: blocked
+  rollback_plan_approved: blocked
+  teardown_plan_approved: blocked
+  operator_assigned: blocked
+  reviewer_assigned: blocked
+  no_real_value_capability_enabled: blocked
+
+implementation_stages:
+  stage_0_design_only:
+    allowed_by_this_checkpoint: true
+  stage_1_manifest_blueprint_review:
+    allowed_by_this_checkpoint: true
+  stage_2_kubectl_dry_run_candidate:
+    allowed_by_this_checkpoint: true
+  stage_3_security_review:
+    allowed_by_this_checkpoint: true
+  stage_4_apply_candidate:
+    allowed_by_this_checkpoint: false
+  stage_5_sandbox_gke_validator_pilot:
+    allowed_by_this_checkpoint: false
+  stage_6_validator_operations_rehearsal:
+    allowed_by_this_checkpoint: false
+  stage_7_teardown_or_pause:
+    allowed_by_this_checkpoint: false
+
+non_enablement:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  terraform_gke_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  gke_cluster_enabled: false
+  gke_cluster_creation_enabled: false
+  gke_node_pool_creation_enabled: false
+  gke_resource_creation_allowed: false
+  workload_identity_iam_mutation_enabled: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  kustomization_inclusion_allowed: false
+  live_validator_operations_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  cloud_run_job_execution_approved_by_this_checkpoint: false
+  secret_rotation_approved_by_this_checkpoint: false
+  cloud_smoke_execution_approved_by_this_checkpoint: false
+  local_smoke_execution_approved_by_this_checkpoint: false
+  live_sandbox_smoke_execution_enabled: false
+  destructive_smoke_reset_enabled: false
+  external_endpoint_smoke_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  live_recovery_drills_enabled: false
+  live_drill_execution_approved_by_this_checkpoint: false
+  production_replay_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5b_k8s_manifest_design_plan_checked_in: true
+  structured_phase5b_k8s_manifest_design_config_exists: true
+  non_deployable_manifest_blueprint_exists: true
+  static_phase5b_k8s_manifest_design_validator_required: true
+  aggregate_phase5b_validator_includes_k8s_manifest_design_plan: true
+  phase5b_gke_terraform_design_plan_validator_required: true
+  phase5b_gke_cost_resource_plan_validator_required: true
+  phase5a_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_kubernetes_resources_deployed: true
+  no_gke_enabled: true
+  no_gke_node_pool_creation_enabled: true
+  no_workload_identity_iam_mutation_enabled: true
+  no_terraform_apply_enabled: true
+  no_kubectl_apply_enabled: true
+  no_kustomization_inclusion_enabled: true
+  no_live_validator_operations_enabled: true
+  no_production_authorization_enabled: true
+  no_legal_or_compliance_approval_enabled: true
+  no_real_value_capability_enabled: true

@@ -191,6 +191,8 @@ Phase 5B has started on the `phase5b-gke-validator-ops` track. The first checkpo
 
 The second Phase 5B checkpoint is `phase5b-gke-terraform-design-plan-rc1`. `PHASE5B_GKE_TERRAFORM_DESIGN_PLAN.md`, `config/phase5b-gke-terraform-design-plan.yaml`, `infra/terraform/phase5b_gke_terraform_design_plan.tf`, and `scripts/phase5b-gke-terraform-design-plan.ps1` define a design-only Terraform boundary for future GKE validator operations without declaring Google Cloud or Kubernetes resources.
 
+The third Phase 5B checkpoint is `phase5b-k8s-manifest-design-plan-rc1`. `PHASE5B_K8S_MANIFEST_DESIGN_PLAN.md`, `config/phase5b-k8s-manifest-design-plan.yaml`, `k8s/phase5b-validator-manifest-design.yaml`, and `scripts/phase5b-k8s-manifest-design-plan.ps1` define a non-deployable Kubernetes manifest blueprint for future GKE validator operations without including it in Kustomize or approving `kubectl apply`.
+
 This checkpoint keeps the active runtime on `phase2-lean-no-gke`. It does not create Google Cloud resources, apply Terraform, enable GKE, deploy Kubernetes manifests, run live validator operations, enable production ingress, onboard external institutions, or allow real-value settlement.
 
 Run the Phase 5B planning checks from PowerShell:
@@ -198,6 +200,7 @@ Run the Phase 5B planning checks from PowerShell:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-cost-resource-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-terraform-design-plan.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-k8s-manifest-design-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-validate.ps1
 ```
 

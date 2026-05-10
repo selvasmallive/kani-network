@@ -3,11 +3,15 @@ $ErrorActionPreference = "Stop"
 $requiredFiles = @(
     "PHASE5B_GKE_COST_RESOURCE_PLAN.md",
     "PHASE5B_GKE_TERRAFORM_DESIGN_PLAN.md",
+    "PHASE5B_K8S_MANIFEST_DESIGN_PLAN.md",
     "config/phase5b-gke-cost-resource-plan.yaml",
     "config/phase5b-gke-terraform-design-plan.yaml",
+    "config/phase5b-k8s-manifest-design-plan.yaml",
     "infra/terraform/phase5b_gke_terraform_design_plan.tf",
+    "k8s/phase5b-validator-manifest-design.yaml",
     "scripts/phase5b-gke-cost-resource-plan.ps1",
     "scripts/phase5b-gke-terraform-design-plan.ps1",
+    "scripts/phase5b-k8s-manifest-design-plan.ps1",
     "PHASE5A_WRAPUP.md",
     "config/phase5a-wrapup.yaml",
     "scripts/phase5a-validate.ps1",
@@ -76,6 +80,32 @@ foreach ($expected in @(
 )) {
     if ($terraformDesignPlan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5B GKE Terraform design plan content: $expected"
+    }
+}
+
+$k8sManifestDesignPlan = Get-Content "PHASE5B_K8S_MANIFEST_DESIGN_PLAN.md" -Raw
+foreach ($expected in @(
+    "Status: Kubernetes manifest design plan ready",
+    "phase5b-k8s-manifest-design-plan-rc1",
+    "phase5b-gke-terraform-design-plan-rc1",
+    "phase5b-gke-validator-ops",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Manifest Boundary",
+    "k8s/phase5b-validator-manifest-design.yaml",
+    "Current Manifest Inventory",
+    "Future Manifest Component Families",
+    "SecretProviderClass",
+    "PodDisruptionBudget",
+    "ResourceQuota",
+    "Required Design Sections",
+    "Required Review Gates",
+    "Implementation Stages",
+    "No Kubernetes resources are deployed"
+)) {
+    if ($k8sManifestDesignPlan -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B Kubernetes manifest design plan content: $expected"
     }
 }
 
@@ -184,6 +214,92 @@ if ($terraformDesignFile -match '(?m)^\s*resource\s+"(google|kubernetes)_') {
     throw "Phase 5B Terraform design file must not declare google_* or kubernetes_* resources"
 }
 
+$k8sManifestDesignConfig = Get-Content "config/phase5b-k8s-manifest-design-plan.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5b-k8s-manifest-design-plan-rc1",
+    "status: k8s_manifest_design_plan_ready",
+    "inherits_from: phase5b-gke-terraform-design-plan-rc1",
+    "track: phase5b-gke-validator-ops",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "manifest_design_file: k8s/phase5b-validator-manifest-design.yaml",
+    "manifest_boundary:",
+    "design_only: true",
+    "kubernetes_manifest_deployment_enabled: false",
+    "kubectl_apply_allowed: false",
+    "kustomization_inclusion_allowed: false",
+    "included_in_kustomization: false",
+    "declares_top_level_api_version_or_kind: false",
+    "selected_manifest_defaults:",
+    "selected_resource_profile: lean_sandbox_standard_zonal",
+    "validator_namespace: kani-validator",
+    "kubernetes_service_account: kani-gke-validator",
+    "validator_replicas: 3",
+    "future_manifest_component_families:",
+    "SecretProviderClass: deferred",
+    "PodDisruptionBudget: deferred",
+    "ResourceQuota: deferred",
+    "required_design_sections:",
+    "namespace_model: required",
+    "workload_identity_annotation_model: required",
+    "required_review_gates:",
+    "manifest_design_reviewed: blocked",
+    "manifest_dry_run_reviewed: blocked",
+    "implementation_stages:",
+    "stage_0_design_only:",
+    "stage_4_apply_candidate:",
+    "non_enablement:",
+    "gke_cluster_creation_enabled: false",
+    "gke_node_pool_creation_enabled: false",
+    "workload_identity_iam_mutation_enabled: false",
+    "phase5b_k8s_manifest_design_plan_checked_in: true",
+    "aggregate_phase5b_validator_includes_k8s_manifest_design_plan: true"
+)) {
+    if ($k8sManifestDesignConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B Kubernetes manifest design config content: $expected"
+    }
+}
+
+$manifestDesignFile = Get-Content "k8s/phase5b-validator-manifest-design.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5b-k8s-manifest-design-plan-rc1",
+    "status: design_only_manifest_blueprint",
+    "phase5b-gke-validator-ops",
+    "phase2-lean-no-gke",
+    "phase5b-gke-terraform-design-plan-rc1",
+    "design_boundary:",
+    "do_not_apply_with_kubectl: true",
+    "not_included_in_kustomization: true",
+    "contains_deployable_kubernetes_objects: false",
+    "kubernetes_manifest_deployment_enabled: false",
+    "kubectl_apply_allowed: false",
+    "kustomization_inclusion_allowed: false",
+    "future_manifest_blueprint:",
+    "kubernetes_kind: Namespace",
+    "kubernetes_kind: ServiceAccount",
+    "kubernetes_kind: Deployment",
+    "validator_id: validator-a",
+    "validator_id: validator-b",
+    "validator_id: validator-c",
+    "kubernetes_kind: PodDisruptionBudget",
+    "future_pod_requirements:",
+    "pinned_digest_required_before_apply",
+    "review_gates:",
+    "manifest_dry_run_reviewed: blocked",
+    "non_enablement:"
+)) {
+    if ($manifestDesignFile -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B Kubernetes manifest blueprint content: $expected"
+    }
+}
+
+if ((Get-Content "k8s/kustomization.yaml" -Raw) -match [regex]::Escape("phase5b-validator-manifest-design.yaml")) {
+    throw "Phase 5B Kubernetes manifest design file must not be included in k8s/kustomization.yaml"
+}
+
+if ($manifestDesignFile -match "(?m)^(apiVersion|kind):") {
+    throw "Phase 5B Kubernetes manifest design file must not declare top-level apiVersion or kind fields"
+}
+
 $phase5aWrapup = Get-Content "config/phase5a-wrapup.yaml" -Raw
 foreach ($expected in @(
     "release_candidate: phase5a-wrapup-rc1",
@@ -210,6 +326,8 @@ foreach ($forbidden in @(
     "gke_resource_creation_allowed",
     "workload_identity_iam_mutation_enabled",
     "kubernetes_manifest_deployment_enabled",
+    "kubectl_apply_allowed",
+    "kustomization_inclusion_allowed",
     "live_validator_operations_enabled",
     "production_bft_validator_network_enabled",
     "production_ingress_enabled",
@@ -228,6 +346,12 @@ foreach ($forbidden in @(
     }
     if ($terraformDesignConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5B aggregate validator must not allow $forbidden in Terraform design"
+    }
+    if ($k8sManifestDesignConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5B aggregate validator must not allow $forbidden in Kubernetes manifest design"
+    }
+    if ($manifestDesignFile -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5B aggregate validator must not allow $forbidden in Kubernetes manifest blueprint"
     }
 }
 
@@ -276,10 +400,30 @@ if ($terraformDesignBlockedStageCount -lt 4) {
     throw "Expected at least 4 blocked Phase 5B Terraform implementation stages, found $terraformDesignBlockedStageCount"
 }
 
+$futureManifestComponentCount = ([regex]::Matches($k8sManifestDesignConfig, "(?m)^\s{2}[A-Za-z0-9]+:\s+deferred\s*$")).Count
+if ($futureManifestComponentCount -lt 14) {
+    throw "Expected at least 14 future Phase 5B Kubernetes manifest component families, found $futureManifestComponentCount"
+}
+
+$k8sRequiredDesignSectionCount = ([regex]::Matches($k8sManifestDesignConfig, "(?m)^\s{2}[a-z0-9_]+:\s+required\s*$")).Count
+if ($k8sRequiredDesignSectionCount -lt 21) {
+    throw "Expected at least 21 Phase 5B Kubernetes manifest design sections, found $k8sRequiredDesignSectionCount"
+}
+
+$k8sDesignBlockedGateCount = ([regex]::Matches($k8sManifestDesignConfig, ":\s+blocked")).Count
+if ($k8sDesignBlockedGateCount -lt 24) {
+    throw "Expected at least 24 Phase 5B Kubernetes manifest design approval gates, found $k8sDesignBlockedGateCount"
+}
+
+$k8sDesignBlockedStageCount = ([regex]::Matches($k8sManifestDesignConfig, "allowed_by_this_checkpoint:\s+false")).Count
+if ($k8sDesignBlockedStageCount -lt 4) {
+    throw "Expected at least 4 blocked Phase 5B Kubernetes manifest implementation stages, found $k8sDesignBlockedStageCount"
+}
+
 [pscustomobject]@{
     phase = "phase-5b-gke-validator-ops"
-    release_candidate = "phase5b-gke-cost-resource-plan-rc1"
-    status = "gke-cost-resource-planning-ready"
+    release_candidate = "phase5b-k8s-manifest-design-plan-rc1"
+    status = "gke-k8s-manifest-design-ready"
     active_runtime_baseline = "phase2-lean-no-gke"
     phase5a_baseline = "phase5a-wrapup-rc1"
     candidate_resource_profile_count = $candidateProfileCount
@@ -292,12 +436,19 @@ if ($terraformDesignBlockedStageCount -lt 4) {
     required_terraform_design_section_count = $requiredDesignSectionCount
     terraform_design_blocked_gate_count = $terraformDesignBlockedGateCount
     terraform_design_blocked_stage_count = $terraformDesignBlockedStageCount
+    k8s_manifest_design_plan_rc1 = $true
+    future_k8s_manifest_component_family_count = $futureManifestComponentCount
+    required_k8s_manifest_design_section_count = $k8sRequiredDesignSectionCount
+    k8s_manifest_design_blocked_gate_count = $k8sDesignBlockedGateCount
+    k8s_manifest_design_blocked_stage_count = $k8sDesignBlockedStageCount
     gke_enabled = $false
     gke_cluster_creation_enabled = $false
     gke_node_pool_creation_enabled = $false
     gke_resource_creation_allowed = $false
     workload_identity_iam_mutation_enabled = $false
     terraform_apply_allowed = $false
+    kubectl_apply_allowed = $false
+    kustomization_inclusion_allowed = $false
     kubernetes_manifest_deployment_enabled = $false
     live_validator_operations_enabled = $false
     google_cloud_resources_changed = $false
