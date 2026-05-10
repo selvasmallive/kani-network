@@ -207,6 +207,8 @@ The first live pilot evidence is captured in `config/phase5b-gke-apply-pilot-evi
 
 The live pilot cost estimate is captured in `PHASE5B_GKE_RUNTIME_COST_ESTIMATE.md` and `config/phase5b-gke-runtime-cost-estimate.yaml`. At the current one-node GKE plus Cloud SQL shape, the baseline active-pilot run rate is estimated around `$52.51 USD/month`, or about `CAD $71.73/month`, before taxes and unrelated project usage.
 
+The one-month GKE observation day-zero checkpoint is captured in `PHASE5B_GKE_DAY0_OBSERVATION.md`, `config/phase5b-gke-day0-observation.yaml`, and `scripts/phase5b-gke-day0-observation.ps1`. It records the approved May 10, 2026 through June 10, 2026 sandbox run, CAD 200 monthly budget guardrail, live validator smoke result, resource usage baseline, and the first log-review watch item.
+
 These checkpoints keep the runtime sandbox-only. They do not enable production ingress, onboard external institutions, allow real-value settlement, enable fiat deposit/redemption, or create production authorization.
 
 Run the Phase 5B planning checks from PowerShell:
@@ -219,6 +221,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-k8s-render-dry-run-ev
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-apply-readiness-gate.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-operator-approval-packet.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-wrapup.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-day0-observation.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-validate.ps1
 ```
 
