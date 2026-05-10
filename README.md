@@ -128,6 +128,39 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase4-legal-compliance-evide
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-wrapup.ps1
 ```
 
+## Phase 5A No-GKE Validator Hardening
+
+Phase 5A has started on the `phase5a-no-gke-validator-hardening` track. `PHASE5A_VALIDATOR_HARDENING_PLAN.md`, `config/phase5a-validator-hardening-plan.yaml`, and `scripts/phase5a-validator-hardening-plan.ps1` define the first validator hardening checkpoint for the existing Cloud Run Job plus Cloud Scheduler model.
+
+This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
+
+```text
+ENV = SANDBOX
+REAL_VALUE = FALSE
+REDEEMABLE = FALSE
+```
+
+The Phase 5A plan hardens these areas before any live drill is enabled:
+
+```text
+validator_reconciliation_tests
+failure_and_retry_drills
+scheduler_pause_resume_runbooks
+ledger_replay_and_finality_verification
+operator_evidence_packs
+alert_response_and_recovery_drills
+complete_sandbox_smoke_tests
+```
+
+Run the Phase 5A checks from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validator-hardening-plan.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
+```
+
+GKE remains deferred to `phase5b-gke-validator-ops`.
+
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
 
 ```powershell

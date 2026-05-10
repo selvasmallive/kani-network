@@ -1,0 +1,105 @@
+release_candidate: phase5a-validator-hardening-plan-rc1
+status: validator_hardening_plan_ready
+inherits_from: phase4-wrapup-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+
+validator_model:
+  runtime: cloud_run_job_plus_cloud_scheduler
+  run_mode: sweep
+  scheduler_cadence: "*/15 * * * *"
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+hardening_workstreams:
+  validator_reconciliation_tests:
+    status: planned
+    objective: reconcile pending transactions, finalized blocks, balances, issued supply, audit events, and validator state
+  failure_and_retry_drills:
+    status: planned
+    objective: define controlled sandbox-only failure and retry evidence before live drill enablement
+  scheduler_pause_resume_runbooks:
+    status: planned
+    objective: document operator controls for pausing, resuming, and manually triggering validator jobs
+  ledger_replay_and_finality_verification:
+    status: planned
+    objective: rebuild ledger evidence from finalized blocks and verify PoA finality metadata
+  operator_evidence_packs:
+    status: planned
+    objective: standardize evidence bundles for sandbox validator checks
+  alert_response_and_recovery_drills:
+    status: planned
+    objective: connect Cloud Monitoring alert evidence to response and recovery runbooks
+  complete_sandbox_smoke_tests:
+    status: planned
+    objective: expand sandbox smoke coverage for payments, ISO 20022, compliance, reports, validators, and audit trails
+
+required_future_gates_before_live_drills:
+  cost_review_if_paid_resources_required: blocked
+  scheduler_change_window_approved: blocked
+  failure_drill_owner_assigned: blocked
+  recovery_owner_assigned: blocked
+  rollback_path_documented: blocked
+  evidence_pack_location_selected: blocked
+  no_real_value_capability_enabled: blocked
+
+non_enablement:
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  live_failure_drills_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_validator_hardening_plan_checked_in: true
+  structured_phase5a_config_exists: true
+  static_phase5a_validator_required: true
+  aggregate_phase5a_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_scheduler_changes_enabled: true
+  no_live_failure_drills_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true
