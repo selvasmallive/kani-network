@@ -201,7 +201,11 @@ The sixth Phase 5B checkpoint is `phase5b-gke-operator-approval-packet-rc1`. `PH
 
 The final Phase 5B checkpoint is `phase5b-wrapup-rc1`. `PHASE5B_WRAPUP.md`, `config/phase5b-wrapup.yaml`, and `scripts/phase5b-wrapup.ps1` close the planning-only `phase5b-gke-validator-ops` track and define the handoff boundary for a later `phase6-gke-apply-candidate` without approving an apply.
 
-These checkpoints keep the active runtime on `phase2-lean-no-gke`. They do not create Google Cloud resources, apply Terraform, enable GKE, deploy Kubernetes manifests, run live validator operations, enable production ingress, onboard external institutions, or allow real-value settlement.
+With explicit operator approval, the Phase 5B GKE sandbox pilot can be applied with `scripts/phase5b-gke-apply-pilot.ps1`. It uses the separate `infra/terraform-gke/` Terraform root to create a single-zone, single-node Standard GKE sandbox cluster, binds the `kani-system/kani-validator` Kubernetes service account to the sandbox validator Google service account through Workload Identity, deploys the three validator pods, and pauses the Cloud Scheduler validator job so the GKE validators become the active sandbox validator path.
+
+The first live pilot evidence is captured in `config/phase5b-gke-apply-pilot-evidence.yaml`. The working lean profile is one `e2-medium` node; the earlier `e2-small` candidate did not leave enough allocatable memory for three validators plus GKE system pods.
+
+These checkpoints keep the runtime sandbox-only. They do not enable production ingress, onboard external institutions, allow real-value settlement, enable fiat deposit/redemption, or create production authorization.
 
 Run the Phase 5B planning checks from PowerShell:
 
@@ -214,6 +218,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-apply-readiness-g
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-operator-approval-packet.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-wrapup.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-validate.ps1
+```
+
+Deploy the approved Phase 5B GKE sandbox pilot from PowerShell:
+
+```powershell
+gcloud auth application-default login --project kani-network-sandbox
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-apply-pilot.ps1
+```
+
+If `gke-gcloud-auth-plugin` is missing, open an Administrator Google Cloud SDK Shell and run:
+
+```powershell
+gcloud components install gke-gcloud-auth-plugin --quiet
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:

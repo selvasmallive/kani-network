@@ -6,7 +6,8 @@ param(
     [string]$ValidatorJob = "kani-sandbox-validator",
     [string]$BaseUrl = "",
     [switch]$SkipIdentityToken,
-    [switch]$SkipValidatorJob
+    [switch]$SkipValidatorJob,
+    [switch]$WaitForContinuousValidators
 )
 
 $ErrorActionPreference = "Stop"
@@ -191,10 +192,26 @@ function Get-JsonProperty {
 
 function Invoke-ValidatorJob {
     if ($SkipValidatorJob) {
+        if ($WaitForContinuousValidators) {
+            Wait-KaniPendingTransactions
+        }
         return
     }
 
     & $gcloud run jobs execute $ValidatorJob --region $Region --project $ProjectId --wait | Out-Host
+}
+
+function Wait-KaniPendingTransactions {
+    $deadline = (Get-Date).AddSeconds(90)
+    do {
+        Start-Sleep -Milliseconds 750
+        $pending = Invoke-KaniJson -Method Get -Path "/v1/transactions/pending?limit=100&offset=0" -Headers $adminHeaders
+        if ([int64]$pending.count -eq 0) {
+            return
+        }
+    } while ((Get-Date) -lt $deadline)
+
+    throw "Timed out waiting for continuous validators to clear pending transactions"
 }
 
 function Get-SandboxApiKey {
@@ -388,7 +405,7 @@ if ([int64]$validatorReport.finalized_block_count -lt 1) {
 }
 
 [pscustomobject]@{
-    profile = "phase2-lean-no-gke"
+    profile = if ($WaitForContinuousValidators) { "phase5b-gke-continuous-validators" } else { "phase2-lean-no-gke" }
     base_url = $BaseUrl
     health = $health.status
     asset = $asset

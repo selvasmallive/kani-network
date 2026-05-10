@@ -1,0 +1,82 @@
+release_candidate: phase5b-gke-apply-pilot-rc1
+status: live_gke_sandbox_pilot_applied
+captured_at: 2026-05-10T01:39:00-04:00
+project_id: kani-network-sandbox
+region: northamerica-northeast1
+zone: northamerica-northeast1-a
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+cloud_run_api:
+  service_name: kani-sandbox-api
+  url: https://kani-sandbox-api-mlmnojda4a-nn.a.run.app
+  latest_ready_revision: kani-sandbox-api-00012-n46
+  image_tag: phase5b-20260510003938
+
+gke_cluster:
+  name: kani-sandbox-validators
+  status: RUNNING
+  mode: standard_zonal
+  node_count: 1
+  node_machine_type: e2-medium
+  kubernetes_version: 1.35.3-gke.1389000
+  workload_identity_namespace: kani-system
+  validator_service_account: kani-sandbox-validator@kani-network-sandbox.iam.gserviceaccount.com
+
+validator_runtime:
+  cloud_scheduler_validator_job_state: PAUSED
+  deployments:
+    validator-a:
+      ready: true
+      pod_ready: 2/2
+      restarts: 0
+      finalized_block_height_observed: 37
+    validator-b:
+      ready: true
+      pod_ready: 2/2
+      restarts: 0
+      finalized_block_height_observed: 38
+    validator-c:
+      ready: true
+      pod_ready: 2/2
+      restarts: 0
+      finalized_block_height_observed: 39
+
+smoke_test:
+  command: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1 -SkipValidatorJob -WaitForContinuousValidators
+  profile: phase5b-gke-continuous-validators
+  health: ok
+  asset: KCAD_TEST_20260510013842
+  mint_transaction: cc7be9f8-4345-4797-9d77-5060ed00167c
+  transfer_transaction: a3032948-7c16-4cfb-9aa9-df1d323845d2
+  iso_transaction: 846fe8a2-2965-4267-90a1-a4660b58c804
+  iso_status: ACSC
+  corp_a_balance: 875000
+  corp_b_balance: 125000
+  latest_block_height: 39
+  latest_block_validator: validator-c
+  latest_block_finalized_by:
+    - validator-c
+    - validator-a
+  pending_count: 0
+  audit_reports_verified: true
+  validator_report_finalized_blocks: 39
+
+validation:
+  cargo_test_workspace: passed
+  cargo_fmt_check: passed
+  terraform_phase2_fmt_check: passed
+  terraform_phase2_validate: passed
+  terraform_gke_fmt_check: passed
+  terraform_gke_validate: passed
+  terraform_gke_plan: no_changes
+  phase5b_static_validate: passed
+
+notes:
+  - The first e2-small pilot was too small for three validators plus GKE system pods.
+  - The working lean pilot remains single-node but uses e2-medium for enough allocatable memory.
+  - No real-value settlement, fiat redemption, custody, trading, or production authorization is enabled.

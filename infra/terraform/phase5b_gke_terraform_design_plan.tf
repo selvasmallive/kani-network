@@ -38,7 +38,7 @@ variable "phase5b_gke_design_zones" {
 variable "phase5b_gke_design_node_machine_type" {
   description = "Future GKE Standard node machine type for planning only."
   type        = string
-  default     = "e2-small"
+  default     = "e2-medium"
 }
 
 variable "phase5b_gke_design_node_min_count" {

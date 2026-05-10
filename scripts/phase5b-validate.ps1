@@ -279,7 +279,7 @@ foreach ($expected in @(
     "selected_design_defaults:",
     "selected_resource_profile: lean_sandbox_standard_zonal",
     "cluster_mode: standard_zonal",
-    "node_machine_type: e2-small",
+    "node_machine_type: e2-medium",
     "node_min_count: 1",
     "node_max_count: 3",
     "validator_replicas: 3",

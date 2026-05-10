@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: kani-validator
     app.kubernetes.io/instance: validator-a
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
 spec:
   replicas: 1
   selector:
@@ -19,9 +19,14 @@ spec:
         app.kubernetes.io/name: kani-validator
         app.kubernetes.io/instance: validator-a
         app.kubernetes.io/part-of: kani-network
-        kani.phase: "phase-2"
+        kani.phase: "phase-5b"
     spec:
+      automountServiceAccountToken: true
       serviceAccountName: kani-validator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kani-node
           image: kani-validator-image
@@ -36,14 +41,17 @@ spec:
               value: validator-a
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 96Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 250m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop: ["ALL"]
         - name: cloud-sql-proxy
@@ -65,11 +73,11 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 64Mi
             limits:
-              cpu: 250m
-              memory: 256Mi
+              cpu: 100m
+              memory: 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -79,7 +87,7 @@ metadata:
     app.kubernetes.io/name: kani-validator
     app.kubernetes.io/instance: validator-b
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
 spec:
   replicas: 1
   selector:
@@ -92,9 +100,14 @@ spec:
         app.kubernetes.io/name: kani-validator
         app.kubernetes.io/instance: validator-b
         app.kubernetes.io/part-of: kani-network
-        kani.phase: "phase-2"
+        kani.phase: "phase-5b"
     spec:
+      automountServiceAccountToken: true
       serviceAccountName: kani-validator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kani-node
           image: kani-validator-image
@@ -109,14 +122,17 @@ spec:
               value: validator-b
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 96Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 250m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop: ["ALL"]
         - name: cloud-sql-proxy
@@ -138,11 +154,11 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 64Mi
             limits:
-              cpu: 250m
-              memory: 256Mi
+              cpu: 100m
+              memory: 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -152,7 +168,7 @@ metadata:
     app.kubernetes.io/name: kani-validator
     app.kubernetes.io/instance: validator-c
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
 spec:
   replicas: 1
   selector:
@@ -165,9 +181,14 @@ spec:
         app.kubernetes.io/name: kani-validator
         app.kubernetes.io/instance: validator-c
         app.kubernetes.io/part-of: kani-network
-        kani.phase: "phase-2"
+        kani.phase: "phase-5b"
     spec:
+      automountServiceAccountToken: true
       serviceAccountName: kani-validator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kani-node
           image: kani-validator-image
@@ -182,14 +203,17 @@ spec:
               value: validator-c
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 96Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 250m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop: ["ALL"]
         - name: cloud-sql-proxy
@@ -211,8 +235,8 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 64Mi
             limits:
-              cpu: 250m
-              memory: 256Mi
+              cpu: 100m
+              memory: 128Mi

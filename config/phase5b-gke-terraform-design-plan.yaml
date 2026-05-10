@@ -33,7 +33,7 @@ selected_design_defaults:
     - northamerica-northeast1-a
   cluster_name: kani-sandbox-gke-validator
   node_pool_name: kani-sandbox-validator-pool
-  node_machine_type: e2-small
+  node_machine_type: e2-medium
   node_min_count: 1
   node_max_count: 3
   boot_disk_gb_per_node: 30

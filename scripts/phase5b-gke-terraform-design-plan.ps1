@@ -85,7 +85,7 @@ foreach ($expected in @(
     "cluster_mode: standard_zonal",
     "region: northamerica-northeast1",
     "cluster_name: kani-sandbox-gke-validator",
-    "node_machine_type: e2-small",
+    "node_machine_type: e2-medium",
     "node_min_count: 1",
     "node_max_count: 3",
     "validator_replicas: 3",
