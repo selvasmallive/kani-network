@@ -48,7 +48,7 @@ live_resources:
     validator_job_state: PAUSED
   budget_guardrail:
     budget_name: kani-sandbox-monthly-budget
-    amount_cad: 50
+    amount_cad: 200
     thresholds:
       - 0.5
       - 0.8
@@ -92,8 +92,8 @@ free_trial_estimate:
   note: Trial expiry is still 90 days even if estimated credits would last longer.
 
 recommendation:
-  short_observation_window: 24-72 hours
-  longer_run_decision: Keep running if active validator testing continues and CAD 50 budget alerts are acceptable.
-  budget_recommendation: Consider CAD 100 monthly guardrail for a full-month GKE pilot, or keep CAD 50 as an early-warning brake.
+  approved_observation_window: 2026-05-10 through 2026-06-10
+  longer_run_decision: Keep GKE running for one full month for active validator testing.
+  budget_recommendation: Use a CAD 200 monthly guardrail for the full-month GKE pilot.
   teardown_recommendation: Destroy infra/terraform-gke when validator testing is idle.
   artifact_registry_recommendation: Add cleanup or retention before the next few image builds.
