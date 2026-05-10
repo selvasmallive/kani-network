@@ -205,6 +205,8 @@ With explicit operator approval, the Phase 5B GKE sandbox pilot can be applied w
 
 The first live pilot evidence is captured in `config/phase5b-gke-apply-pilot-evidence.yaml`. The working lean profile is one `e2-medium` node; the earlier `e2-small` candidate did not leave enough allocatable memory for three validators plus GKE system pods.
 
+The live pilot cost estimate is captured in `PHASE5B_GKE_RUNTIME_COST_ESTIMATE.md` and `config/phase5b-gke-runtime-cost-estimate.yaml`. At the current one-node GKE plus Cloud SQL shape, the baseline active-pilot run rate is estimated around `$52.51 USD/month`, or about `CAD $71.73/month`, before taxes and unrelated project usage.
+
 These checkpoints keep the runtime sandbox-only. They do not enable production ingress, onboard external institutions, allow real-value settlement, enable fiat deposit/redemption, or create production authorization.
 
 Run the Phase 5B planning checks from PowerShell:

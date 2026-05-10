@@ -1,0 +1,99 @@
+release_candidate: phase5b-gke-runtime-cost-estimate-rc1
+status: planning_estimate_ready
+captured_at: 2026-05-10T02:20:00-04:00
+project_id: kani-network-sandbox
+region: northamerica-northeast1
+zone: northamerica-northeast1-a
+estimate_currency: USD
+cad_conversion:
+  rate_source: Forbes Advisor USD to CAD, captured 2026-05-10
+  usd_to_cad: 1.365982
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+live_resources:
+  gke_cluster:
+    name: kani-sandbox-validators
+    mode: standard_zonal
+    node_count: 1
+    node_machine_type: e2-medium
+    node_disk_type: pd-standard
+    node_disk_size_gb: 20
+    provisioning_model: on-demand
+  cloud_sql:
+    instance_name: kani-sandbox-ledger
+    database_version: POSTGRES_16
+    tier: db-g1-small
+    availability_type: ZONAL
+    disk_type: PD_HDD
+    disk_size_gb: 10
+    backups_enabled: true
+    pitr_enabled: true
+  cloud_run_api:
+    service_name: kani-sandbox-api
+    min_scale: 0
+    max_scale: 1
+    cpu_limit: 1
+    memory_limit: 512Mi
+  artifact_registry:
+    repository: kani
+    observed_image_count: 12
+    observed_total_gib: 0.496
+    billable_gib_after_free_tier: 0
+  scheduler:
+    validator_job_state: PAUSED
+  budget_guardrail:
+    budget_name: kani-sandbox-monthly-budget
+    amount_cad: 50
+    thresholds:
+      - 0.5
+      - 0.8
+      - 1.0
+
+pricing_inputs:
+  hours_per_month: 730
+  gke_cluster_management_fee_usd_per_hour: 0.10
+  gke_zonal_free_tier_credit_usd_per_month: 74.40
+  e2_medium_usd_per_hour: 0.03350571
+  gke_node_pd_standard_usd_per_gb_month: 0.04
+  cloud_sql_db_g1_small_usd_per_hour: 0.035
+  cloud_sql_hdd_usd_per_gib_hour: 0.000123288
+  cloud_sql_backup_usd_per_gib_hour: 0.000109589
+  artifact_registry_free_gb: 0.5
+  artifact_registry_usd_per_gb_month_after_free_tier: 0.10
+
+monthly_estimate:
+  gke_cluster_management_gross_usd: 73.00
+  gke_cluster_management_expected_net_usd: 0.00
+  gke_node_vm_usd: 24.46
+  gke_node_boot_disk_usd: 0.80
+  cloud_sql_instance_usd: 25.55
+  cloud_sql_data_disk_usd: 0.90
+  cloud_sql_backup_placeholder_usd: 0.80
+  cloud_run_api_low_traffic_usd_range: 0-2
+  artifact_registry_storage_usd: 0.00
+  observability_low_traffic_usd_range: 0-10
+  baseline_total_usd: 52.51
+  baseline_total_cad: 71.73
+  cushioned_total_usd_range: 55-65
+  cushioned_total_cad_range: 75-89
+  additional_monthly_if_gke_free_tier_unavailable_usd: 73.00
+  additional_monthly_if_gke_free_tier_unavailable_cad: 99.72
+
+free_trial_estimate:
+  reported_trial_credit_usd: 300
+  baseline_months_covered_by_credits: 5.7
+  baseline_90_day_credit_burn_usd: 157.53
+  baseline_90_day_credit_burn_cad: 215.18
+  note: Trial expiry is still 90 days even if estimated credits would last longer.
+
+recommendation:
+  short_observation_window: 24-72 hours
+  longer_run_decision: Keep running if active validator testing continues and CAD 50 budget alerts are acceptable.
+  budget_recommendation: Consider CAD 100 monthly guardrail for a full-month GKE pilot, or keep CAD 50 as an early-warning brake.
+  teardown_recommendation: Destroy infra/terraform-gke when validator testing is idle.
+  artifact_registry_recommendation: Add cleanup or retention before the next few image builds.
