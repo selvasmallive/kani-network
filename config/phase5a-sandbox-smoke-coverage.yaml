@@ -1,0 +1,257 @@
+release_candidate: phase5a-sandbox-smoke-coverage-rc1
+status: sandbox_smoke_coverage_checkpoint_ready
+inherits_from: phase5a-alert-response-recovery-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  cloud_run_job_execution_approved_by_this_checkpoint: false
+  secret_rotation_approved_by_this_checkpoint: false
+  cloud_smoke_execution_approved_by_this_checkpoint: false
+  local_smoke_execution_approved_by_this_checkpoint: false
+  live_sandbox_smoke_execution_enabled: false
+  destructive_smoke_reset_enabled: false
+  external_endpoint_smoke_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  live_recovery_drills_enabled: false
+  production_replay_enabled: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+
+validator_model:
+  runtime: cloud_run_job_plus_cloud_scheduler
+  run_mode: sweep
+  scheduler_cadence: "*/15 * * * *"
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+smoke_scripts:
+  local_smoke: scripts/smoke-test.ps1
+  cloud_smoke: scripts/phase2-cloud-smoke.ps1
+  security_smoke: scripts/phase2-security-smoke.ps1
+
+required_smoke_controls:
+  runtime_health:
+    expected_evidence: health_status_ok
+  sandbox_mint:
+    expected_evidence: treasury_mint_to_corp_a
+  payment_transfer:
+    expected_evidence: corp_a_to_corp_b_payment_accepted
+  validator_sweep:
+    expected_evidence: validator_job_or_local_sweep_finalized_activity
+  pending_queue_clearance:
+    expected_evidence: pending_count_zero_or_explained
+  poa_finality:
+    expected_evidence: latest_block_finalized_by_at_least_two_validators
+  balance_reconciliation:
+    expected_evidence: corp_a_and_corp_b_balances_match_expected_math
+  issued_supply_reconciliation:
+    expected_evidence: issued_supply_matches_mint_amount
+  iso_pacs008_submission:
+    expected_evidence: pacs008_maps_to_payment
+  iso_pacs002_status:
+    expected_evidence: pacs002_reports_acsc
+  iso_camt053_statement:
+    expected_evidence: camt053_contains_debit_and_credit_entries
+  compliance_self_transfer_rejection:
+    expected_evidence: no_self_transfer_rejection_recorded
+  settlement_reporting:
+    expected_evidence: settlement_summary_matches_smoke_amounts
+  compliance_reporting:
+    expected_evidence: compliance_decision_report_includes_rejection
+  validator_finality_reporting:
+    expected_evidence: validator_finality_report_matches_two_of_three
+  audit_event_reporting:
+    expected_evidence: audit_events_include_smoke_activity
+
+evidence_sources:
+  local_smoke_script: scripts/smoke-test.ps1
+  cloud_smoke_script: scripts/phase2-cloud-smoke.ps1
+  security_smoke_script: scripts/phase2-security-smoke.ps1
+  health_endpoint: GET /health
+  sandbox_mint_endpoint: POST /v1/sandbox/mint
+  payments_endpoint: POST /v1/payments
+  pacs008_endpoint: POST /v1/iso20022/pacs008
+  pacs002_endpoint: GET /v1/iso20022/pacs002/{payment_id}
+  camt053_endpoint: GET /v1/iso20022/camt053/accounts/CORP_A?asset={asset}&limit=20&offset=0
+  pending_transactions: GET /v1/transactions/pending?limit=100&offset=0
+  latest_block: GET /v1/blocks/latest
+  corp_a_balance: GET /v1/accounts/CORP_A/balances/{asset}
+  corp_b_balance: GET /v1/accounts/CORP_B/balances/{asset}
+  issued_supply: GET /v1/assets/{asset}/issued
+  settlement_summary: GET /v1/reports/settlement-summary?limit=500&offset=0
+  compliance_decisions: GET /v1/reports/compliance-decisions?limit=500&offset=0
+  validator_finality: GET /v1/reports/validator-finality?limit=500&offset=0
+  audit_events: GET /v1/audit-events?limit=500&offset=0
+  cloud_run_service_execution_state: Cloud Run service execution state
+  cloud_run_validator_job_execution_state: Cloud Run validator job execution state
+  cloud_scheduler_job_state: Cloud Scheduler job state
+  prior_operator_evidence_pack: phase5a-operator-evidence-packs-rc1
+
+required_gates_before_smoke_execution:
+  sandbox_only_purpose_recorded: blocked
+  operator_assigned: blocked
+  reviewer_assigned: blocked
+  evidence_pack_location_selected: blocked
+  base_url_confirmed: blocked
+  sandbox_api_keys_confirmed_available: blocked
+  test_asset_prefix_confirmed: blocked
+  validator_run_mode_confirmed: blocked
+  expected_balance_math_documented: blocked
+  expected_iso_evidence_documented: blocked
+  expected_report_evidence_documented: blocked
+  no_real_value_capability_enabled: blocked
+
+expected_outcomes:
+  health_status: ok
+  test_asset_prefixes:
+    - KCAD_TEST
+    - KUSD_TEST
+  mint_amount: 1000000
+  direct_payment_amount: 100000
+  iso_payment_amount: 25000
+  corp_a_final_balance: 875000
+  corp_b_final_balance: 125000
+  pending_count: 0
+  required_finality_votes: 2
+  settlement_minted_amount: 1000000
+  settlement_transfer_amount: 125000
+  compliance_rule_id: NO_SELF_TRANSFER
+  pacs002_status: ACSC
+  camt053_required_indicators:
+    - CRDT
+    - DBIT
+
+evidence_pack_schema:
+  required_fields:
+    - pack_id
+    - pack_type
+    - release_candidate
+    - environment
+    - real_value
+    - redeemable
+    - operator
+    - reviewer
+    - started_at
+    - completed_at
+    - base_url
+    - project_id
+    - region
+    - smoke_script
+    - smoke_mode
+    - asset
+    - health_result
+    - mint_result
+    - transfer_result
+    - iso_result
+    - compliance_rejection_result
+    - validator_result
+    - pending_result
+    - balance_result
+    - report_result
+    - audit_result
+    - finality_result
+    - residual_risk
+    - follow_up_actions
+    - redaction_attestation
+  forbidden_fields:
+    - api_keys
+    - bearer_tokens
+    - secret_manager_values
+    - raw_private_keys
+    - signing_material
+    - customer_data
+    - real_value_records
+    - database_passwords
+
+non_enablement:
+  live_sandbox_smoke_execution_enabled: false
+  cloud_smoke_execution_approved_by_this_checkpoint: false
+  local_smoke_execution_approved_by_this_checkpoint: false
+  destructive_smoke_reset_enabled: false
+  external_endpoint_smoke_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  cloud_run_job_execution_approved_by_this_checkpoint: false
+  secret_rotation_approved_by_this_checkpoint: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  live_recovery_drills_enabled: false
+  production_replay_enabled: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_sandbox_smoke_coverage_checked_in: true
+  structured_phase5a_sandbox_smoke_coverage_config_exists: true
+  static_phase5a_sandbox_smoke_coverage_validator_required: true
+  aggregate_phase5a_validator_includes_sandbox_smoke_coverage: true
+  phase5a_alert_response_recovery_validator_required: true
+  phase5a_operator_evidence_pack_validator_required: true
+  phase5a_ledger_replay_validator_required: true
+  phase5a_failure_retry_validator_required: true
+  phase5a_scheduler_runbooks_validator_required: true
+  phase5a_reconciliation_validator_required: true
+  phase5a_hardening_plan_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_live_sandbox_smoke_execution_enabled: true
+  no_cloud_smoke_execution_approved: true
+  no_local_smoke_execution_approved: true
+  no_scheduler_changes_enabled: true
+  no_cloud_run_job_execution_approved: true
+  no_secret_rotation_approved: true
+  no_failure_injection_enabled: true
+  no_live_recovery_drills_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true

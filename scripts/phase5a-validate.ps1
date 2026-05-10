@@ -8,6 +8,7 @@ $requiredFiles = @(
     "PHASE5A_LEDGER_REPLAY_FINALITY.md",
     "PHASE5A_OPERATOR_EVIDENCE_PACKS.md",
     "PHASE5A_ALERT_RESPONSE_RECOVERY.md",
+    "PHASE5A_SANDBOX_SMOKE_COVERAGE.md",
     "config/phase5a-validator-hardening-plan.yaml",
     "config/phase5a-validator-reconciliation.yaml",
     "config/phase5a-scheduler-runbooks.yaml",
@@ -15,6 +16,7 @@ $requiredFiles = @(
     "config/phase5a-ledger-replay-finality.yaml",
     "config/phase5a-operator-evidence-packs.yaml",
     "config/phase5a-alert-response-recovery.yaml",
+    "config/phase5a-sandbox-smoke-coverage.yaml",
     "scripts/phase5a-validator-hardening-plan.ps1",
     "scripts/phase5a-validator-reconciliation.ps1",
     "scripts/phase5a-scheduler-runbooks.ps1",
@@ -22,6 +24,7 @@ $requiredFiles = @(
     "scripts/phase5a-ledger-replay-finality.ps1",
     "scripts/phase5a-operator-evidence-packs.ps1",
     "scripts/phase5a-alert-response-recovery.ps1",
+    "scripts/phase5a-sandbox-smoke-coverage.ps1",
     "PHASE4_WRAPUP.md",
     "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
@@ -242,6 +245,47 @@ foreach ($expected in @(
 )) {
     if ($alertResponseRecovery -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5A alert response and recovery content: $expected"
+    }
+}
+
+$sandboxSmokeCoverage = Get-Content "PHASE5A_SANDBOX_SMOKE_COVERAGE.md" -Raw
+foreach ($expected in @(
+    "Status: sandbox smoke coverage checkpoint ready",
+    "phase5a-sandbox-smoke-coverage-rc1",
+    "complete_sandbox_smoke_tests",
+    "phase5a-alert-response-recovery-rc1",
+    "phase2-lean-no-gke",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Coverage Objective",
+    "Required Smoke Controls",
+    "runtime_health",
+    "sandbox_mint",
+    "payment_transfer",
+    "validator_sweep",
+    "pending_queue_clearance",
+    "poa_finality",
+    "balance_reconciliation",
+    "issued_supply_reconciliation",
+    "iso_pacs008_submission",
+    "iso_pacs002_status",
+    "iso_camt053_statement",
+    "compliance_self_transfer_rejection",
+    "settlement_reporting",
+    "compliance_reporting",
+    "validator_finality_reporting",
+    "audit_event_reporting",
+    "Evidence Sources",
+    "scripts/smoke-test.ps1",
+    "scripts/phase2-cloud-smoke.ps1",
+    "scripts/phase2-security-smoke.ps1",
+    "Execution Gates",
+    "Expected Outcomes",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($sandboxSmokeCoverage -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A sandbox smoke coverage content: $expected"
     }
 }
 
@@ -532,6 +576,101 @@ foreach ($expected in @(
     }
 }
 
+$sandboxSmokeConfig = Get-Content "config/phase5a-sandbox-smoke-coverage.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5a-sandbox-smoke-coverage-rc1",
+    "status: sandbox_smoke_coverage_checkpoint_ready",
+    "inherits_from: phase5a-alert-response-recovery-rc1",
+    "track: phase5a-no-gke-validator-hardening",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_phase: phase5b-gke-validator-ops",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "scheduler_changes_enabled: false",
+    "automatic_scheduler_mutation_enabled: false",
+    "manual_scheduler_action_approved_by_this_checkpoint: false",
+    "cloud_run_job_execution_approved_by_this_checkpoint: false",
+    "secret_rotation_approved_by_this_checkpoint: false",
+    "cloud_smoke_execution_approved_by_this_checkpoint: false",
+    "local_smoke_execution_approved_by_this_checkpoint: false",
+    "live_sandbox_smoke_execution_enabled: false",
+    "destructive_smoke_reset_enabled: false",
+    "external_endpoint_smoke_enabled: false",
+    "failure_injection_enabled: false",
+    "live_failure_drills_enabled: false",
+    "live_retry_drills_enabled: false",
+    "live_recovery_drills_enabled: false",
+    "runtime: cloud_run_job_plus_cloud_scheduler",
+    "run_mode: sweep",
+    'scheduler_cadence: "*/15 * * * *"',
+    "consensus: phase1-poa",
+    "required_finality_votes: 2",
+    "validator_count: 3",
+    "validator-a",
+    "validator-b",
+    "validator-c",
+    "smoke_scripts:",
+    "local_smoke: scripts/smoke-test.ps1",
+    "cloud_smoke: scripts/phase2-cloud-smoke.ps1",
+    "security_smoke: scripts/phase2-security-smoke.ps1",
+    "required_smoke_controls:",
+    "runtime_health:",
+    "sandbox_mint:",
+    "payment_transfer:",
+    "validator_sweep:",
+    "pending_queue_clearance:",
+    "poa_finality:",
+    "balance_reconciliation:",
+    "issued_supply_reconciliation:",
+    "iso_pacs008_submission:",
+    "iso_pacs002_status:",
+    "iso_camt053_statement:",
+    "compliance_self_transfer_rejection:",
+    "settlement_reporting:",
+    "compliance_reporting:",
+    "validator_finality_reporting:",
+    "audit_event_reporting:",
+    "evidence_sources:",
+    "health_endpoint: GET /health",
+    "sandbox_mint_endpoint: POST /v1/sandbox/mint",
+    "payments_endpoint: POST /v1/payments",
+    "pacs008_endpoint: POST /v1/iso20022/pacs008",
+    'pending_transactions: GET /v1/transactions/pending?limit=100&offset=0',
+    'settlement_summary: GET /v1/reports/settlement-summary?limit=500&offset=0',
+    "required_gates_before_smoke_execution:",
+    "sandbox_only_purpose_recorded: blocked",
+    "operator_assigned: blocked",
+    "reviewer_assigned: blocked",
+    "evidence_pack_location_selected: blocked",
+    "base_url_confirmed: blocked",
+    "sandbox_api_keys_confirmed_available: blocked",
+    "test_asset_prefix_confirmed: blocked",
+    "validator_run_mode_confirmed: blocked",
+    "expected_balance_math_documented: blocked",
+    "expected_iso_evidence_documented: blocked",
+    "expected_report_evidence_documented: blocked",
+    "no_real_value_capability_enabled: blocked",
+    "expected_outcomes:",
+    "mint_amount: 1000000",
+    "direct_payment_amount: 100000",
+    "iso_payment_amount: 25000",
+    "corp_a_final_balance: 875000",
+    "corp_b_final_balance: 125000",
+    "pacs002_status: ACSC",
+    "phase5a_sandbox_smoke_coverage_checked_in: true",
+    "structured_phase5a_sandbox_smoke_coverage_config_exists: true",
+    "static_phase5a_sandbox_smoke_coverage_validator_required: true",
+    "aggregate_phase5a_validator_includes_sandbox_smoke_coverage: true"
+)) {
+    if ($sandboxSmokeConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A sandbox smoke coverage config content: $expected"
+    }
+}
+
 $phase4Wrapup = Get-Content "config/phase4-wrapup.yaml" -Raw
 foreach ($expected in @(
     "next_phase: phase5a-no-gke-validator-hardening",
@@ -564,6 +703,11 @@ foreach ($forbidden in @(
     "manual_scheduler_action_approved_by_this_checkpoint",
     "cloud_run_job_execution_approved_by_this_checkpoint",
     "secret_rotation_approved_by_this_checkpoint",
+    "cloud_smoke_execution_approved_by_this_checkpoint",
+    "local_smoke_execution_approved_by_this_checkpoint",
+    "live_sandbox_smoke_execution_enabled",
+    "destructive_smoke_reset_enabled",
+    "external_endpoint_smoke_enabled",
     "failure_injection_enabled",
     "live_failure_drills_enabled",
     "live_retry_drills_enabled",
@@ -602,6 +746,9 @@ foreach ($forbidden in @(
     }
     if ($alertResponseConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5A aggregate validator must not allow $forbidden in alert response and recovery"
+    }
+    if ($sandboxSmokeConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5A aggregate validator must not allow $forbidden in sandbox smoke coverage"
     }
 }
 
@@ -646,6 +793,11 @@ if ($operatorEvidenceValidatorCount -ne 3) {
 $alertResponseValidatorCount = ([regex]::Matches($alertResponseConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
 if ($alertResponseValidatorCount -ne 3) {
     throw "Expected exactly 3 Phase 5A alert response validators, found $alertResponseValidatorCount"
+}
+
+$sandboxSmokeValidatorCount = ([regex]::Matches($sandboxSmokeConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
+if ($sandboxSmokeValidatorCount -ne 3) {
+    throw "Expected exactly 3 Phase 5A sandbox smoke validators, found $sandboxSmokeValidatorCount"
 }
 
 $workstreamCount = ([regex]::Matches($config, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
@@ -757,6 +909,46 @@ if ($alertResponseRecoveryGateCount -lt 11) {
     throw "Expected at least 11 Phase 5A alert response recovery gates, found $alertResponseRecoveryGateCount"
 }
 
+$requiredSmokeControls = @(
+    "runtime_health",
+    "sandbox_mint",
+    "payment_transfer",
+    "validator_sweep",
+    "pending_queue_clearance",
+    "poa_finality",
+    "balance_reconciliation",
+    "issued_supply_reconciliation",
+    "iso_pacs008_submission",
+    "iso_pacs002_status",
+    "iso_camt053_statement",
+    "compliance_self_transfer_rejection",
+    "settlement_reporting",
+    "compliance_reporting",
+    "validator_finality_reporting",
+    "audit_event_reporting"
+)
+
+foreach ($control in $requiredSmokeControls) {
+    if ($sandboxSmokeConfig -notmatch "(?m)^\s{2}$($control):\s*$") {
+        throw "Missing Phase 5A sandbox smoke control: $control"
+    }
+}
+
+$sandboxSmokeEvidenceSourceCount = ([regex]::Matches($sandboxSmokeConfig, "(?m)^\s{2}[a-z0-9_]+:\s+(GET|POST|scripts|Cloud|phase5a-)")).Count
+if ($sandboxSmokeEvidenceSourceCount -lt 22) {
+    throw "Expected at least 22 Phase 5A sandbox smoke evidence sources, found $sandboxSmokeEvidenceSourceCount"
+}
+
+$sandboxSmokeExecutionGateCount = ([regex]::Matches($sandboxSmokeConfig, ":\s+blocked")).Count
+if ($sandboxSmokeExecutionGateCount -lt 12) {
+    throw "Expected at least 12 Phase 5A sandbox smoke execution gates, found $sandboxSmokeExecutionGateCount"
+}
+
+$sandboxSmokeEvidenceFieldCount = ([regex]::Matches($sandboxSmokeConfig, "(?m)^\s{4}- [a-z0-9_]+\s*$")).Count
+if ($sandboxSmokeEvidenceFieldCount -lt 30) {
+    throw "Expected at least 30 Phase 5A sandbox smoke evidence fields, found $sandboxSmokeEvidenceFieldCount"
+}
+
 $blockedGateCount = ([regex]::Matches($config, ":\s+blocked")).Count
 if ($blockedGateCount -lt 7) {
     throw "Expected at least 7 blocked Phase 5A live-drill gates, found $blockedGateCount"
@@ -774,6 +966,7 @@ if ($blockedGateCount -lt 7) {
     ledger_replay_finality_rc1 = $true
     operator_evidence_packs_rc1 = $true
     alert_response_recovery_rc1 = $true
+    sandbox_smoke_coverage_rc1 = $true
     evidence_source_count = $evidenceSourceCount
     reconciliation_check_count = 10
     scheduler_approval_gate_count = $schedulerApprovalGateCount
@@ -790,6 +983,10 @@ if ($blockedGateCount -lt 7) {
     alert_response_stage_count = 8
     alert_response_evidence_source_count = $alertResponseEvidenceSourceCount
     alert_response_recovery_gate_count = $alertResponseRecoveryGateCount
+    sandbox_smoke_control_count = 16
+    sandbox_smoke_evidence_source_count = $sandboxSmokeEvidenceSourceCount
+    sandbox_smoke_execution_gate_count = $sandboxSmokeExecutionGateCount
+    sandbox_smoke_evidence_field_count = $sandboxSmokeEvidenceFieldCount
     blocked_live_drill_gate_count = $blockedGateCount
     active_runtime_baseline = "phase2-lean-no-gke"
     gke_required = $false
@@ -801,6 +998,9 @@ if ($blockedGateCount -lt 7) {
     live_failure_drills_enabled = $false
     live_retry_drills_enabled = $false
     live_recovery_drills_enabled = $false
+    live_sandbox_smoke_execution_enabled = $false
+    cloud_smoke_execution_approved_by_this_checkpoint = $false
+    local_smoke_execution_approved_by_this_checkpoint = $false
     production_replay_enabled = $false
     external_evidence_export_enabled = $false
     production_approval_via_evidence_pack_enabled = $false

@@ -144,6 +144,8 @@ The fifth Phase 5A implementation checkpoint is `phase5a-operator-evidence-packs
 
 The sixth Phase 5A implementation checkpoint is `phase5a-alert-response-recovery-rc1`. `PHASE5A_ALERT_RESPONSE_RECOVERY.md`, `config/phase5a-alert-response-recovery.yaml`, and `scripts/phase5a-alert-response-recovery.ps1` define sandbox alert classes, response stages, evidence sources, recovery action boundaries, approval gates, and recovery evidence requirements without approving live recovery drills or mutating recovery actions.
 
+The seventh Phase 5A implementation checkpoint is `phase5a-sandbox-smoke-coverage-rc1`. `PHASE5A_SANDBOX_SMOKE_COVERAGE.md`, `config/phase5a-sandbox-smoke-coverage.yaml`, and `scripts/phase5a-sandbox-smoke-coverage.ps1` define required sandbox smoke controls across API health, mint, transfer, validator sweep, PoA finality, balances, ISO 20022, compliance, reports, and audit evidence without executing or approving live smoke tests.
+
 This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
 
 ```text
@@ -174,6 +176,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-failure-retry-drills.
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-ledger-replay-finality.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-operator-evidence-packs.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-alert-response-recovery.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-sandbox-smoke-coverage.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 ```
 
