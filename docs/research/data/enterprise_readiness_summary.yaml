@@ -1,0 +1,77 @@
+release_candidate: enterprise-sandbox-evidence-pack-rc1
+status: sandbox_enterprise_readiness_evidence_pack_ready
+captured_from_evidence_through: 2026-05-10
+
+positioning:
+  sandbox_mvp: implemented_and_running
+  enterprise_ready_sandbox_evidence_pack: ready_for_review
+  production_ready_network: false
+  real_value_settlement: false
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  external_institution_onboarding_enabled: false
+  fiat_deposit_redemption_enabled: false
+  production_authorization_enabled: false
+
+proof_snapshot:
+  cloud_run_api: kani-sandbox-api
+  cloud_sql_instance: kani-sandbox-ledger
+  gke_cluster: kani-sandbox-validators
+  gke_node_count: 1
+  gke_node_machine_type: e2-medium
+  validator_pods_running: 3
+  validator_restarts: 0
+  legacy_scheduler_state: PAUSED
+  budget_guardrail_cad: 200
+  latest_block_height: 42
+  pending_count: 0
+  iso_status: ACSC
+
+enterprise_readiness_domains:
+  ready:
+    - sandbox_boundary
+    - ledger_integrity
+    - payment_lifecycle
+    - iso20022_sandbox_flow
+    - compliance_gating
+    - validator_finality
+    - cloud_runtime
+    - cloud_sql_recovery_configuration
+    - secret_manager_configuration
+    - audit_reporting
+    - budget_guardrail
+  partial:
+    - formal_security_review
+    - disaster_recovery_drill
+    - recurring_runtime_observation
+    - operator_signoff_pack
+  design_only:
+    - hsm_kms_production_signing
+    - production_ingress_mtls_oidc_cloud_armor
+    - production_bft_validator_network
+  blocked:
+    - real_value_settlement
+    - external_institution_onboarding
+    - fiat_deposit_redemption
+    - customer_custody
+
+next_enterprise_hardening_steps:
+  - first_billing_review_2026_05_11_to_2026_05_13
+  - weekly_gke_runtime_observation
+  - validator_restart_failure_drill
+  - cloud_sql_restore_to_separate_target_drill
+  - sandbox_key_rotation_evidence
+  - formal_security_review_register
+  - operator_and_reviewer_signoff
+  - one_month_observation_closeout_2026_06_10
+
+presentation_files:
+  deck: docs/presentations/kani_enterprise_sandbox_proof_deck.pptx
+  report: docs/research/KANI_ENTERPRISE_SANDBOX_READINESS_REPORT.md
+  controls_csv: docs/research/data/enterprise_readiness_controls.csv
+  metrics_csv: docs/research/data/enterprise_readiness_metrics.csv
+  evidence_csv: docs/research/data/enterprise_evidence_index.csv
+
