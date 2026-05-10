@@ -1,0 +1,182 @@
+release_candidate: phase5a-scheduler-runbooks-rc1
+status: scheduler_runbooks_checkpoint_ready
+inherits_from: phase5a-validator-reconciliation-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  live_failure_drills_enabled: false
+
+scheduler_model:
+  scheduler_job: kani-sandbox-validator-scheduler
+  validator_job: kani-sandbox-validator
+  project_id: kani-network-sandbox
+  region: northamerica-northeast1
+  scheduler_location: northamerica-northeast1
+  cadence: "*/15 * * * *"
+  validator_run_mode: sweep
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+required_approvals_before_manual_scheduler_action:
+  sandbox_only_purpose_recorded: blocked
+  operator_identified: blocked
+  approver_identified: blocked
+  change_window_approved: blocked
+  reason_recorded: blocked
+  scheduler_state_captured: blocked
+  validator_job_state_captured: blocked
+  pending_transaction_count_captured: blocked
+  latest_block_and_finality_captured: blocked
+  rollback_path_identified: blocked
+  real_value_capability_confirmed_disabled: blocked
+
+runbook_steps:
+  pre_pause_checks:
+    status: documented
+    evidence:
+      - scheduler_state
+      - validator_job_state
+      - health
+      - pending_transactions
+      - latest_block
+      - validator_finality
+      - validators
+  pause_scheduler:
+    status: documented
+    requires_approved_change_window: true
+    command_template: gcloud scheduler jobs pause kani-sandbox-validator-scheduler --location northamerica-northeast1 --project kani-network-sandbox
+  manual_validator_execution:
+    status: documented
+    requires_explicit_approval: true
+    command_template: gcloud run jobs execute kani-sandbox-validator --region northamerica-northeast1 --project kani-network-sandbox --wait
+  resume_scheduler:
+    status: documented
+    requires_reconciliation_or_rollback_approval: true
+    command_template: gcloud scheduler jobs resume kani-sandbox-validator-scheduler --location northamerica-northeast1 --project kani-network-sandbox
+  post_resume_reconciliation:
+    status: documented
+    requires_phase5a_validator_reconciliation: true
+    evidence:
+      - scheduler_state_after
+      - validator_job_state_after
+      - pending_transactions_after
+      - latest_block_after
+      - validator_finality_after
+      - audit_events_after
+  rollback_and_escalation:
+    status: documented
+    escalation_roles:
+      - sandbox_technical_operator
+      - settlement_operator
+    prohibited_actions:
+      - create_new_cloud_resources
+      - terraform_apply
+      - production_ingress_change
+      - hsm_kms_signing_change
+      - gke_setting_change
+  evidence_pack:
+    status: documented
+    required_fields:
+      - run_id
+      - operator
+      - approver
+      - change_window
+      - reason
+      - scheduler_state_before
+      - validator_job_state_before
+      - pending_count_before
+      - latest_block_before
+      - validator_finality_before
+      - pause_command_output
+      - manual_execute_command_output
+      - resume_command_output
+      - scheduler_state_after
+      - validator_job_state_after
+      - pending_count_after
+      - latest_block_after
+      - validator_finality_after
+      - reconciliation_result
+      - rollback_required
+      - incident_reference
+    forbidden_fields:
+      - api_keys
+      - bearer_tokens
+      - secret_manager_values
+      - raw_private_keys
+      - customer_data
+      - real_value_records
+
+command_templates:
+  describe_scheduler: gcloud scheduler jobs describe kani-sandbox-validator-scheduler --location northamerica-northeast1 --project kani-network-sandbox
+  describe_validator_job: gcloud run jobs describe kani-sandbox-validator --region northamerica-northeast1 --project kani-network-sandbox
+  pause_scheduler: gcloud scheduler jobs pause kani-sandbox-validator-scheduler --location northamerica-northeast1 --project kani-network-sandbox
+  execute_validator_job: gcloud run jobs execute kani-sandbox-validator --region northamerica-northeast1 --project kani-network-sandbox --wait
+  resume_scheduler: gcloud scheduler jobs resume kani-sandbox-validator-scheduler --location northamerica-northeast1 --project kani-network-sandbox
+
+non_enablement:
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  live_failure_drills_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_scheduler_runbooks_checked_in: true
+  structured_phase5a_scheduler_config_exists: true
+  static_phase5a_scheduler_validator_required: true
+  aggregate_phase5a_validator_includes_scheduler_runbooks: true
+  phase5a_reconciliation_validator_required: true
+  phase5a_hardening_plan_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_scheduler_changes_enabled: true
+  no_automatic_scheduler_mutation_enabled: true
+  no_live_failure_drills_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true
