@@ -1,0 +1,44 @@
+release_candidate: phase5b-gke-one-month-run-approval-rc1
+status: approved_for_one_month_sandbox_observation
+approved_at: 2026-05-10T00:00:00-04:00
+planned_start: 2026-05-10
+planned_end: 2026-06-10
+project_id: kani-network-sandbox
+region: northamerica-northeast1
+zone: northamerica-northeast1-a
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+gke_pilot:
+  cluster_name: kani-sandbox-validators
+  node_count: 1
+  node_machine_type: e2-medium
+  validator_deployments:
+    - validator-a
+    - validator-b
+    - validator-c
+  active_validator_path: gke_continuous_validators
+  legacy_cloud_scheduler_validator_job: paused
+
+budget_guardrail:
+  amount_cad: 200
+  alert_thresholds:
+    - percent: 50
+      amount_cad: 100
+    - percent: 80
+      amount_cad: 160
+    - percent: 100
+      amount_cad: 200
+  hard_cap: false
+  cost_guard_action: pause_legacy_validator_scheduler
+  cost_guard_limitation: does_not_stop_gke_cluster
+
+operator_notes:
+  - The CAD 200 budget is an alerting guardrail, not a hard spend cap.
+  - The one-month run is sandbox-only and does not authorize real-value settlement.
+  - Review actual Google Cloud billing during the first 24-72 hours and weekly thereafter.
+  - Tear down infra/terraform-gke after the observation window if validator testing is idle.

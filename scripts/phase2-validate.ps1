@@ -73,7 +73,7 @@ $leanExpectations = @{
     "Validator scheduler enabled" = '(?s)variable\s+"validator_scheduler_enabled".*?default\s*=\s*true'
     "Validator scheduler cadence" = '(?s)variable\s+"validator_schedule".*?default\s*=\s*"\*/15 \* \* \* \*"'
     "Budget guardrail enabled" = '(?s)variable\s+"budget_guardrail_enabled".*?default\s*=\s*true'
-    "Budget guardrail amount" = '(?s)variable\s+"budget_amount_units".*?default\s*=\s*50'
+    "Budget guardrail amount" = '(?s)variable\s+"budget_amount_units".*?default\s*=\s*200'
     "Budget Pub/Sub attachment switch" = '(?s)variable\s+"budget_pubsub_topic_attachment_enabled".*?default\s*=\s*true'
     "Monitoring alerts enabled" = '(?s)variable\s+"monitoring_alerts_enabled".*?default\s*=\s*true'
     "Monitoring alert rate limit" = '(?s)variable\s+"monitoring_alert_log_notification_rate_limit".*?default\s*=\s*"900s"'

@@ -163,7 +163,7 @@ variable "budget_billing_account_id" {
 variable "budget_amount_units" {
   description = "Monthly sandbox budget amount in the billing account currency. This is an alert budget, not a hard spend cap."
   type        = number
-  default     = 50
+  default     = 200
 
   validation {
     condition     = var.budget_amount_units >= 1 && floor(var.budget_amount_units) == var.budget_amount_units

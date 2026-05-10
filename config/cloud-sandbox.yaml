@@ -131,7 +131,7 @@ validator_scheduler:
 budget_guardrail:
   enabled: true
   scope: project
-  amount_units: 50
+  amount_units: 200
   currency: CAD
   alert_thresholds:
     - 0.5
@@ -152,6 +152,7 @@ budget_guardrail:
     threshold: 0.8
     dry_run: false
     target_scheduler: kani-sandbox-validator-schedule
+    note: "The brake pauses the legacy Cloud Scheduler validator job; it does not stop the Phase 5B GKE cluster."
   hard_cap: false
 
 monitoring_alerts:
