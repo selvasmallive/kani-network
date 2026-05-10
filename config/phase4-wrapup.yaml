@@ -1,0 +1,94 @@
+release_candidate: phase4-wrapup-rc1
+status: sandbox_pre_production_readiness_complete
+inherits_from: phase4-legal-compliance-evidence-rc1
+track: phase4-no-gke-preprod-readiness
+next_phase: phase5a-no-gke-validator-hardening
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+completed_release_candidates:
+  phase4_pre_production_readiness_rc1: true
+  phase4_cost_model_rc1: true
+  phase4_security_review_scope_rc1: true
+  phase4_hsm_kms_implementation_plan_rc1: true
+  phase4_prod_ingress_implementation_plan_rc1: true
+  phase4_dr_readiness_rc1: true
+  phase4_legal_compliance_evidence_rc1: true
+
+phase_result:
+  no_gke_preprod_readiness_complete: true
+  planning_and_evidence_only: true
+  production_ready: false
+  real_value_ready: false
+  legal_advice_provided: false
+  google_cloud_resources_created: false
+  paid_resources_created: false
+  terraform_apply_allowed: false
+  phase5a_ready_to_start: true
+  phase5b_gke_deferred: true
+
+phase5a_scope:
+  gke_required: false
+  validator_runtime: cloud_run_job_plus_cloud_scheduler
+  focus:
+    - validator_reconciliation_tests
+    - failure_and_retry_drills
+    - scheduler_pause_resume_runbooks
+    - ledger_replay_and_finality_verification
+    - operator_evidence_packs
+    - alert_response_and_recovery_drills
+    - complete_sandbox_smoke_tests
+
+remaining_blocked_gates:
+  legal_classification_review: blocked
+  registration_and_msb_analysis: blocked
+  aml_kyc_program_review: blocked
+  sanctions_screening_review: blocked
+  privacy_and_data_retention_review: blocked
+  custody_and_safeguarding_review: blocked
+  institution_agreement_review: blocked
+  security_architecture_review: blocked
+  penetration_test_scope: blocked
+  incident_response_and_dr_review: blocked
+  production_cost_estimate_review: blocked
+  terraform_plan_review: blocked
+  executive_go_live_approval: blocked
+
+non_enablement:
+  gke_cluster_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase4_wrapup_checked_in: true
+  structured_phase4_wrapup_config_exists: true
+  static_phase4_wrapup_validator_required: true
+  aggregate_phase4_validator_includes_wrapup: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true

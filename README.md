@@ -90,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase3-validate.ps1
 
 ## Phase 4 Pre-Production Readiness
 
-Phase 4 has started on the no-GKE track `phase4-no-gke-preprod-readiness`. `PHASE4_PRE_PRODUCTION_READINESS.md`, `config/phase4-pre-production-readiness.yaml`, and `scripts/phase4-validate.ps1` define the readiness gates, cost gate, Phase 5 split, and non-enablement controls for pre-production planning. This keeps the active runtime on `phase2-lean-no-gke` and does not create Google Cloud resources, enable GKE, apply production ingress, enable HSM/KMS production signing, onboard external institutions, or allow real-value settlement.
+Phase 4 is complete on the no-GKE track `phase4-no-gke-preprod-readiness`. `PHASE4_PRE_PRODUCTION_READINESS.md`, `config/phase4-pre-production-readiness.yaml`, and `scripts/phase4-validate.ps1` define the readiness gates, cost gate, Phase 5 split, and non-enablement controls for pre-production planning. This keeps the active runtime on `phase2-lean-no-gke` and does not create Google Cloud resources, enable GKE, apply production ingress, enable HSM/KMS production signing, onboard external institutions, or allow real-value settlement.
 
 The Phase 4 cost model checkpoint is recorded in `PHASE4_COST_MODEL.md`, `config/phase4-cost-model.yaml`, and `scripts/phase4-cost-model.ps1`. It captures cost-estimate inputs for the current no-GKE baseline, future production ingress, future HSM/KMS signing, future disaster recovery, security review, and separate GKE validator operations. It intentionally records no fixed live prices and requires live pricing to be checked before any paid-resource apply.
 
@@ -103,6 +103,8 @@ The Phase 4 production ingress implementation plan checkpoint is recorded in `PH
 The Phase 4 disaster recovery readiness checkpoint is recorded in `PHASE4_DR_READINESS.md`, `config/phase4-dr-readiness.yaml`, `infra/terraform/phase4_dr_readiness.tf`, and `scripts/phase4-dr-readiness.ps1`. It defines recovery domains, sandbox/preprod RTO/RPO targets, restore-to-separate-target evidence drills, ledger reconciliation checks, validator recovery checks, secret recovery checks, and design-only Terraform outputs without executing restore drills, creating restore instances, changing backup settings, or enabling production recovery.
 
 The Phase 4 legal/compliance evidence checkpoint is recorded in `PHASE4_LEGAL_COMPLIANCE_EVIDENCE.md`, `config/phase4-legal-compliance-evidence.yaml`, and `scripts/phase4-legal-compliance-evidence.ps1`. It defines the evidence register for legal classification, registration/MSB analysis, AML/KYC, sanctions, privacy, custody, institution agreements, security, penetration testing, incident response, cost, Terraform plan, and executive go-live review without giving legal advice, approving any gate, onboarding external institutions, or enabling production or real-value capability.
+
+The Phase 4 wrap-up checkpoint is recorded in `PHASE4_WRAPUP.md`, `config/phase4-wrapup.yaml`, and `scripts/phase4-wrapup.ps1`. It confirms all Phase 4 release candidates are present, all production and real-value gates remain blocked, GKE remains deferred to `phase5b-gke-validator-ops`, and the next track is `phase5a-no-gke-validator-hardening`.
 
 The planned validator-operations split is:
 
@@ -123,6 +125,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase4-hsm-kms-implementation
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-prod-ingress-implementation-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-dr-readiness.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-legal-compliance-evidence.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-wrapup.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:

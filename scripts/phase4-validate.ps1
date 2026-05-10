@@ -8,6 +8,7 @@ $requiredFiles = @(
     "PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md",
     "PHASE4_DR_READINESS.md",
     "PHASE4_LEGAL_COMPLIANCE_EVIDENCE.md",
+    "PHASE4_WRAPUP.md",
     "config/phase4-pre-production-readiness.yaml",
     "config/phase4-cost-model.yaml",
     "config/phase4-security-review-scope.yaml",
@@ -15,6 +16,7 @@ $requiredFiles = @(
     "config/phase4-prod-ingress-implementation-plan.yaml",
     "config/phase4-dr-readiness.yaml",
     "config/phase4-legal-compliance-evidence.yaml",
+    "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
     "scripts/phase4-cost-model.ps1",
     "scripts/phase4-security-review-scope.ps1",
@@ -22,6 +24,7 @@ $requiredFiles = @(
     "scripts/phase4-prod-ingress-implementation-plan.ps1",
     "scripts/phase4-dr-readiness.ps1",
     "scripts/phase4-legal-compliance-evidence.ps1",
+    "scripts/phase4-wrapup.ps1",
     "infra/terraform/phase4_hsm_kms_implementation_plan.tf",
     "infra/terraform/phase4_prod_ingress_implementation_plan.tf",
     "infra/terraform/phase4_dr_readiness.tf",
@@ -271,6 +274,41 @@ foreach ($expected in @(
 )) {
     if ($legalComplianceEvidence -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 4 legal/compliance evidence content: $expected"
+    }
+}
+
+$phase4Wrapup = Get-Content "PHASE4_WRAPUP.md" -Raw
+foreach ($expected in @(
+    "Status: sandbox pre-production readiness complete",
+    "phase4-wrapup-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "phase2-lean-no-gke",
+    "Completed Phase 4 Checkpoints",
+    "phase4-pre-production-readiness-rc1",
+    "phase4-cost-model-rc1",
+    "phase4-security-review-scope-rc1",
+    "phase4-hsm-kms-implementation-plan-rc1",
+    "phase4-prod-ingress-implementation-plan-rc1",
+    "phase4-dr-readiness-rc1",
+    "phase4-legal-compliance-evidence-rc1",
+    "Phase 4 Result",
+    "No-GKE pre-production readiness gates",
+    "Aggregate Phase 4 validator coverage",
+    "Production approval",
+    "Legal advice",
+    "Real-value capability",
+    'Ready to move into `phase5a-no-gke-validator-hardening`',
+    'GKE remains deferred to `phase5b-gke-validator-ops`',
+    "Required Blocks That Remain",
+    "Legal classification approval",
+    "Executive go-live approval",
+    "Non-Enablement",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($phase4Wrapup -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 wrap-up content: $expected"
     }
 }
 
@@ -645,6 +683,60 @@ foreach ($expected in @(
     }
 }
 
+$phase4WrapupConfig = Get-Content "config/phase4-wrapup.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase4-wrapup-rc1",
+    "status: sandbox_pre_production_readiness_complete",
+    "inherits_from: phase4-legal-compliance-evidence-rc1",
+    "track: phase4-no-gke-preprod-readiness",
+    "next_phase: phase5a-no-gke-validator-hardening",
+    "gke_phase: phase5b-gke-validator-ops",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "completed_release_candidates:",
+    "phase4_pre_production_readiness_rc1: true",
+    "phase4_cost_model_rc1: true",
+    "phase4_security_review_scope_rc1: true",
+    "phase4_hsm_kms_implementation_plan_rc1: true",
+    "phase4_prod_ingress_implementation_plan_rc1: true",
+    "phase4_dr_readiness_rc1: true",
+    "phase4_legal_compliance_evidence_rc1: true",
+    "phase_result:",
+    "no_gke_preprod_readiness_complete: true",
+    "planning_and_evidence_only: true",
+    "production_ready: false",
+    "real_value_ready: false",
+    "legal_advice_provided: false",
+    "google_cloud_resources_created: false",
+    "paid_resources_created: false",
+    "terraform_apply_allowed: false",
+    "phase5a_ready_to_start: true",
+    "phase5b_gke_deferred: true",
+    "phase5a_scope:",
+    "gke_required: false",
+    "validator_runtime: cloud_run_job_plus_cloud_scheduler",
+    "remaining_blocked_gates:",
+    "legal_classification_review: blocked",
+    "executive_go_live_approval: blocked",
+    "non_enablement:",
+    "gke_cluster_enabled: false",
+    "production_ingress_enabled: false",
+    "hsm_kms_production_signing_enabled: false",
+    "external_institution_onboarding_enabled: false",
+    "production_authorization_granted: false",
+    "legal_or_compliance_approval_enabled: false",
+    "real_value_settlement_enabled: false",
+    "terraform_apply_allowed: false",
+    "google_cloud_resource_creation_allowed: false",
+    "production_go_live_allowed: false",
+    "aggregate_phase4_validator_includes_wrapup: true"
+)) {
+    if ($phase4WrapupConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 wrap-up config content: $expected"
+    }
+}
+
 $hsmKmsTerraform = Get-Content "infra/terraform/phase4_hsm_kms_implementation_plan.tf" -Raw
 foreach ($expected in @(
     'variable "phase4_hsm_kms_implementation_enabled"',
@@ -720,7 +812,11 @@ foreach ($expected in @(
 
 foreach ($forbidden in @(
     "creates_paid_resources",
+    "paid_resources_created",
     "changes_google_cloud_resources",
+    "google_cloud_resources_created",
+    "production_ready",
+    "real_value_ready",
     "enables_gke_validator_operations",
     "enables_hsm_or_kms_signing",
     "enables_production_ingress",
@@ -741,6 +837,7 @@ foreach ($forbidden in @(
     "terraform_plan_approved",
     "executive_go_live_approved",
     "production_authorization_granted",
+    "legal_or_compliance_approval_enabled",
     "gke_enabled",
     "gke_cluster_enabled",
     "production_bft_validator_network_enabled",
@@ -812,6 +909,9 @@ foreach ($forbidden in @(
     if ($legalComplianceConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 4 legal/compliance evidence must not enable $forbidden"
     }
+    if ($phase4WrapupConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 4 wrap-up must not enable $forbidden"
+    }
 }
 
 if ($costConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
@@ -875,6 +975,24 @@ if ($legalComplianceBlockedGateCount -lt 13) {
     throw "Expected at least 13 blocked legal/compliance evidence gates, found $legalComplianceBlockedGateCount"
 }
 
+$phase4CompletedCount = ([regex]::Matches($phase4WrapupConfig, "phase4_[a-z0-9_]+_rc1:\s+true")).Count
+if ($phase4CompletedCount -lt 7) {
+    throw "Expected at least 7 completed Phase 4 release candidates, found $phase4CompletedCount"
+}
+
+$phase4BlockedGateCount = ([regex]::Matches($phase4WrapupConfig, ":\s+blocked")).Count
+if ($phase4BlockedGateCount -lt 13) {
+    throw "Expected at least 13 blocked Phase 4 wrap-up gates, found $phase4BlockedGateCount"
+}
+
+if ($phase4WrapupConfig -match "(?m)^\s*production_ready:\s+true\s*$") {
+    throw "Phase 4 wrap-up must not mark production ready"
+}
+
+if ($phase4WrapupConfig -match "(?m)^\s*real_value_ready:\s+true\s*$") {
+    throw "Phase 4 wrap-up must not mark real value ready"
+}
+
 if ($hsmKmsTerraform -match 'resource\s+"google_') {
     throw "phase4_hsm_kms_implementation_plan.tf must remain design-only and must not declare Google Cloud resources"
 }
@@ -916,5 +1034,7 @@ if ($gateCount -lt 13) {
     prod_ingress_implementation_plan_rc1 = $true
     dr_readiness_rc1 = $true
     legal_compliance_evidence_rc1 = $true
+    wrapup_rc1 = $true
+    next_phase = "phase5a-no-gke-validator-hardening"
     result = "ok"
 }
