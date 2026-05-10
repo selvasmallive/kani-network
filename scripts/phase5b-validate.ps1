@@ -6,11 +6,13 @@ $requiredFiles = @(
     "PHASE5B_K8S_MANIFEST_DESIGN_PLAN.md",
     "PHASE5B_K8S_RENDER_DRY_RUN_EVIDENCE_PLAN.md",
     "PHASE5B_GKE_APPLY_READINESS_GATE.md",
+    "PHASE5B_GKE_OPERATOR_APPROVAL_PACKET.md",
     "config/phase5b-gke-cost-resource-plan.yaml",
     "config/phase5b-gke-terraform-design-plan.yaml",
     "config/phase5b-k8s-manifest-design-plan.yaml",
     "config/phase5b-k8s-render-dry-run-evidence-plan.yaml",
     "config/phase5b-gke-apply-readiness-gate.yaml",
+    "config/phase5b-gke-operator-approval-packet.yaml",
     "infra/terraform/phase5b_gke_terraform_design_plan.tf",
     "k8s/phase5b-validator-manifest-design.yaml",
     "k8s/phase5b-render-dry-run-evidence-plan.yaml",
@@ -19,6 +21,7 @@ $requiredFiles = @(
     "scripts/phase5b-k8s-manifest-design-plan.ps1",
     "scripts/phase5b-k8s-render-dry-run-evidence-plan.ps1",
     "scripts/phase5b-gke-apply-readiness-gate.ps1",
+    "scripts/phase5b-gke-operator-approval-packet.ps1",
     "PHASE5A_WRAPUP.md",
     "config/phase5a-wrapup.yaml",
     "scripts/phase5a-validate.ps1",
@@ -164,6 +167,33 @@ foreach ($expected in @(
 )) {
     if ($gkeApplyReadinessGatePlan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5B GKE apply-readiness gate content: $expected"
+    }
+}
+
+$gkeOperatorApprovalPacketPlan = Get-Content "PHASE5B_GKE_OPERATOR_APPROVAL_PACKET.md" -Raw
+foreach ($expected in @(
+    "Status: GKE operator approval packet defined and blocked",
+    "phase5b-gke-operator-approval-packet-rc1",
+    "phase5b-gke-apply-readiness-gate-rc1",
+    "phase5b-gke-validator-ops",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Packet Outcome",
+    "operator_approval_packet_state = BLOCKED",
+    "operator_approval_packet_complete = FALSE",
+    "Required Roles",
+    "evidence_custodian",
+    "Required Packet Sections",
+    "terraform_plan_hash",
+    "Required Signoffs",
+    "no_real_value_capability_acknowledgement",
+    "Implementation Stages",
+    "stage_6_apply_readiness_re_evaluation_candidate",
+    "No Terraform plan, Terraform apply, render, dry-run"
+)) {
+    if ($gkeOperatorApprovalPacketPlan -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B GKE operator approval packet content: $expected"
     }
 }
 
@@ -498,6 +528,44 @@ foreach ($expected in @(
     }
 }
 
+$gkeOperatorApprovalConfig = Get-Content "config/phase5b-gke-operator-approval-packet.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5b-gke-operator-approval-packet-rc1",
+    "status: gke_operator_approval_packet_defined_and_blocked",
+    "inherits_from: phase5b-gke-apply-readiness-gate-rc1",
+    "track: phase5b-gke-validator-ops",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_apply_readiness_baseline: phase5b-gke-apply-readiness-gate-rc1",
+    "packet_outcome:",
+    "operator_approval_packet_state: BLOCKED",
+    "operator_approval_packet_complete: false",
+    "operator_signoff_approved: false",
+    "reviewer_signoff_approved: false",
+    "apply_candidate_authorized: false",
+    "apply_readiness_gate_passed: false",
+    "required_roles:",
+    "primary_operator: required",
+    "evidence_custodian: required",
+    "required_packet_sections:",
+    "terraform_plan_hash: required",
+    "no_real_value_attestation: required",
+    "required_signoffs:",
+    "primary_operator_signoff: blocked",
+    "no_real_value_capability_acknowledgement: blocked",
+    "implementation_stages:",
+    "stage_0_operator_packet_defined:",
+    "stage_6_apply_readiness_re_evaluation_candidate:",
+    "non_enablement:",
+    "gke_cluster_creation_enabled: false",
+    "gke_node_pool_creation_enabled: false",
+    "phase5b_gke_operator_approval_packet_checked_in: true",
+    "aggregate_phase5b_validator_includes_gke_operator_approval_packet: true"
+)) {
+    if ($gkeOperatorApprovalConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B GKE operator approval packet config content: $expected"
+    }
+}
+
 $phase5aWrapup = Get-Content "config/phase5a-wrapup.yaml" -Raw
 foreach ($expected in @(
     "release_candidate: phase5a-wrapup-rc1",
@@ -513,6 +581,10 @@ foreach ($expected in @(
 
 foreach ($forbidden in @(
     "apply_readiness_gate_passed",
+    "operator_approval_packet_complete",
+    "operator_signoff_approved",
+    "reviewer_signoff_approved",
+    "apply_candidate_authorized",
     "gke_apply_ready",
     "apply_window_approved",
     "creates_paid_resources",
@@ -573,6 +645,9 @@ foreach ($forbidden in @(
     }
     if ($gkeApplyReadinessConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5B aggregate validator must not allow $forbidden in GKE apply-readiness gate"
+    }
+    if ($gkeOperatorApprovalConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5B aggregate validator must not allow $forbidden in GKE operator approval packet"
     }
 }
 
@@ -671,10 +746,25 @@ if ($applyReadinessBlockedStageCount -lt 6) {
     throw "Expected at least 6 blocked Phase 5B apply-readiness stages, found $applyReadinessBlockedStageCount"
 }
 
+$operatorPacketRequiredCount = ([regex]::Matches($gkeOperatorApprovalConfig, "(?m)^\s{2}[a-z0-9_]+:\s+required\s*$")).Count
+if ($operatorPacketRequiredCount -lt 52) {
+    throw "Expected at least 52 Phase 5B operator approval required fields, found $operatorPacketRequiredCount"
+}
+
+$operatorPacketBlockedSignoffCount = ([regex]::Matches($gkeOperatorApprovalConfig, ":\s+blocked")).Count
+if ($operatorPacketBlockedSignoffCount -lt 23) {
+    throw "Expected at least 23 blocked Phase 5B operator approval signoffs, found $operatorPacketBlockedSignoffCount"
+}
+
+$operatorPacketBlockedStageCount = ([regex]::Matches($gkeOperatorApprovalConfig, "allowed_by_this_checkpoint:\s+false")).Count
+if ($operatorPacketBlockedStageCount -lt 6) {
+    throw "Expected at least 6 blocked Phase 5B operator approval stages, found $operatorPacketBlockedStageCount"
+}
+
 [pscustomobject]@{
     phase = "phase-5b-gke-validator-ops"
-    release_candidate = "phase5b-gke-apply-readiness-gate-rc1"
-    status = "gke-apply-readiness-gate-blocked"
+    release_candidate = "phase5b-gke-operator-approval-packet-rc1"
+    status = "gke-operator-approval-packet-blocked"
     active_runtime_baseline = "phase2-lean-no-gke"
     phase5a_baseline = "phase5a-wrapup-rc1"
     candidate_resource_profile_count = $candidateProfileCount
@@ -700,6 +790,14 @@ if ($applyReadinessBlockedStageCount -lt 6) {
     apply_readiness_required_evidence_input_count = $applyReadinessEvidenceInputCount
     apply_readiness_blocked_gate_count = $applyReadinessBlockedGateCount
     apply_readiness_blocked_stage_count = $applyReadinessBlockedStageCount
+    gke_operator_approval_packet_rc1 = $true
+    operator_packet_required_field_count = $operatorPacketRequiredCount
+    operator_packet_blocked_signoff_count = $operatorPacketBlockedSignoffCount
+    operator_packet_blocked_stage_count = $operatorPacketBlockedStageCount
+    operator_approval_packet_complete = $false
+    operator_signoff_approved = $false
+    reviewer_signoff_approved = $false
+    apply_candidate_authorized = $false
     apply_readiness_gate_passed = $false
     gke_apply_ready = $false
     apply_window_approved = $false
