@@ -199,7 +199,9 @@ The fifth Phase 5B checkpoint is `phase5b-gke-apply-readiness-gate-rc1`. `PHASE5
 
 The sixth Phase 5B checkpoint is `phase5b-gke-operator-approval-packet-rc1`. `PHASE5B_GKE_OPERATOR_APPROVAL_PACKET.md`, `config/phase5b-gke-operator-approval-packet.yaml`, and `scripts/phase5b-gke-operator-approval-packet.ps1` define the operator roles, packet sections, signoffs, and evidence-retention requirements for a future apply candidate without approving operators or enabling apply.
 
-This checkpoint keeps the active runtime on `phase2-lean-no-gke`. It does not create Google Cloud resources, apply Terraform, enable GKE, deploy Kubernetes manifests, run live validator operations, enable production ingress, onboard external institutions, or allow real-value settlement.
+The final Phase 5B checkpoint is `phase5b-wrapup-rc1`. `PHASE5B_WRAPUP.md`, `config/phase5b-wrapup.yaml`, and `scripts/phase5b-wrapup.ps1` close the planning-only `phase5b-gke-validator-ops` track and define the handoff boundary for a later `phase6-gke-apply-candidate` without approving an apply.
+
+These checkpoints keep the active runtime on `phase2-lean-no-gke`. They do not create Google Cloud resources, apply Terraform, enable GKE, deploy Kubernetes manifests, run live validator operations, enable production ingress, onboard external institutions, or allow real-value settlement.
 
 Run the Phase 5B planning checks from PowerShell:
 
@@ -210,6 +212,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-k8s-manifest-design-p
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-k8s-render-dry-run-evidence-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-apply-readiness-gate.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-operator-approval-packet.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-wrapup.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-validate.ps1
 ```
 
