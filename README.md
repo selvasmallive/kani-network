@@ -102,6 +102,8 @@ The Phase 4 production ingress implementation plan checkpoint is recorded in `PH
 
 The Phase 4 disaster recovery readiness checkpoint is recorded in `PHASE4_DR_READINESS.md`, `config/phase4-dr-readiness.yaml`, `infra/terraform/phase4_dr_readiness.tf`, and `scripts/phase4-dr-readiness.ps1`. It defines recovery domains, sandbox/preprod RTO/RPO targets, restore-to-separate-target evidence drills, ledger reconciliation checks, validator recovery checks, secret recovery checks, and design-only Terraform outputs without executing restore drills, creating restore instances, changing backup settings, or enabling production recovery.
 
+The Phase 4 legal/compliance evidence checkpoint is recorded in `PHASE4_LEGAL_COMPLIANCE_EVIDENCE.md`, `config/phase4-legal-compliance-evidence.yaml`, and `scripts/phase4-legal-compliance-evidence.ps1`. It defines the evidence register for legal classification, registration/MSB analysis, AML/KYC, sanctions, privacy, custody, institution agreements, security, penetration testing, incident response, cost, Terraform plan, and executive go-live review without giving legal advice, approving any gate, onboarding external institutions, or enabling production or real-value capability.
+
 The planned validator-operations split is:
 
 ```text
@@ -120,6 +122,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase4-security-review-scope.
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-hsm-kms-implementation-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-prod-ingress-implementation-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-dr-readiness.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-legal-compliance-evidence.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:

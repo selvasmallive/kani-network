@@ -1,0 +1,264 @@
+release_candidate: phase4-legal-compliance-evidence-rc1
+status: evidence_register_ready
+inherits_from: phase4-dr-readiness-rc1
+track: phase4-no-gke-preprod-readiness
+legal_advice: false
+requires_external_legal_review: true
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_production_ingress: false
+  enables_external_institution_onboarding: false
+  enables_real_value_settlement: false
+
+approval_boundary:
+  legal_advice_provided: false
+  legal_classification_approved: false
+  registration_analysis_approved: false
+  aml_kyc_program_approved: false
+  sanctions_screening_approved: false
+  privacy_review_approved: false
+  custody_safeguarding_approved: false
+  institution_agreement_approved: false
+  security_architecture_approved: false
+  penetration_test_approved: false
+  production_cost_approved: false
+  terraform_plan_approved: false
+  executive_go_live_approved: false
+  production_authorization_granted: false
+
+evidence_requirements:
+  required_status_before_production: approved
+  named_owner_required: true
+  named_human_reviewer_required: true
+  evidence_location_required: true
+  approval_date_required: true
+  expiry_or_review_date_required: true
+  residual_risk_decision_required: true
+  qualified_external_legal_review_required: true
+  independent_security_review_required: true
+
+reviewer_roles:
+  - qualified_external_legal_counsel
+  - compliance_officer
+  - privacy_officer
+  - security_lead
+  - independent_security_reviewer
+  - finance_reviewer
+  - operations_lead
+  - executive_approver
+
+evidence_register:
+  legal_classification_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: qualified_external_legal_counsel
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - legal_classification_memo
+      - jurisdiction_scope
+      - product_activity_description
+      - tokenized_fiat_analysis
+      - no_public_crypto_analysis
+  registration_and_msb_analysis:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: qualified_external_legal_counsel
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - registration_obligation_analysis
+      - operating_jurisdiction_matrix
+      - fintrac_msb_analysis
+      - go_no_go_recommendation
+  aml_kyc_program_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: compliance_officer
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - aml_policy
+      - kyc_kyb_procedure
+      - beneficial_ownership_procedure
+      - suspicious_activity_escalation
+  sanctions_screening_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: compliance_officer
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - sanctions_screening_procedure
+      - watchlist_vendor_assessment
+      - match_resolution_runbook
+      - blocked_party_escalation
+  privacy_and_data_retention_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: privacy_officer
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - data_inventory
+      - retention_matrix
+      - privacy_impact_review
+      - cross_border_data_flow_review
+  custody_and_safeguarding_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: finance_reviewer
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - safeguarding_analysis
+      - reconciliation_controls
+      - treasury_control_model
+      - bankruptcy_remote_or_client_asset_analysis
+  institution_agreement_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: qualified_external_legal_counsel
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - institution_participation_agreement
+      - operating_rules
+      - liability_model
+      - dispute_resolution_process
+  security_architecture_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: security_lead
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - security_architecture_review
+      - threat_model
+      - cloud_iam_review
+      - key_management_review
+  penetration_test_scope:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: independent_security_reviewer
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - penetration_test_scope
+      - penetration_test_report
+      - remediation_tracker
+      - retest_evidence
+  incident_response_and_dr_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: operations_lead
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - incident_response_plan
+      - notification_matrix
+      - disaster_recovery_drill_report
+      - tabletop_exercise_record
+  production_cost_estimate_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: finance_reviewer
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - production_cost_estimate
+      - budget_approval_record
+      - paid_resource_inventory
+      - rollback_cost_assessment
+  terraform_plan_review:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: operations_lead
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - terraform_plan_output
+      - resource_change_summary
+      - security_review_of_plan
+      - rollback_plan
+  executive_go_live_approval:
+    approval_status: blocked
+    owner: unassigned
+    required_reviewer: executive_approver
+    evidence_location: pending
+    approval_date: pending
+    expiry_or_review_date: pending
+    residual_risk: pending
+    evidence_required:
+      - signed_go_live_record
+      - residual_risk_acceptance
+      - production_change_plan
+      - final_go_no_go_decision
+
+non_enablement:
+  legal_advice_provided: false
+  legal_classification_approved: false
+  registration_analysis_approved: false
+  aml_kyc_program_approved: false
+  sanctions_screening_approved: false
+  privacy_review_approved: false
+  custody_safeguarding_approved: false
+  institution_agreement_approved: false
+  executive_go_live_approved: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  legal_compliance_evidence_register_checked_in: true
+  structured_legal_compliance_evidence_config_exists: true
+  static_legal_compliance_evidence_validator_required: true
+  phase4_validator_includes_legal_compliance_evidence: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  no_google_cloud_resources_created: true
+  no_legal_or_compliance_approval_enabled: true
+  no_external_institution_onboarding_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true
