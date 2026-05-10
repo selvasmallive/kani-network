@@ -203,6 +203,8 @@ The final Phase 5B checkpoint is `phase5b-wrapup-rc1`. `PHASE5B_WRAPUP.md`, `con
 
 With explicit operator approval, the Phase 5B GKE sandbox pilot can be applied with `scripts/phase5b-gke-apply-pilot.ps1`. It uses the separate `infra/terraform-gke/` Terraform root to create a single-zone, single-node Standard GKE sandbox cluster, binds the `kani-system/kani-validator` Kubernetes service account to the sandbox validator Google service account through Workload Identity, deploys the three validator pods, and pauses the Cloud Scheduler validator job so the GKE validators become the active sandbox validator path.
 
+The first live pilot evidence is captured in `config/phase5b-gke-apply-pilot-evidence.yaml`. The working lean profile is one `e2-medium` node; the earlier `e2-small` candidate did not leave enough allocatable memory for three validators plus GKE system pods.
+
 These checkpoints keep the runtime sandbox-only. They do not enable production ingress, onboard external institutions, allow real-value settlement, enable fiat deposit/redemption, or create production authorization.
 
 Run the Phase 5B planning checks from PowerShell:

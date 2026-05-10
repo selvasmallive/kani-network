@@ -41,7 +41,7 @@ variable "gke_release_channel" {
 variable "gke_node_machine_type" {
   description = "Machine type for the Phase 5B sandbox GKE validator node pool."
   type        = string
-  default     = "e2-small"
+  default     = "e2-medium"
 }
 
 variable "gke_node_count" {

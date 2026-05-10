@@ -4,9 +4,10 @@ param(
     [string]$Zone = "northamerica-northeast1-a",
     [string]$NamePrefix = "kani-sandbox",
     [string]$ClusterName = "kani-sandbox-validators",
+    [string]$GkeNodeMachineType = "e2-medium",
     [string]$ImageRepository = "kani",
     [string]$ImageName = "kani-api",
-    [string]$ImageTag = "latest",
+    [string]$ImageTag = "",
     [switch]$SkipBuild,
     [switch]$SkipTerraformApply,
     [switch]$SkipKubernetesApply
@@ -83,6 +84,10 @@ try {
     throw "Google Application Default Credentials need reauthentication. Run: gcloud auth application-default login --project $ProjectId"
 }
 
+if (-not $ImageTag) {
+    $ImageTag = "phase5b-$(Get-Date -Format yyyyMMddHHmmss)"
+}
+
 $imageUri = "$Region-docker.pkg.dev/$ProjectId/$ImageRepository/$ImageName`:$ImageTag"
 
 if (-not $SkipBuild) {
@@ -94,7 +99,7 @@ if (-not $SkipBuild) {
         "--config",
         "cloudbuild.yaml",
         "--substitutions",
-        "_REGION=$Region,_REPOSITORY=$ImageRepository,_IMAGE=$ImageName"
+        "_REGION=$Region,_REPOSITORY=$ImageRepository,_IMAGE=$ImageName,_TAG=$ImageTag"
     )
 }
 
@@ -109,7 +114,13 @@ if (-not $SkipTerraformApply) {
         "validator_scheduler_paused=true"
     )
     Invoke-Logged -FilePath $terraform -Arguments @("-chdir=infra/terraform-gke", "init")
-    Invoke-Logged -FilePath $terraform -Arguments @("-chdir=infra/terraform-gke", "apply", "-auto-approve")
+    Invoke-Logged -FilePath $terraform -Arguments @(
+        "-chdir=infra/terraform-gke",
+        "apply",
+        "-auto-approve",
+        "-var",
+        "gke_node_machine_type=$GkeNodeMachineType"
+    )
 }
 
 $gkeClusterNameOutput = (& $terraform -chdir=infra/terraform-gke output -raw gke_cluster_name 2>$null)

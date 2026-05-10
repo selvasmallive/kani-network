@@ -53,6 +53,8 @@ resource "google_service_account_iam_member" "validator_workload_identity" {
   service_account_id = "projects/${var.project_id}/serviceAccounts/${local.validator_service_account_email}"
   role               = "roles/iam.workloadIdentityUser"
   member             = local.workload_identity_member
+
+  depends_on = [google_container_cluster.validators]
 }
 
 resource "google_container_cluster" "validators" {
