@@ -1,0 +1,178 @@
+phase: phase-4-pre-production-readiness
+release_candidate: phase4-pre-production-readiness-rc1
+status: readiness_planning_started
+inherits_from: phase3-wrapup-rc1
+track: phase4-no-gke-preprod-readiness
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_production_ingress: false
+  enables_real_value_settlement: false
+  authorizes_external_institution_onboarding: false
+
+active_runtime_baseline:
+  id: phase2-lean-no-gke
+  api_runtime: cloud_run
+  validator_runtime: cloud_run_job_plus_cloud_scheduler
+  ledger_database: cloud_sql_postgresql
+  credentials: secret_manager
+  monitoring: cloud_monitoring
+  gke_enabled: false
+
+readiness_gates:
+  legal_classification_review:
+    status: blocked
+    required_evidence:
+      - named_owner
+      - qualified_reviewer
+      - evidence_link
+      - approval_date
+  registration_and_msb_analysis:
+    status: blocked
+    required_evidence:
+      - jurisdiction_scope
+      - legal_memo
+      - approval_record
+  aml_kyc_program_review:
+    status: blocked
+    required_evidence:
+      - policy_document
+      - responsible_officer
+      - reviewer_approval
+  sanctions_screening_review:
+    status: blocked
+    required_evidence:
+      - vendor_or_internal_process
+      - escalation_path
+      - reviewer_approval
+  privacy_and_data_retention_review:
+    status: blocked
+    required_evidence:
+      - data_inventory
+      - retention_schedule
+      - privacy_review
+  custody_and_safeguarding_review:
+    status: blocked
+    required_evidence:
+      - custody_analysis
+      - safeguarding_controls
+      - approval_record
+  institution_agreement_review:
+    status: blocked
+    required_evidence:
+      - agreement_template
+      - onboarding_terms
+      - legal_approval
+  security_architecture_review:
+    status: blocked
+    required_evidence:
+      - threat_model
+      - architecture_review
+      - remediation_register
+  penetration_test_scope:
+    status: blocked
+    required_evidence:
+      - scope_document
+      - test_window
+      - tester_identity
+  incident_response_and_dr_review:
+    status: blocked
+    required_evidence:
+      - incident_runbook
+      - restore_drill_evidence
+      - rto_rpo_targets
+  production_cost_estimate_review:
+    status: blocked
+    required_evidence:
+      - cloud_run_estimate
+      - cloud_sql_estimate
+      - monitoring_logging_estimate
+      - hsm_kms_estimate
+      - production_ingress_estimate
+      - separate_gke_validator_ops_estimate
+      - approval_record
+  terraform_plan_review:
+    status: blocked
+    required_evidence:
+      - reviewed_plan_file
+      - reviewer_identity
+      - no_unapproved_paid_resources
+  executive_go_live_approval:
+    status: blocked
+    required_evidence:
+      - signed_approval_record
+      - readiness_gate_summary
+      - residual_risk_acceptance
+
+cost_gate:
+  required_before_paid_resource_apply: true
+  required_before_gke_apply: true
+  required_before_hsm_kms_apply: true
+  required_before_production_ingress_apply: true
+  current_budget_guardrail_retained: true
+  gke_estimate_separate: true
+  resources_to_estimate:
+    - existing_cloud_run_api
+    - existing_cloud_run_validator_job
+    - existing_cloud_sql_instance_and_backups
+    - artifact_registry
+    - secret_manager
+    - cloud_monitoring_logging_alerting
+    - future_production_ingress
+    - future_hsm_kms_signing
+    - future_gke_validator_operations
+    - network_egress_nat_load_balancer_static_ip
+
+phase5_split:
+  phase5a_no_gke_validator_hardening:
+    gke_required: false
+    planned_scope:
+      - validator_failure_tests
+      - reconciliation_drills
+      - cloud_run_job_observability
+      - scheduler_pause_resume_runbooks
+      - no_gke_validator_runbook_evidence
+  phase5b_gke_validator_ops:
+    gke_required: true
+    planned_scope:
+      - gke_cluster
+      - long_running_validator_pods
+      - pod_to_pod_networking
+      - bft_transport
+      - validator_node_isolation
+      - kubernetes_observability
+
+non_enablement:
+  gke_cluster_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  external_institution_onboarding_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase4_readiness_plan_checked_in: true
+  static_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  no_google_cloud_resources_created: true
+  no_paid_production_resources_enabled: true
+  no_gke_enabled: true
+  no_hsm_kms_signing_enabled: true
+  no_production_ingress_enabled: true
+  no_real_value_capability_enabled: true
