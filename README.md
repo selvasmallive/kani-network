@@ -44,7 +44,7 @@ The first post-wrap-up observation gate is recorded in `PHASE2_OBSERVATION_REPOR
 
 ## Phase 3 Enterprise
 
-Phase 3 has moved from planning into sandbox-only implementation slices. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the institution checkpoint, `PHASE3_COMPLIANCE_CASES.md` records the compliance-case checkpoint, `PHASE3_CONSENSUS_INTERFACE.md` records the consensus-interface checkpoint, `PHASE3_BFT_PROTOTYPE.md` records the sandbox BFT prototype checkpoint, `PHASE3_PROD_EDGE_DESIGN.md` records the production edge design checkpoint, `PHASE3_KEY_MANAGEMENT_DESIGN.md` records the KMS/HSM key management design checkpoint, `PHASE3_REGULATORY_READINESS_GATE.md` records the regulatory readiness gate checkpoint, `PHASE3_AUDIT_REPORTING_HARDENING.md` records the audit/reporting hardening checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
+Phase 3 has moved from planning into sandbox-only implementation slices. `PHASE3_ENTERPRISE_PLAN.md` defines the enterprise roadmap, `PHASE3_INSTITUTION_MODEL.md` records the institution checkpoint, `PHASE3_COMPLIANCE_CASES.md` records the compliance-case checkpoint, `PHASE3_CONSENSUS_INTERFACE.md` records the consensus-interface checkpoint, `PHASE3_BFT_PROTOTYPE.md` records the sandbox BFT prototype checkpoint, `PHASE3_PROD_EDGE_DESIGN.md` records the production edge design checkpoint, `PHASE3_KEY_MANAGEMENT_DESIGN.md` records the KMS/HSM key management design checkpoint, `PHASE3_REGULATORY_READINESS_GATE.md` records the regulatory readiness gate checkpoint, `PHASE3_AUDIT_REPORTING_HARDENING.md` records the audit/reporting hardening checkpoint, `PHASE3_OPERATIONAL_RUNBOOKS.md` records the operational runbooks checkpoint, and `config/phase3-enterprise.yaml` keeps the structured Phase 3 boundary. This still does not create GKE, HSM, production ingress, or real-value capabilities.
 
 The first Phase 3 implementation slice adds institution records, credential metadata, per-institution limits, admin institution endpoints, and account-operation blocking for suspended institutions:
 
@@ -77,6 +77,8 @@ The sixth Phase 3 implementation slice adds design-only Terraform scaffolding an
 The seventh Phase 3 implementation slice adds a blocking regulatory readiness gate. `config/phase3-regulatory-readiness.yaml` and `scripts/phase3-regulatory-readiness-gate.ps1` require legal, compliance, privacy, security, and executive approval evidence before any production or real-value capability can be considered. The checked-in result remains `blocked`.
 
 The eighth Phase 3 implementation slice hardens audit and reporting boundaries. `config/phase3-audit-reporting.yaml` and `scripts/phase3-audit-reporting-hardening.ps1` define immutable audit fields, reconciliation source tables, retention categories, and export controls. Production reporting, external delivery, and real-value reporting remain disabled.
+
+The ninth Phase 3 implementation slice adds operational runbooks. `config/phase3-operational-runbooks.yaml` and `scripts/phase3-operational-runbooks.ps1` define sandbox daily operations, validator operations for the Cloud Run Job plus Cloud Scheduler no-GKE topology, incident response, release/rollback, backup/restore, credential rotation, and audit evidence packs. Production operations, GKE validator operations, and real-value operations remain disabled.
 
 Run the static Phase 3 planning check from PowerShell:
 

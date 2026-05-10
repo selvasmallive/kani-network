@@ -122,6 +122,22 @@ workstreams:
     external_report_delivery_enabled: false
     real_value_reporting_ready: false
 
+  operational_readiness:
+    runbook_checkpoint: phase3-operational-runbooks-rc1
+    runbook_config: config/phase3-operational-runbooks.yaml
+    runbook_script: scripts/phase3-operational-runbooks.ps1
+    production_operations_enabled: false
+    changes_google_cloud_resources: false
+    gke_validator_operations_enabled: false
+    required_runbooks:
+      - daily_operations
+      - validator_operations
+      - incident_response
+      - release_rollback
+      - backup_restore
+      - credential_rotation
+      - audit_evidence_pack
+
 acceptance:
   phase3_plan_checked_in: true
   static_validator_required: true
@@ -370,3 +386,43 @@ implementation_slices:
       - data_warehouse_replication
       - legal_approved_retention_periods
       - real_value_reporting
+  phase3_operational_runbooks_rc1:
+    status: operational_runbooks_ready
+    creates_paid_resources: false
+    creates_real_value_capability: false
+    changes_google_cloud_resources: false
+    production_operations_enabled: false
+    runbook_config: config/phase3-operational-runbooks.yaml
+    runbook_script: scripts/phase3-operational-runbooks.ps1
+    operator_roles:
+      - technical_operator
+      - settlement_operator
+      - compliance_reviewer
+      - security_operator
+      - audit_reviewer
+      - release_approver
+    runbooks:
+      - daily_operations
+      - validator_operations
+      - incident_response
+      - release_rollback
+      - backup_restore
+      - credential_rotation
+      - audit_evidence_pack
+    validator_topology:
+      current: cloud_run_job_scheduler_no_gke
+      required_finality_votes: 2
+      gke_deferred: true
+    release_preflight:
+      - cargo_fmt_check
+      - cargo_clippy_workspace_deny_warnings
+      - cargo_test_workspace
+      - phase2_validate
+      - phase3_validate
+    deferred:
+      - gke_multi_node_validator_runbooks
+      - hsm_backed_production_signing_ceremonies
+      - production_mtls_certificate_issuance
+      - external_institution_onboarding_operations
+      - real_value_incident_response
+      - production_rto_rpo_commitments

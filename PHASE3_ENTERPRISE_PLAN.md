@@ -26,6 +26,7 @@ No production deployment, customer onboarding, fiat deposit, redemption, custody
 4. Design production ingress with mTLS, WAF, private networking, and explicit trust anchors.
 5. Define KMS/HSM-backed key management, rotation, signing, and audit ceremonies.
 6. Create a regulatory readiness checklist that blocks real-value launch until reviewed by qualified legal and compliance advisors.
+7. Define operational runbooks for release, rollback, incident response, validator operations, backup/restore, credential rotation, and evidence capture.
 
 ## Workstream 1: Consensus Evolution
 
@@ -180,6 +181,27 @@ Exit criteria:
 - Reconciliation discrepancies are explicit and audit logged.
 - Compliance and operations can review the same canonical settlement data.
 
+## Workstream 8: Operational Readiness And Runbooks
+
+Phase 3 must make routine and exceptional sandbox operations explicit before any production operating model exists.
+
+Planned capabilities:
+
+- Daily operating checklist for API health, validator status, pending/held payments, alerts, backups, and evidence notes.
+- Validator operations runbook for the current Cloud Run Job plus Cloud Scheduler no-GKE topology.
+- Incident response severity model for real-value exposure, public access, key compromise, ledger corruption, validator failure, and compliance outages.
+- Release and rollback runbook covering checks, image digests, Terraform plans, smoke tests, and previous revision rollback.
+- Backup and restore drill guidance using Cloud SQL PITR into a separate target before reconciliation.
+- Credential and secret rotation runbook with evidence and approver requirements.
+- Audit evidence pack for releases, incidents, restore drills, and credential rotations.
+
+Exit criteria:
+
+- Operational runbooks are checked in and validated.
+- Production operations remain disabled.
+- GKE validator operations remain deferred.
+- No Google Cloud resources are created by the runbook slice.
+
 ## Implementation Order
 
 Recommended slices:
@@ -193,6 +215,7 @@ Recommended slices:
 7. `phase3-key-management-design-rc1`: KMS/HSM interfaces and runbooks.
 8. `phase3-regulatory-readiness-gate-rc1`: blocking legal, compliance, privacy, security, and executive approval gate.
 9. `phase3-audit-reporting-hardening-rc1`: immutable audit contract, reconciliation boundaries, retention matrix, and export controls.
+10. `phase3-operational-runbooks-rc1`: daily operations, validator operations, incident response, release/rollback, backup/restore, credential rotation, and evidence pack.
 
 ## Acceptance Criteria
 
@@ -221,3 +244,5 @@ Phase 3 planning is accepted when:
 `phase3-regulatory-readiness-gate-rc1` adds a blocking readiness gate for legal classification, registration analysis, AML/KYC, sanctions, privacy, institution agreements, custody safeguards, incident response, penetration testing, and production go-live approval. The gate is intentionally blocked and does not authorize production or real-value capability. Details are recorded in `PHASE3_REGULATORY_READINESS_GATE.md`.
 
 `phase3-audit-reporting-hardening-rc1` adds a sandbox-only hardening contract for immutable audit fields, reconciliation source boundaries, retention categories, and export controls. Production hash-chain signing, external delivery, SIEM export, and legal-approved retention periods remain deferred. Details are recorded in `PHASE3_AUDIT_REPORTING_HARDENING.md`.
+
+`phase3-operational-runbooks-rc1` adds sandbox-only operational runbooks for daily checks, validator operations, incident response, release and rollback, backup/restore drills, credential rotation, and audit evidence packs. Production operations, GKE validator operations, and real-value incident response remain deferred. Details are recorded in `PHASE3_OPERATIONAL_RUNBOOKS.md`.

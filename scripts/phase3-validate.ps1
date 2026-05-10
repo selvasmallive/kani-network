@@ -10,12 +10,15 @@ $requiredFiles = @(
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
     "PHASE3_REGULATORY_READINESS_GATE.md",
     "PHASE3_AUDIT_REPORTING_HARDENING.md",
+    "PHASE3_OPERATIONAL_RUNBOOKS.md",
     "config/phase3-enterprise.yaml",
     "config/phase3-regulatory-readiness.yaml",
     "config/phase3-audit-reporting.yaml",
+    "config/phase3-operational-runbooks.yaml",
     "scripts/phase3-validate.ps1",
     "scripts/phase3-regulatory-readiness-gate.ps1",
     "scripts/phase3-audit-reporting-hardening.ps1",
+    "scripts/phase3-operational-runbooks.ps1",
     "infra/terraform/phase3_prod_edge_design.tf",
     "infra/terraform/phase3_key_management_design.tf",
     "PHASE2_OBSERVATION_REPORT.md",
@@ -48,6 +51,7 @@ foreach ($expected in @(
     "Key Management And Crypto Agility",
     "Regulatory And Legal Readiness",
     "Data, Audit, And Reporting",
+    "Operational Readiness And Runbooks",
     "phase3-institution-model-rc1",
     "phase3-compliance-cases-rc1",
     "phase3-consensus-interface-rc1",
@@ -56,6 +60,7 @@ foreach ($expected in @(
     "phase3-key-management-design-rc1",
     "phase3-regulatory-readiness-gate-rc1",
     "phase3-audit-reporting-hardening-rc1",
+    "phase3-operational-runbooks-rc1",
     "No GKE, production ingress, HSM, or real-value resources are created",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
@@ -64,7 +69,8 @@ foreach ($expected in @(
     "PHASE3_PROD_EDGE_DESIGN.md",
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
     "PHASE3_REGULATORY_READINESS_GATE.md",
-    "PHASE3_AUDIT_REPORTING_HARDENING.md"
+    "PHASE3_AUDIT_REPORTING_HARDENING.md",
+    "PHASE3_OPERATIONAL_RUNBOOKS.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -258,6 +264,38 @@ foreach ($expected in @(
     }
 }
 
+$operationalRunbooks = Get-Content "PHASE3_OPERATIONAL_RUNBOOKS.md" -Raw
+foreach ($expected in @(
+    "Status: operational slice ready",
+    "phase3-operational-runbooks-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "technical_operator",
+    "settlement_operator",
+    "compliance_reviewer",
+    "security_operator",
+    "audit_reviewer",
+    "release_approver",
+    "Daily Operating Runbook",
+    "Validator Operations",
+    "Cloud Run Job plus Cloud Scheduler",
+    "GKE validator operations remain deferred",
+    "Incident Response",
+    "SEV1",
+    "Release And Rollback Runbook",
+    "Backup And Restore Runbook",
+    "Credential And Secret Rotation Runbook",
+    "Audit Evidence Pack",
+    "No Google Cloud resources are created",
+    "No production or real-value operations are enabled",
+    "Current validator behavior remains Phase 1 PoA"
+)) {
+    if ($operationalRunbooks -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 operational runbook content in PHASE3_OPERATIONAL_RUNBOOKS.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
@@ -354,7 +392,25 @@ foreach ($expected in @(
     "admin_authorization_required",
     "privacy_legal_review_required",
     "production_hash_chain_enforcement",
-    "legal_approved_retention_periods"
+    "legal_approved_retention_periods",
+    "phase3_operational_runbooks_rc1:",
+    "status: operational_runbooks_ready",
+    "runbook_config: config/phase3-operational-runbooks.yaml",
+    "runbook_script: scripts/phase3-operational-runbooks.ps1",
+    "production_operations_enabled: false",
+    "changes_google_cloud_resources: false",
+    "cloud_run_job_scheduler_no_gke",
+    "required_finality_votes: 2",
+    "gke_deferred: true",
+    "daily_operations",
+    "validator_operations",
+    "incident_response",
+    "release_rollback",
+    "backup_restore",
+    "credential_rotation",
+    "audit_evidence_pack",
+    "gke_multi_node_validator_runbooks",
+    "real_value_incident_response"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -372,6 +428,7 @@ foreach ($expected in @(
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
     "PHASE3_REGULATORY_READINESS_GATE.md",
     "PHASE3_AUDIT_REPORTING_HARDENING.md",
+    "PHASE3_OPERATIONAL_RUNBOOKS.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
@@ -385,7 +442,9 @@ foreach ($expected in @(
     "phase3_key_management_design.tf",
     "phase3_key_management_design_enabled",
     "phase3-regulatory-readiness-gate.ps1",
-    "phase3-audit-reporting-hardening.ps1"
+    "phase3-audit-reporting-hardening.ps1",
+    "phase3-operational-runbooks.ps1",
+    "Cloud Run Job plus Cloud Scheduler no-GKE topology"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
@@ -441,6 +500,62 @@ foreach ($expected in @(
 )) {
     if ($auditReportingScript -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 audit/reporting hardening script content: $expected"
+    }
+}
+
+$operationalRunbookConfig = Get-Content "config/phase3-operational-runbooks.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase3-operational-runbooks-rc1",
+    "status: operational_runbooks_ready",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "production_operations_enabled: false",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "enables_gke_validator_operations: false",
+    "technical_operator",
+    "settlement_operator",
+    "compliance_reviewer",
+    "security_operator",
+    "audit_reviewer",
+    "release_approver",
+    "daily_operations:",
+    "validator_operations:",
+    "cloud_run_job_scheduler_no_gke",
+    "required_finality_votes: 2",
+    "gke_deferred: true",
+    "incident_response:",
+    "SEV1",
+    "release_rollback:",
+    "cargo_clippy_workspace_deny_warnings",
+    "backup_restore:",
+    "restore_to_separate_target",
+    "credential_rotation:",
+    "confirm_no_secrets_in_logs_or_audit_exports",
+    "audit_evidence_pack:",
+    "no_google_cloud_resources_created: true",
+    "no_production_operations_enabled: true",
+    "no_real_value_operations_enabled: true"
+)) {
+    if ($operationalRunbookConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 operational runbook config content: $expected"
+    }
+}
+
+$operationalRunbookScript = Get-Content "scripts/phase3-operational-runbooks.ps1" -Raw
+foreach ($expected in @(
+    "phase3-operational-runbooks-rc1",
+    "Production operations must remain disabled",
+    "Operational runbooks must not create paid resources",
+    "Operational runbooks must not change Google Cloud resources",
+    "GKE validator operations must remain deferred",
+    "operator_role_count = 6",
+    "runbook_count = 7",
+    "production_operations_enabled = `$false"
+)) {
+    if ($operationalRunbookScript -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 operational runbook script content: $expected"
     }
 }
 
@@ -724,5 +839,6 @@ foreach ($expected in @(
     key_management_design_rc1 = $true
     regulatory_readiness_gate_rc1 = $true
     audit_reporting_hardening_rc1 = $true
+    operational_runbooks_rc1 = $true
     result = "ok"
 }
