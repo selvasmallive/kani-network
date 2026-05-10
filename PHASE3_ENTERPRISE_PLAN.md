@@ -1,6 +1,6 @@
 # KANI Phase 3 Enterprise Plan
 
-Status: implementation started
+Status: sandbox enterprise complete
 Date: 2026-05-09
 Scope: enterprise sandbox design after `phase2-lean-no-gke`
 
@@ -216,16 +216,18 @@ Recommended slices:
 8. `phase3-regulatory-readiness-gate-rc1`: blocking legal, compliance, privacy, security, and executive approval gate.
 9. `phase3-audit-reporting-hardening-rc1`: immutable audit contract, reconciliation boundaries, retention matrix, and export controls.
 10. `phase3-operational-runbooks-rc1`: daily operations, validator operations, incident response, release/rollback, backup/restore, credential rotation, and evidence pack.
+11. `phase3-wrapup-rc1`: final Phase 3 closure, deferral register, non-enablement confirmation, and Phase 4 entry criteria.
 
 ## Acceptance Criteria
 
-Phase 3 planning is accepted when:
+Phase 3 sandbox enterprise completion is accepted when:
 
 - The roadmap is checked into the repo.
 - A structured Phase 3 config exists.
 - A static validator verifies the required planning artifacts.
 - Phase 2 lean remains unchanged and passing.
-- No GKE, production ingress, HSM, or real-value resources are created by this planning slice.
+- No GKE, production ingress, HSM, or real-value resources are created by Phase 3.
+- The wrap-up checkpoint records all completed release candidates, remaining deferrals, and Phase 4 entry criteria.
 
 ## Implementation Progress
 
@@ -246,3 +248,5 @@ Phase 3 planning is accepted when:
 `phase3-audit-reporting-hardening-rc1` adds a sandbox-only hardening contract for immutable audit fields, reconciliation source boundaries, retention categories, and export controls. Production hash-chain signing, external delivery, SIEM export, and legal-approved retention periods remain deferred. Details are recorded in `PHASE3_AUDIT_REPORTING_HARDENING.md`.
 
 `phase3-operational-runbooks-rc1` adds sandbox-only operational runbooks for daily checks, validator operations, incident response, release and rollback, backup/restore drills, credential rotation, and audit evidence packs. Production operations, GKE validator operations, and real-value incident response remain deferred. Details are recorded in `PHASE3_OPERATIONAL_RUNBOOKS.md`.
+
+`phase3-wrapup-rc1` closes Phase 3 for the sandbox enterprise track. It confirms that all Phase 3 release candidates are present, production and real-value capabilities remain disabled, GKE/HSM/production ingress remain deferred, and Phase 4 may start only as pre-production readiness planning. Details are recorded in `PHASE3_WRAPUP.md`.

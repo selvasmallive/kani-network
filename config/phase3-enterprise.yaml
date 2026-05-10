@@ -1,5 +1,5 @@
 phase: phase-3-enterprise
-status: implementation_started
+status: sandbox_enterprise_complete
 inherits_from: phase2-lean-no-gke
 
 runtime_boundary:
@@ -138,12 +138,25 @@ workstreams:
       - credential_rotation
       - audit_evidence_pack
 
+  wrap_up:
+    wrapup_checkpoint: phase3-wrapup-rc1
+    wrapup_config: config/phase3-wrapup.yaml
+    wrapup_script: scripts/phase3-wrapup.ps1
+    completion_scope: sandbox_enterprise_track
+    completion_percentage: 100
+    production_ready: false
+    real_value_ready: false
+    next_phase: phase-4-pre-production-readiness
+
 acceptance:
   phase3_plan_checked_in: true
   static_validator_required: true
   phase2_lean_unchanged: true
   creates_paid_resources: false
   creates_real_value_capability: false
+  sandbox_enterprise_track_complete: true
+  production_ready: false
+  real_value_ready: false
 
 implementation_slices:
   phase3_spec_rc1:
@@ -426,3 +439,40 @@ implementation_slices:
       - external_institution_onboarding_operations
       - real_value_incident_response
       - production_rto_rpo_commitments
+  phase3_wrapup_rc1:
+    status: sandbox_enterprise_track_complete
+    creates_paid_resources: false
+    creates_real_value_capability: false
+    changes_google_cloud_resources: false
+    completion_scope: sandbox_enterprise_track
+    completion_percentage: 100
+    wrapup_config: config/phase3-wrapup.yaml
+    wrapup_script: scripts/phase3-wrapup.ps1
+    completed_release_candidates:
+      - phase3-spec-rc1
+      - phase3-institution-model-rc1
+      - phase3-compliance-cases-rc1
+      - phase3-consensus-interface-rc1
+      - phase3-bft-prototype-rc1
+      - phase3-prod-edge-design-rc1
+      - phase3-key-management-design-rc1
+      - phase3-regulatory-readiness-gate-rc1
+      - phase3-audit-reporting-hardening-rc1
+      - phase3-operational-runbooks-rc1
+      - phase3-wrapup-rc1
+    non_enablement:
+      gke_cluster_enabled: false
+      production_bft_enabled: false
+      hsm_signing_enabled: false
+      production_ingress_enabled: false
+      external_customer_access_enabled: false
+      real_value_reporting_enabled: false
+      legal_or_regulatory_approval_claimed: false
+    next_phase:
+      id: phase-4-pre-production-readiness
+      real_value_enablement_allowed: false
+      required_first_steps:
+        - assign_readiness_gate_owners
+        - collect_legal_and_compliance_review_evidence
+        - review_production_cost_estimate
+        - plan_paid_resource_terraform_before_apply

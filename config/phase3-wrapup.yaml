@@ -1,0 +1,102 @@
+release_candidate: phase3-wrapup-rc1
+status: sandbox_enterprise_track_complete
+completion_scope: sandbox_enterprise_track
+completion_percentage: 100
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  creates_real_value_capability: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_production_ingress: false
+  authorizes_external_institution_onboarding: false
+
+completed_release_candidates:
+  - phase3-spec-rc1
+  - phase3-institution-model-rc1
+  - phase3-compliance-cases-rc1
+  - phase3-consensus-interface-rc1
+  - phase3-bft-prototype-rc1
+  - phase3-prod-edge-design-rc1
+  - phase3-key-management-design-rc1
+  - phase3-regulatory-readiness-gate-rc1
+  - phase3-audit-reporting-hardening-rc1
+  - phase3-operational-runbooks-rc1
+  - phase3-wrapup-rc1
+
+acceptance_summary:
+  phase2_lean_no_gke_baseline_retained: true
+  phase1_poa_validator_default_retained: true
+  institution_state_model_ready: true
+  compliance_manual_review_ready: true
+  consensus_config_boundary_ready: true
+  sandbox_bft_prototype_ready: true
+  production_edge_design_ready: true
+  key_management_design_ready: true
+  regulatory_gate_blocked: true
+  audit_reporting_boundary_ready: true
+  operational_runbooks_ready: true
+  static_validation_complete: true
+
+non_enablement:
+  gke_cluster_enabled: false
+  production_bft_enabled: false
+  hsm_signing_enabled: false
+  production_kms_keys_created: false
+  production_ingress_enabled: false
+  cloud_armor_waf_applied: false
+  production_mtls_trust_config_applied: false
+  external_customer_access_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  real_value_reporting_enabled: false
+  legal_or_regulatory_approval_claimed: false
+
+deferred_to_phase4_or_later:
+  - gke_multi_node_validator_operations
+  - production_bft_networking_and_round_changes
+  - equivocation_evidence_persistence
+  - hsm_backed_validator_treasury_api_iso_and_audit_signing
+  - production_mtls_certificate_issuance
+  - cloud_armor_waf_and_production_ingress_apply
+  - external_institution_due_diligence_and_agreements
+  - legal_classification_and_registration_analysis
+  - aml_kyc_sanctions_privacy_and_custody_approvals
+  - production_disaster_recovery_rto_rpo
+  - independent_security_review_and_penetration_test
+  - board_or_operator_go_live_approval
+
+phase4_entry_criteria:
+  - named_owner_for_every_readiness_gate
+  - legal_and_compliance_advisor_review
+  - security_owner_approval_for_hsm_kms_and_ingress
+  - operations_owner_approval_for_incident_response_and_disaster_recovery
+  - production_cost_estimate_reviewed
+  - terraform_plan_review_before_paid_resource_apply
+  - production_readiness_tag_after_evidence
+
+verification:
+  required_checks:
+    - phase3_wrapup_validator
+    - phase3_validator
+    - phase2_validator
+    - cargo_fmt_check
+    - cargo_clippy_workspace_deny_warnings
+    - cargo_test_workspace
+  wrapup_validator: scripts/phase3-wrapup.ps1
+  phase3_validator: scripts/phase3-validate.ps1
+  phase2_validator: scripts/phase2-validate.ps1
+
+result:
+  phase3_sandbox_enterprise_track_complete: true
+  production_ready: false
+  real_value_ready: false
+  next_phase: phase-4-pre-production-readiness

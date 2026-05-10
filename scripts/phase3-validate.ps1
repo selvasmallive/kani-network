@@ -11,14 +11,17 @@ $requiredFiles = @(
     "PHASE3_REGULATORY_READINESS_GATE.md",
     "PHASE3_AUDIT_REPORTING_HARDENING.md",
     "PHASE3_OPERATIONAL_RUNBOOKS.md",
+    "PHASE3_WRAPUP.md",
     "config/phase3-enterprise.yaml",
     "config/phase3-regulatory-readiness.yaml",
     "config/phase3-audit-reporting.yaml",
     "config/phase3-operational-runbooks.yaml",
+    "config/phase3-wrapup.yaml",
     "scripts/phase3-validate.ps1",
     "scripts/phase3-regulatory-readiness-gate.ps1",
     "scripts/phase3-audit-reporting-hardening.ps1",
     "scripts/phase3-operational-runbooks.ps1",
+    "scripts/phase3-wrapup.ps1",
     "infra/terraform/phase3_prod_edge_design.tf",
     "infra/terraform/phase3_key_management_design.tf",
     "PHASE2_OBSERVATION_REPORT.md",
@@ -40,7 +43,7 @@ if ($missing.Count -gt 0) {
 
 $plan = Get-Content "PHASE3_ENTERPRISE_PLAN.md" -Raw
 foreach ($expected in @(
-    "Status: implementation started",
+    "Status: sandbox enterprise complete",
     "ENV = SANDBOX",
     "REAL_VALUE = FALSE",
     "REDEEMABLE = FALSE",
@@ -61,7 +64,8 @@ foreach ($expected in @(
     "phase3-regulatory-readiness-gate-rc1",
     "phase3-audit-reporting-hardening-rc1",
     "phase3-operational-runbooks-rc1",
-    "No GKE, production ingress, HSM, or real-value resources are created",
+    "phase3-wrapup-rc1",
+    "No GKE, production ingress, HSM, or real-value resources are created by Phase 3",
     "PHASE3_INSTITUTION_MODEL.md",
     "PHASE3_COMPLIANCE_CASES.md",
     "PHASE3_CONSENSUS_INTERFACE.md",
@@ -70,7 +74,8 @@ foreach ($expected in @(
     "PHASE3_KEY_MANAGEMENT_DESIGN.md",
     "PHASE3_REGULATORY_READINESS_GATE.md",
     "PHASE3_AUDIT_REPORTING_HARDENING.md",
-    "PHASE3_OPERATIONAL_RUNBOOKS.md"
+    "PHASE3_OPERATIONAL_RUNBOOKS.md",
+    "PHASE3_WRAPUP.md"
 )) {
     if ($plan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 plan content in PHASE3_ENTERPRISE_PLAN.md: $expected"
@@ -296,9 +301,43 @@ foreach ($expected in @(
     }
 }
 
+$wrapup = Get-Content "PHASE3_WRAPUP.md" -Raw
+foreach ($expected in @(
+    "Status: sandbox enterprise track complete",
+    "phase3-wrapup-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Completed Release Candidates",
+    "phase3-spec-rc1",
+    "phase3-institution-model-rc1",
+    "phase3-compliance-cases-rc1",
+    "phase3-consensus-interface-rc1",
+    "phase3-bft-prototype-rc1",
+    "phase3-prod-edge-design-rc1",
+    "phase3-key-management-design-rc1",
+    "phase3-regulatory-readiness-gate-rc1",
+    "phase3-audit-reporting-hardening-rc1",
+    "phase3-operational-runbooks-rc1",
+    "phase3-wrapup-rc1",
+    "Explicit Non-Enablement",
+    "No GKE validator cluster is enabled",
+    "No production BFT finality claim is made",
+    "No Cloud HSM, production KMS keys, or signing service is created",
+    "Deferral Register",
+    "Phase 4 Entry Criteria",
+    "scripts/phase3-wrapup.ps1",
+    "Phase 3 is complete for the sandbox enterprise track"
+)) {
+    if ($wrapup -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 wrap-up content in PHASE3_WRAPUP.md: $expected"
+    }
+}
+
 $config = Get-Content "config/phase3-enterprise.yaml" -Raw
 foreach ($expected in @(
     "phase: phase-3-enterprise",
+    "status: sandbox_enterprise_complete",
     "inherits_from: phase2-lean-no-gke",
     "real_value: false",
     "production_value_movement_allowed: false",
@@ -410,7 +449,25 @@ foreach ($expected in @(
     "credential_rotation",
     "audit_evidence_pack",
     "gke_multi_node_validator_runbooks",
-    "real_value_incident_response"
+    "real_value_incident_response",
+    "phase3_wrapup_rc1:",
+    "status: sandbox_enterprise_track_complete",
+    "wrapup_config: config/phase3-wrapup.yaml",
+    "wrapup_script: scripts/phase3-wrapup.ps1",
+    "completion_scope: sandbox_enterprise_track",
+    "completion_percentage: 100",
+    "phase3-wrapup-rc1",
+    "gke_cluster_enabled: false",
+    "production_bft_enabled: false",
+    "hsm_signing_enabled: false",
+    "production_ingress_enabled: false",
+    "external_customer_access_enabled: false",
+    "real_value_reporting_enabled: false",
+    "legal_or_regulatory_approval_claimed: false",
+    "phase-4-pre-production-readiness",
+    "assign_readiness_gate_owners",
+    "collect_legal_and_compliance_review_evidence",
+    "plan_paid_resource_terraform_before_apply"
 )) {
     if ($config -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 config content in config/phase3-enterprise.yaml: $expected"
@@ -429,6 +486,7 @@ foreach ($expected in @(
     "PHASE3_REGULATORY_READINESS_GATE.md",
     "PHASE3_AUDIT_REPORTING_HARDENING.md",
     "PHASE3_OPERATIONAL_RUNBOOKS.md",
+    "PHASE3_WRAPUP.md",
     "phase3-validate.ps1",
     "POST /v1/admin/institutions",
     "POST /v1/admin/institutions/{id}/suspend",
@@ -444,7 +502,9 @@ foreach ($expected in @(
     "phase3-regulatory-readiness-gate.ps1",
     "phase3-audit-reporting-hardening.ps1",
     "phase3-operational-runbooks.ps1",
-    "Cloud Run Job plus Cloud Scheduler no-GKE topology"
+    "phase3-wrapup.ps1",
+    "Cloud Run Job plus Cloud Scheduler no-GKE topology",
+    "phase-4-pre-production-readiness"
 )) {
     if ($readme -notmatch [regex]::Escape($expected)) {
         throw "Expected README.md Phase 3 content: $expected"
@@ -556,6 +616,66 @@ foreach ($expected in @(
 )) {
     if ($operationalRunbookScript -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 3 operational runbook script content: $expected"
+    }
+}
+
+$wrapupConfig = Get-Content "config/phase3-wrapup.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase3-wrapup-rc1",
+    "status: sandbox_enterprise_track_complete",
+    "completion_scope: sandbox_enterprise_track",
+    "completion_percentage: 100",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "creates_real_value_capability: false",
+    "enables_gke_validator_operations: false",
+    "enables_hsm_or_kms_signing: false",
+    "enables_production_ingress: false",
+    "authorizes_external_institution_onboarding: false",
+    "completed_release_candidates:",
+    "phase3-operational-runbooks-rc1",
+    "phase3-wrapup-rc1",
+    "phase2_lean_no_gke_baseline_retained: true",
+    "phase1_poa_validator_default_retained: true",
+    "regulatory_gate_blocked: true",
+    "gke_cluster_enabled: false",
+    "production_bft_enabled: false",
+    "hsm_signing_enabled: false",
+    "production_ingress_enabled: false",
+    "external_customer_access_enabled: false",
+    "real_value_reporting_enabled: false",
+    "legal_or_regulatory_approval_claimed: false",
+    "deferred_to_phase4_or_later:",
+    "gke_multi_node_validator_operations",
+    "production_bft_networking_and_round_changes",
+    "hsm_backed_validator_treasury_api_iso_and_audit_signing",
+    "legal_classification_and_registration_analysis",
+    "phase4_entry_criteria:",
+    "production_cost_estimate_reviewed",
+    "terraform_plan_review_before_paid_resource_apply",
+    "phase3_sandbox_enterprise_track_complete: true",
+    "production_ready: false",
+    "real_value_ready: false",
+    "next_phase: phase-4-pre-production-readiness"
+)) {
+    if ($wrapupConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 wrap-up config content: $expected"
+    }
+}
+
+$wrapupScript = Get-Content "scripts/phase3-wrapup.ps1" -Raw
+foreach ($expected in @(
+    "phase3-wrapup-rc1",
+    "Phase 3 wrap-up must not enable",
+    "completion_percentage = 100",
+    "completed_release_candidate_count = 11",
+    "production_ready = `$false"
+)) {
+    if ($wrapupScript -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 3 wrap-up script content: $expected"
     }
 }
 
@@ -819,7 +939,7 @@ foreach ($expected in @(
 
 [pscustomobject]@{
     phase = "phase-3-enterprise"
-    status = "implementation-started"
+    status = "sandbox-enterprise-complete"
     required_file_count = $requiredFiles.Count
     sandbox_boundary_checked = $true
     consensus_planning = $true
@@ -840,5 +960,6 @@ foreach ($expected in @(
     regulatory_readiness_gate_rc1 = $true
     audit_reporting_hardening_rc1 = $true
     operational_runbooks_rc1 = $true
+    wrapup_rc1 = $true
     result = "ok"
 }
