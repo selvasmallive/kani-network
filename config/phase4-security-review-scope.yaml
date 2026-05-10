@@ -1,0 +1,230 @@
+release_candidate: phase4-security-review-scope-rc1
+status: security_scope_ready
+inherits_from: phase4-cost-model-rc1
+track: phase4-no-gke-preprod-readiness
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  penetration_test_execution_allowed: false
+  production_target_testing_allowed: false
+  external_institution_testing_allowed: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_production_ingress: false
+  enables_public_endpoint_exposure: false
+  enables_real_value_settlement: false
+
+review_objectives:
+  - sandbox_runtime_flags_prevent_real_value_use
+  - institutional_api_authorization_review
+  - admin_authorization_review
+  - account_ownership_and_suspended_institution_blocking_review
+  - manual_review_payment_flow_review
+  - cloud_run_iam_secret_manager_cloud_sql_review
+  - audit_event_coverage_review
+  - iso20022_xml_boundary_review
+  - validator_job_scheduler_no_gke_review
+  - crypto_agility_and_signing_boundary_review
+  - deferred_production_ingress_hsm_kms_review
+  - gke_deferred_to_phase5b_confirmation
+
+in_scope_assets:
+  - kani_api_institution_endpoints
+  - kani_api_admin_endpoints
+  - kani_node_validator_sweep
+  - ledger_accounting_invariants
+  - postgres_persistence
+  - compliance_decisions
+  - manual_review_cases
+  - iso20022_pacs008_pacs002_camt053
+  - sandbox_api_key_handling
+  - secret_manager_wiring
+  - cloud_run_iam_assumptions
+  - no_public_invoker_controls
+  - cloud_sql_connectivity_backup_pitr
+  - cloud_monitoring_alerts
+  - budget_guardrails
+  - terraform_design_boundaries
+  - operational_runbooks_incident_response_evidence
+
+out_of_scope:
+  - production_resource_testing
+  - external_customer_or_institution_system_testing
+  - social_engineering
+  - denial_of_service_or_stress_testing
+  - real_money_fiat_custody_redemption_or_trading
+  - bypassing_google_cloud_account_controls
+  - gke_validator_cluster_testing
+  - hsm_kms_production_key_operations
+  - production_mtls_trust_chain_testing
+  - public_internet_exposure_testing
+
+threat_areas:
+  - broken_object_level_authorization_between_institutions
+  - admin_privilege_escalation
+  - api_key_leakage_replay_or_audit_exposure
+  - payment_idempotency_abuse
+  - ledger_integrity_double_spend_negative_balance
+  - manual_review_bypass
+  - validator_duplicate_finalization_or_stale_finality
+  - iso20022_xml_parser_abuse
+  - cloud_sql_credential_exposure
+  - inadequate_audit_logging_or_mutable_evidence
+  - cloud_run_invoker_misconfiguration
+  - secret_manager_over_permissioning
+  - monitoring_alerting_budget_guardrail_blind_spots
+  - terraform_drift_or_accidental_paid_resource_enablement
+
+test_evidence_requirements:
+  required_fields:
+    - control_id
+    - test_owner
+    - test_date
+    - environment
+    - project_id
+    - commit
+    - image_digest_when_applicable
+    - request_or_command_summary
+    - expected_result
+    - actual_result
+    - pass_fail_status
+    - evidence_link_or_artifact_path
+    - residual_risk_note
+    - follow_up_owner
+    - due_date
+  forbidden_evidence:
+    - api_keys
+    - private_keys
+    - bearer_tokens
+    - raw_credentials
+    - unredacted_connection_strings
+
+review_workstreams:
+  api_authorization_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  ledger_integrity_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  compliance_workflow_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  validator_operations_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  iso20022_input_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  secret_management_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  cloud_iam_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  database_security_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  audit_reporting_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  monitoring_budget_guardrail_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  terraform_change_control_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  incident_response_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+  deferred_gke_hsm_ingress_review:
+    status: blocked
+    required_evidence:
+      - owner
+      - reviewer
+      - evidence_link
+      - closure_decision
+
+non_enablement:
+  penetration_test_execution_allowed: false
+  production_target_testing_allowed: false
+  external_institution_testing_allowed: false
+  google_cloud_resource_creation_allowed: false
+  terraform_apply_allowed: false
+  gke_cluster_enabled: false
+  hsm_kms_production_signing_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  real_value_settlement_enabled: false
+
+acceptance:
+  security_review_scope_document_checked_in: true
+  structured_security_review_config_exists: true
+  static_security_review_validator_required: true
+  phase4_validator_includes_security_scope: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  no_google_cloud_resources_created: true
+  no_penetration_test_execution: true
+  no_production_target_testing: true
+  no_external_institution_testing: true
+  no_gke_enabled: true
+  no_hsm_kms_signing_enabled: true
+  no_production_ingress_enabled: true
+  no_public_endpoint_exposure_enabled: true
+  no_real_value_capability_enabled: true

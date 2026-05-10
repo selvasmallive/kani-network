@@ -94,6 +94,8 @@ Phase 4 has started on the no-GKE track `phase4-no-gke-preprod-readiness`. `PHAS
 
 The Phase 4 cost model checkpoint is recorded in `PHASE4_COST_MODEL.md`, `config/phase4-cost-model.yaml`, and `scripts/phase4-cost-model.ps1`. It captures cost-estimate inputs for the current no-GKE baseline, future production ingress, future HSM/KMS signing, future disaster recovery, security review, and separate GKE validator operations. It intentionally records no fixed live prices and requires live pricing to be checked before any paid-resource apply.
 
+The Phase 4 security review scope checkpoint is recorded in `PHASE4_SECURITY_REVIEW_SCOPE.md`, `config/phase4-security-review-scope.yaml`, and `scripts/phase4-security-review-scope.ps1`. It defines security review objectives, in-scope assets, out-of-scope testing, threat areas, evidence requirements, and blocked review workstreams without executing a penetration test or changing infrastructure.
+
 The planned validator-operations split is:
 
 ```text
@@ -108,6 +110,7 @@ Run the static Phase 4 readiness check from PowerShell:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-validate.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-cost-model.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-security-review-scope.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:

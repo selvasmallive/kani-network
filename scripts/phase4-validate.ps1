@@ -3,10 +3,13 @@ $ErrorActionPreference = "Stop"
 $requiredFiles = @(
     "PHASE4_PRE_PRODUCTION_READINESS.md",
     "PHASE4_COST_MODEL.md",
+    "PHASE4_SECURITY_REVIEW_SCOPE.md",
     "config/phase4-pre-production-readiness.yaml",
     "config/phase4-cost-model.yaml",
+    "config/phase4-security-review-scope.yaml",
     "scripts/phase4-validate.ps1",
     "scripts/phase4-cost-model.ps1",
+    "scripts/phase4-security-review-scope.ps1",
     "PHASE3_WRAPUP.md",
     "scripts/phase3-validate.ps1",
     "scripts/phase2-validate.ps1"
@@ -78,6 +81,31 @@ foreach ($expected in @(
 )) {
     if ($costModel -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 4 cost model content: $expected"
+    }
+}
+
+$securityScope = Get-Content "PHASE4_SECURITY_REVIEW_SCOPE.md" -Raw
+foreach ($expected in @(
+    "Status: security scope ready",
+    "phase4-security-review-scope-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "phase2-lean-no-gke",
+    "Review Objectives",
+    "In-Scope Assets",
+    "Out-Of-Scope Until Explicit Approval",
+    "Threat Areas",
+    "Test Evidence Requirements",
+    "Required Review Workstreams",
+    "api_authorization_review",
+    "deferred_gke_hsm_ingress_review",
+    "Penetration test execution",
+    "Production target testing",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($securityScope -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 security review scope content: $expected"
     }
 }
 
@@ -181,6 +209,41 @@ foreach ($expected in @(
     }
 }
 
+$securityConfig = Get-Content "config/phase4-security-review-scope.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase4-security-review-scope-rc1",
+    "status: security_scope_ready",
+    "inherits_from: phase4-cost-model-rc1",
+    "track: phase4-no-gke-preprod-readiness",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "penetration_test_execution_allowed: false",
+    "production_target_testing_allowed: false",
+    "external_institution_testing_allowed: false",
+    "enables_gke_validator_operations: false",
+    "enables_public_endpoint_exposure: false",
+    "review_objectives:",
+    "gke_deferred_to_phase5b_confirmation",
+    "in_scope_assets:",
+    "out_of_scope:",
+    "threat_areas:",
+    "test_evidence_requirements:",
+    "forbidden_evidence:",
+    "review_workstreams:",
+    "api_authorization_review:",
+    "deferred_gke_hsm_ingress_review:",
+    "google_cloud_resource_creation_allowed: false",
+    "gke_cluster_enabled: false",
+    "public_endpoint_exposure_enabled: false",
+    "real_value_settlement_enabled: false",
+    "phase4_validator_includes_security_scope: true"
+)) {
+    if ($securityConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 security review scope config content: $expected"
+    }
+}
+
 foreach ($forbidden in @(
     "creates_paid_resources",
     "changes_google_cloud_resources",
@@ -209,10 +272,21 @@ foreach ($forbidden in @(
     if ($costConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 4 cost model must not enable $forbidden"
     }
+    if ($securityConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 4 security review scope must not enable $forbidden"
+    }
 }
 
 if ($costConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
     throw "Phase 4 cost model must not allow Terraform apply"
+}
+
+if ($securityConfig -match "(?m)^\s*penetration_test_execution_allowed:\s+true\s*$") {
+    throw "Phase 4 security review scope must not allow penetration test execution"
+}
+
+if ($securityConfig -match "(?m)^\s*production_target_testing_allowed:\s+true\s*$") {
+    throw "Phase 4 security review scope must not allow production target testing"
 }
 
 if ($costConfig -match "(?m)^\s*fixed_live_prices_recorded:\s+true\s*$") {
@@ -239,5 +313,6 @@ if ($gateCount -lt 13) {
     phase5a_no_gke_available = $true
     phase5b_gke_deferred = $true
     cost_model_rc1 = $true
+    security_review_scope_rc1 = $true
     result = "ok"
 }

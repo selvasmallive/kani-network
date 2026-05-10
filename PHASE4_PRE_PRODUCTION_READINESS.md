@@ -137,3 +137,5 @@ Phase 4 remains planning and readiness until every gate has reviewed evidence.
 ## Implementation Progress
 
 `phase4-cost-model-rc1` adds cost-estimate input structure for the current no-GKE baseline, deferred production ingress, deferred HSM/KMS signing, deferred GKE validator operations, disaster recovery, and security review. It records no fixed live prices, creates no Google Cloud resources, and keeps GKE deferred to `phase5b-gke-validator-ops`. Details are recorded in `PHASE4_COST_MODEL.md`.
+
+`phase4-security-review-scope-rc1` defines the security architecture review and penetration-test scope for the no-GKE readiness track. It identifies in-scope assets, out-of-scope test classes, threat areas, evidence requirements, and blocked review workstreams without running a penetration test or changing infrastructure. Details are recorded in `PHASE4_SECURITY_REVIEW_SCOPE.md`.
