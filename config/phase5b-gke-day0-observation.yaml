@@ -1,0 +1,157 @@
+release_candidate: phase5b-gke-day0-observation-rc1
+status: day_zero_observation_recorded
+captured_at: 2026-05-10T02:16:43.2744836-04:00
+observation_window:
+  start: 2026-05-10
+  end: 2026-06-10
+  approved_duration: one_full_month
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+  external_institution_onboarding_enabled: false
+  fiat_deposit_redemption_enabled: false
+
+cloud_run_api:
+  service_name: kani-sandbox-api
+  url: https://kani-sandbox-api-mlmnojda4a-nn.a.run.app
+  latest_ready_revision: kani-sandbox-api-00012-n46
+  traffic_percent_latest_revision: 100
+
+cost_guard:
+  service_name: kani-sandbox-cost-guard
+  latest_ready_revision: kani-sandbox-cost-guard-00011-nfc
+  traffic_percent_latest_revision: 100
+  limitation: pauses_legacy_scheduler_only_not_gke_cluster
+
+cloud_sql:
+  instance: kani-sandbox-ledger
+  state: RUNNABLE
+  database_version: POSTGRES_16
+  region: northamerica-northeast1
+  tier: db-g1-small
+  disk_size_gb: 10
+  backups_enabled: true
+  point_in_time_recovery_enabled: true
+
+gke_cluster:
+  name: kani-sandbox-validators
+  zone: northamerica-northeast1-a
+  status: RUNNING
+  kubernetes_version: 1.35.3-gke.1389000
+  node_count: 1
+  node_machine_type: e2-medium
+  workload_pool: kani-network-sandbox.svc.id.goog
+
+legacy_validator_scheduler:
+  job_name: kani-sandbox-validator-schedule
+  state: PAUSED
+
+budget_guardrail:
+  display_name: kani-sandbox-monthly-budget
+  currency: CAD
+  amount_units: 200
+  thresholds:
+    - 0.5
+    - 0.8
+    - 1.0
+  threshold_amounts_cad:
+    half: 100
+    warning: 160
+    full: 200
+  hard_cap: false
+  alerting_guardrail_only: true
+
+validator_health:
+  deployments_ready:
+    validator-a: 1/1
+    validator-b: 1/1
+    validator-c: 1/1
+  pods:
+    validator-a:
+      pod_name: validator-a-5d9c6d7669-74mbn
+      ready: 2/2
+      status: Running
+      restarts: 0
+    validator-b:
+      pod_name: validator-b-5ffbf579d5-lf9ch
+      ready: 2/2
+      status: Running
+      restarts: 0
+    validator-c:
+      pod_name: validator-c-845b96c77c-xzsbm
+      ready: 2/2
+      status: Running
+      restarts: 0
+
+resource_usage:
+  node:
+    cpu_millicores: 201
+    cpu_percent: 21
+    memory_mib: 1343
+    memory_percent: 47
+  pods:
+    validator-a:
+      cpu_millicores: 41
+      memory_mib: 12
+    validator-b:
+      cpu_millicores: 21
+      memory_mib: 12
+    validator-c:
+      cpu_millicores: 21
+      memory_mib: 13
+
+smoke_test:
+  command: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\phase2-cloud-smoke.ps1 -SkipValidatorJob -WaitForContinuousValidators
+  profile: phase5b-gke-continuous-validators
+  base_url: https://kani-sandbox-api-mlmnojda4a-nn.a.run.app
+  health: ok
+  asset: KCAD_TEST_20260510021545
+  mint_transaction: c40bd07e-1bc5-4cc1-aa92-a8dd33f7e084
+  transfer_transaction: 02a141d0-6722-4c5e-9a56-e39168e83203
+  iso_transaction: bc4667c2-485a-49cb-b531-68e5a5ea5708
+  iso_message_id: phase2-cloud-iso-KCAD_TEST_20260510021545
+  iso_status: ACSC
+  corp_a_balance: 875000
+  corp_b_balance: 125000
+  latest_block_height: 42
+  latest_block_validator: validator-c
+  latest_block_finalized_by:
+    - validator-c
+    - validator-a
+  pending_count: 0
+  audit_reports_verified: true
+  settlement_report_transactions: 42
+  compliance_report_events: 20
+  validator_report_finalized_blocks: 42
+  status: ok
+
+log_review:
+  application_error_query:
+    filter: resource.labels.namespace_name="kani-system" AND severity>=ERROR
+    freshness: 2h
+    result: no_rows
+  broad_project_error_scan:
+    result: gke_system_component_errors_observed
+    components:
+      - gke-metrics-agent
+      - metrics-server
+      - GCEGuestAgent
+    classification: watch_item_not_release_blocker
+    reason: validators_running_kubectl_top_working_smoke_passed
+
+next_observation:
+  first_billing_review: 2026-05-11 through 2026-05-13
+  weekly_runtime_review: every_7_days
+  planned_end_review: 2026-06-10
+  default_teardown_after_window: true
+
+watch_items:
+  - actual_google_cloud_spend_after_billing_data_catches_up
+  - gke_system_metrics_stderr_entries
+  - validator_pod_restarts
+  - pending_transaction_count
+  - block_finality_progress
+  - budget_alert_delivery
