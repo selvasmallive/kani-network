@@ -1,0 +1,177 @@
+release_candidate: phase5a-failure-retry-drills-rc1
+status: failure_retry_drill_plan_ready
+inherits_from: phase5a-scheduler-runbooks-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+
+validator_model:
+  runtime: cloud_run_job_plus_cloud_scheduler
+  run_mode: sweep
+  scheduler_cadence: "*/15 * * * *"
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+drill_matrix:
+  validator_job_retry_after_transient_failure:
+    status: planned
+    objective: rehearse validator job retry evidence after transient job failure
+    live_execution_allowed: false
+  scheduler_missed_trigger_detection:
+    status: planned
+    objective: rehearse missed or delayed Scheduler trigger detection
+    live_execution_allowed: false
+  manual_validator_rerun_after_pending_queue:
+    status: planned
+    objective: rehearse approved manual validator sweep after pending queue buildup
+    live_execution_allowed: false
+  idempotent_payment_retry_after_client_timeout:
+    status: planned
+    objective: prove payment retry with same idempotency key cannot double settle
+    live_execution_allowed: false
+  compliance_hold_release_retry:
+    status: planned
+    objective: prove compliance-held payments stay out of finality until approval
+    live_execution_allowed: false
+  database_connectivity_transient_failure:
+    status: planned
+    objective: rehearse evidence requirements for transient ledger database unavailability
+    live_execution_allowed: false
+  cost_guard_scheduler_pause_recovery:
+    status: planned
+    objective: rehearse budget brake pause handling evidence without triggering real spend actions
+    live_execution_allowed: false
+  validator_report_reconciliation_after_retry:
+    status: planned
+    objective: prove validator finality reports reconcile after retry paths
+    live_execution_allowed: false
+
+required_gates_before_live_drill_execution:
+  sandbox_only_purpose_recorded: blocked
+  drill_owner_assigned: blocked
+  recovery_owner_assigned: blocked
+  approver_identified: blocked
+  change_window_approved: blocked
+  target_drill_selected: blocked
+  expected_failure_signal_documented: blocked
+  expected_retry_signal_documented: blocked
+  rollback_path_documented: blocked
+  evidence_pack_location_selected: blocked
+  cost_impact_reviewed: blocked
+  scheduler_action_approval_recorded_when_relevant: blocked
+  database_impact_approval_recorded_when_relevant: blocked
+  real_value_capability_confirmed_disabled: blocked
+
+required_evidence:
+  - pre_drill_sandbox_boundary_confirmation
+  - pre_drill_pending_transaction_count
+  - pre_drill_latest_block
+  - pre_drill_validator_finality_report
+  - pre_drill_validator_state
+  - drill_action_log
+  - failure_signal
+  - retry_signal
+  - post_retry_pending_transaction_count
+  - post_retry_latest_block
+  - post_retry_validator_finality_report
+  - post_retry_validator_state
+  - audit_event_sample
+  - settlement_summary_sample
+  - compliance_decision_sample
+  - phase5a_reconciliation_result
+  - phase5a_scheduler_evidence_when_relevant
+  - operator_conclusion
+  - residual_risk
+
+forbidden_evidence_fields:
+  - api_keys
+  - bearer_tokens
+  - secret_manager_values
+  - raw_private_keys
+  - customer_data
+  - real_value_records
+
+success_criteria:
+  pending_transactions_reach_expected_terminal_state: required
+  finalized_block_height_monotonic: required
+  finalized_block_hashes_stable: required
+  finality_votes_at_least_two_of_three: required
+  validators_inside_configured_set: required
+  issued_supply_equals_reconciled_balances: required
+  reports_and_audit_evidence_readable: required
+  no_production_or_real_value_capability_enabled: required
+
+non_enablement:
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_failure_retry_drills_checked_in: true
+  structured_phase5a_failure_retry_config_exists: true
+  static_phase5a_failure_retry_validator_required: true
+  aggregate_phase5a_validator_includes_failure_retry_drills: true
+  phase5a_scheduler_runbooks_validator_required: true
+  phase5a_reconciliation_validator_required: true
+  phase5a_hardening_plan_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_scheduler_changes_enabled: true
+  no_failure_injection_enabled: true
+  no_live_failure_drills_enabled: true
+  no_live_retry_drills_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true

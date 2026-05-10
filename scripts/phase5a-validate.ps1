@@ -4,12 +4,15 @@ $requiredFiles = @(
     "PHASE5A_VALIDATOR_HARDENING_PLAN.md",
     "PHASE5A_VALIDATOR_RECONCILIATION.md",
     "PHASE5A_SCHEDULER_RUNBOOKS.md",
+    "PHASE5A_FAILURE_RETRY_DRILLS.md",
     "config/phase5a-validator-hardening-plan.yaml",
     "config/phase5a-validator-reconciliation.yaml",
     "config/phase5a-scheduler-runbooks.yaml",
+    "config/phase5a-failure-retry-drills.yaml",
     "scripts/phase5a-validator-hardening-plan.ps1",
     "scripts/phase5a-validator-reconciliation.ps1",
     "scripts/phase5a-scheduler-runbooks.ps1",
+    "scripts/phase5a-failure-retry-drills.ps1",
     "PHASE4_WRAPUP.md",
     "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
@@ -110,6 +113,35 @@ foreach ($expected in @(
     }
 }
 
+$failureRetryDrills = Get-Content "PHASE5A_FAILURE_RETRY_DRILLS.md" -Raw
+foreach ($expected in @(
+    "Status: failure and retry drill plan ready",
+    "phase5a-failure-retry-drills-rc1",
+    "failure_and_retry_drills",
+    "phase5a-scheduler-runbooks-rc1",
+    "phase2-lean-no-gke",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Drill Matrix",
+    "validator_job_retry_after_transient_failure",
+    "scheduler_missed_trigger_detection",
+    "manual_validator_rerun_after_pending_queue",
+    "idempotent_payment_retry_after_client_timeout",
+    "compliance_hold_release_retry",
+    "database_connectivity_transient_failure",
+    "cost_guard_scheduler_pause_recovery",
+    "validator_report_reconciliation_after_retry",
+    "Required Gates Before Live Drill Execution",
+    "Required Evidence",
+    "Recovery Expectations",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($failureRetryDrills -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A failure and retry drill content: $expected"
+    }
+}
+
 $config = Get-Content "config/phase5a-validator-hardening-plan.yaml" -Raw
 foreach ($expected in @(
     "release_candidate: phase5a-validator-hardening-plan-rc1",
@@ -207,6 +239,42 @@ foreach ($expected in @(
     }
 }
 
+$failureRetryConfig = Get-Content "config/phase5a-failure-retry-drills.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5a-failure-retry-drills-rc1",
+    "status: failure_retry_drill_plan_ready",
+    "inherits_from: phase5a-scheduler-runbooks-rc1",
+    "track: phase5a-no-gke-validator-hardening",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_phase: phase5b-gke-validator-ops",
+    "validator_count: 3",
+    "failure_injection_enabled: false",
+    "live_failure_drills_enabled: false",
+    "live_retry_drills_enabled: false",
+    "drill_matrix:",
+    "validator_job_retry_after_transient_failure:",
+    "scheduler_missed_trigger_detection:",
+    "manual_validator_rerun_after_pending_queue:",
+    "idempotent_payment_retry_after_client_timeout:",
+    "compliance_hold_release_retry:",
+    "database_connectivity_transient_failure:",
+    "cost_guard_scheduler_pause_recovery:",
+    "validator_report_reconciliation_after_retry:",
+    "required_gates_before_live_drill_execution:",
+    "drill_owner_assigned: blocked",
+    "recovery_owner_assigned: blocked",
+    "expected_failure_signal_documented: blocked",
+    "expected_retry_signal_documented: blocked",
+    "required_evidence:",
+    "success_criteria:",
+    "phase5a_failure_retry_drills_checked_in: true",
+    "aggregate_phase5a_validator_includes_failure_retry_drills: true"
+)) {
+    if ($failureRetryConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A failure and retry config content: $expected"
+    }
+}
+
 $phase4Wrapup = Get-Content "config/phase4-wrapup.yaml" -Raw
 foreach ($expected in @(
     "next_phase: phase5a-no-gke-validator-hardening",
@@ -237,7 +305,9 @@ foreach ($forbidden in @(
     "scheduler_changes_enabled",
     "automatic_scheduler_mutation_enabled",
     "manual_scheduler_action_approved_by_this_checkpoint",
+    "failure_injection_enabled",
     "live_failure_drills_enabled",
+    "live_retry_drills_enabled",
     "restore_drill_executed",
     "production_recovery_executed",
     "external_institution_onboarding_enabled",
@@ -258,6 +328,13 @@ foreach ($forbidden in @(
     if ($schedulerConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5A aggregate validator must not allow $forbidden in scheduler runbooks"
     }
+    if ($failureRetryConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5A aggregate validator must not allow $forbidden in failure and retry drills"
+    }
+}
+
+if ($failureRetryConfig -match "(?m)^\s*live_execution_allowed:\s+true\s*$") {
+    throw "Phase 5A failure and retry drill matrix must not allow live execution"
 }
 
 $validatorCount = ([regex]::Matches($config, "(?m)^\s+- validator-[abc]\s*$")).Count
@@ -273,6 +350,11 @@ if ($reconciliationValidatorCount -ne 3) {
 $schedulerValidatorCount = ([regex]::Matches($schedulerConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
 if ($schedulerValidatorCount -ne 3) {
     throw "Expected exactly 3 Phase 5A scheduler validators, found $schedulerValidatorCount"
+}
+
+$failureRetryValidatorCount = ([regex]::Matches($failureRetryConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
+if ($failureRetryValidatorCount -ne 3) {
+    throw "Expected exactly 3 Phase 5A failure and retry validators, found $failureRetryValidatorCount"
 }
 
 $workstreamCount = ([regex]::Matches($config, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
@@ -305,6 +387,21 @@ if ($schedulerCommandTemplateCount -lt 5) {
     throw "Expected at least 5 Phase 5A scheduler command templates, found $schedulerCommandTemplateCount"
 }
 
+$failureRetryDrillCount = ([regex]::Matches($failureRetryConfig, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
+if ($failureRetryDrillCount -lt 8) {
+    throw "Expected at least 8 Phase 5A failure and retry drills, found $failureRetryDrillCount"
+}
+
+$failureRetryBlockedGateCount = ([regex]::Matches($failureRetryConfig, ":\s+blocked")).Count
+if ($failureRetryBlockedGateCount -lt 14) {
+    throw "Expected at least 14 Phase 5A failure and retry approval gates, found $failureRetryBlockedGateCount"
+}
+
+$failureRetryRequiredEvidenceCount = ([regex]::Matches($failureRetryConfig, "(?m)^\s{2}- [a-z0-9_]+\s*$")).Count
+if ($failureRetryRequiredEvidenceCount -lt 19) {
+    throw "Expected at least 19 Phase 5A failure and retry evidence items, found $failureRetryRequiredEvidenceCount"
+}
+
 $blockedGateCount = ([regex]::Matches($config, ":\s+blocked")).Count
 if ($blockedGateCount -lt 7) {
     throw "Expected at least 7 blocked Phase 5A live-drill gates, found $blockedGateCount"
@@ -318,11 +415,15 @@ if ($blockedGateCount -lt 7) {
     hardening_workstream_count = 7
     reconciliation_rc1 = $true
     scheduler_runbooks_rc1 = $true
+    failure_retry_drills_rc1 = $true
     evidence_source_count = $evidenceSourceCount
     reconciliation_check_count = 10
     scheduler_approval_gate_count = $schedulerApprovalGateCount
     scheduler_runbook_step_count = 7
     scheduler_command_template_count = $schedulerCommandTemplateCount
+    failure_retry_drill_count = 8
+    failure_retry_approval_gate_count = $failureRetryBlockedGateCount
+    failure_retry_required_evidence_count = $failureRetryRequiredEvidenceCount
     blocked_live_drill_gate_count = $blockedGateCount
     active_runtime_baseline = "phase2-lean-no-gke"
     gke_required = $false
@@ -330,7 +431,9 @@ if ($blockedGateCount -lt 7) {
     google_cloud_resources_changed = $false
     scheduler_changes_enabled = $false
     automatic_scheduler_mutation_enabled = $false
+    failure_injection_enabled = $false
     live_failure_drills_enabled = $false
+    live_retry_drills_enabled = $false
     real_value_capability_enabled = $false
     result = "ok"
 }

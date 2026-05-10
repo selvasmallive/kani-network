@@ -136,6 +136,8 @@ The first Phase 5A implementation checkpoint is `phase5a-validator-reconciliatio
 
 The second Phase 5A implementation checkpoint is `phase5a-scheduler-runbooks-rc1`. `PHASE5A_SCHEDULER_RUNBOOKS.md`, `config/phase5a-scheduler-runbooks.yaml`, and `scripts/phase5a-scheduler-runbooks.ps1` define the approved-operator evidence requirements and command templates for pausing, manually executing, and resuming the no-GKE validator Scheduler path. The checkpoint documents the procedure but does not execute or approve Scheduler changes.
 
+The third Phase 5A implementation checkpoint is `phase5a-failure-retry-drills-rc1`. `PHASE5A_FAILURE_RETRY_DRILLS.md`, `config/phase5a-failure-retry-drills.yaml`, and `scripts/phase5a-failure-retry-drills.ps1` define the sandbox failure/retry drill matrix, approval gates, evidence requirements, and recovery expectations without enabling failure injection or live drill execution.
+
 This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
 
 ```text
@@ -162,6 +164,7 @@ Run the Phase 5A checks from PowerShell:
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validator-hardening-plan.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validator-reconciliation.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-scheduler-runbooks.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-failure-retry-drills.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 ```
 
