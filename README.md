@@ -31,6 +31,16 @@ Validate the research data pack with:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\enterprise-sandbox-evidence-validate.ps1
 ```
 
+## Scheduled Research Observations
+
+Daily sandbox research collection is configured through Windows Task Scheduler using `scripts/research-daily-collection.ps1` and `scripts/register-research-collection-schedule.ps1`. The schedule captures 21 days of PowerPoint-ready evidence with 7-day, 14-day, and 21-day checkpoints while keeping `SANDBOX`, `REAL_VALUE=false`, and `REDEEMABLE=false`.
+
+Validate the schedule package with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\research-observation-validate.ps1
+```
+
 ## Phase 2 Cloud MVP
 
 Phase 2 starts the Google Cloud sandbox deployment path while keeping real value disabled.
