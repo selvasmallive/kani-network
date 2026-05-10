@@ -1,0 +1,196 @@
+release_candidate: phase4-prod-ingress-implementation-plan-rc1
+status: implementation_plan_ready
+inherits_from: phase4-hsm-kms-implementation-plan-rc1
+track: phase4-no-gke-preprod-readiness
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  creates_external_https_load_balancer: false
+  creates_api_gateway: false
+  creates_reserved_static_ip: false
+  creates_dns_record: false
+  creates_certificate_manager_certificate: false
+  creates_certificate_manager_trust_config: false
+  applies_cloud_armor_policy: false
+  changes_cloud_run_ingress: false
+  enables_institution_mtls: false
+  enables_public_endpoint_exposure: false
+  enables_gke_validator_operations: false
+  enables_hsm_or_kms_signing: false
+  enables_real_value_settlement: false
+
+target_components:
+  external_https_load_balancer_or_api_gateway_decision:
+    status: planned
+    required_before_apply: true
+  serverless_neg_to_cloud_run_api:
+    status: deferred
+    creates_resource_now: false
+  certificate_manager_tls_certificate:
+    status: deferred
+    creates_resource_now: false
+  certificate_manager_trust_config:
+    status: deferred
+    creates_resource_now: false
+  private_ca_or_institution_trust_bundle:
+    status: deferred
+    creates_resource_now: false
+  institution_mtls:
+    status: deferred
+    enabled_now: false
+  cloud_armor_waf:
+    status: deferred
+    applied_now: false
+  cloud_armor_rate_limits:
+    status: deferred
+    applied_now: false
+  admin_oidc:
+    status: design_required
+    enabled_now: false
+  private_cloud_run_ingress:
+    status: deferred
+    changed_now: false
+  private_api_to_database_path:
+    status: design_required
+    changed_now: false
+  managed_dns_record:
+    status: deferred
+    creates_resource_now: false
+  reserved_static_ip:
+    status: deferred
+    creates_resource_now: false
+  request_and_security_logging:
+    status: design_required
+    changed_now: false
+
+request_paths:
+  institution_api_path:
+    authentication_boundary: mtls_plus_institution_api_authorization
+    public_edge_candidate: true
+    enabled_now: false
+  admin_api_path:
+    authentication_boundary: oidc_plus_operator_authorization
+    public_edge_candidate: true
+    enabled_now: false
+  validator_internal_path:
+    authentication_boundary: internal_service_identity
+    public_edge_candidate: false
+    enabled_now: false
+  health_path:
+    authentication_boundary: minimal_public_or_edge_health_check
+    public_edge_candidate: true
+    sensitive_data_allowed: false
+    enabled_now: false
+
+implementation_stages:
+  stage_0_design_only:
+    status: active
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_1_domain_and_cert_design:
+    status: planned
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_2_waf_policy_design:
+    status: planned
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_3_mtls_trust_design:
+    status: planned
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_4_sandbox_edge_apply_candidate:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_5_preprod_edge_pilot:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+  stage_6_production_candidate:
+    status: blocked
+    paid_resources_allowed: false
+    terraform_apply_allowed: false
+
+required_gates_before_apply:
+  - cost_estimate_reviewed_and_approved
+  - security_architecture_review_completed
+  - terraform_plan_reviewed
+  - dns_owner_approval_recorded
+  - certificate_and_trust_config_owner_assigned
+  - cloud_run_ingress_rollback_plan_approved
+  - cloud_armor_policy_reviewed
+  - admin_oidc_review_completed
+  - smoke_and_security_test_plan_approved
+  - penetration_test_scope_approved
+  - logging_retention_and_incident_response_review_completed
+  - regulatory_readiness_non_override_confirmed
+
+terraform_boundary:
+  design_file: infra/terraform/phase4_prod_ingress_implementation_plan.tf
+  guard_variable: phase4_prod_ingress_implementation_enabled
+  guard_default: false
+  declares_google_cloud_resources: false
+  output_only: true
+  deferred_resources:
+    - google_compute_global_address
+    - google_compute_region_network_endpoint_group
+    - google_compute_backend_service
+    - google_compute_url_map
+    - google_compute_target_https_proxy
+    - google_compute_global_forwarding_rule
+    - google_compute_security_policy
+    - google_certificate_manager_certificate
+    - google_certificate_manager_trust_config
+    - google_api_gateway_api
+    - google_api_gateway_gateway
+    - google_dns_record_set
+    - cloud_run_ingress_update
+
+iam_boundary:
+  forbidden_principals:
+    - allUsers
+    - allAuthenticatedUsers
+  institution_access_identity_bound: true
+  institution_access_certificate_bound: true
+  admin_access_oidc_required: true
+  validator_traffic_internal_only: true
+
+non_enablement:
+  external_https_load_balancer_created: false
+  api_gateway_created: false
+  reserved_static_ip_created: false
+  dns_record_created: false
+  certificate_manager_certificate_created: false
+  certificate_manager_trust_config_created: false
+  institution_mtls_enabled: false
+  cloud_armor_waf_applied: false
+  cloud_armor_rate_limits_applied: false
+  cloud_run_ingress_changed: false
+  public_endpoint_exposure_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  real_value_settlement_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  prod_ingress_implementation_plan_checked_in: true
+  structured_prod_ingress_plan_config_exists: true
+  design_only_terraform_guard_exists: true
+  static_prod_ingress_plan_validator_required: true
+  phase4_validator_includes_prod_ingress_plan: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  no_google_cloud_resources_created: true
+  no_public_endpoint_exposure_enabled: true
+  no_production_ingress_enabled: true
+  no_real_value_capability_enabled: true

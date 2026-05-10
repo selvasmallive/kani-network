@@ -5,15 +5,19 @@ $requiredFiles = @(
     "PHASE4_COST_MODEL.md",
     "PHASE4_SECURITY_REVIEW_SCOPE.md",
     "PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md",
+    "PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md",
     "config/phase4-pre-production-readiness.yaml",
     "config/phase4-cost-model.yaml",
     "config/phase4-security-review-scope.yaml",
     "config/phase4-hsm-kms-implementation-plan.yaml",
+    "config/phase4-prod-ingress-implementation-plan.yaml",
     "scripts/phase4-validate.ps1",
     "scripts/phase4-cost-model.ps1",
     "scripts/phase4-security-review-scope.ps1",
     "scripts/phase4-hsm-kms-implementation-plan.ps1",
+    "scripts/phase4-prod-ingress-implementation-plan.ps1",
     "infra/terraform/phase4_hsm_kms_implementation_plan.tf",
+    "infra/terraform/phase4_prod_ingress_implementation_plan.tf",
     "PHASE3_WRAPUP.md",
     "scripts/phase3-validate.ps1",
     "scripts/phase2-validate.ps1"
@@ -137,6 +141,49 @@ foreach ($expected in @(
 )) {
     if ($hsmKmsPlan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 4 HSM/KMS implementation plan content: $expected"
+    }
+}
+
+$prodIngressPlan = Get-Content "PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md" -Raw
+foreach ($expected in @(
+    "Status: implementation plan ready",
+    "phase4-prod-ingress-implementation-plan-rc1",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "phase2-lean-no-gke",
+    "Implementation Objective",
+    "This plan is not an approval to enable production ingress",
+    "Target Components",
+    "external_https_load_balancer_or_api_gateway_decision",
+    "serverless_neg_to_cloud_run_api",
+    "certificate_manager_tls_certificate",
+    "certificate_manager_trust_config",
+    "institution_mtls",
+    "cloud_armor_waf",
+    "admin_oidc",
+    "private_cloud_run_ingress",
+    "Request Paths",
+    "institution_api_path",
+    "admin_api_path",
+    "validator_internal_path",
+    "health_path",
+    "Implementation Stages",
+    "stage_0_design_only",
+    "stage_3_mtls_trust_design",
+    "Required Gates Before Apply",
+    "DNS owner approval recorded",
+    "Cloud Armor policy reviewed",
+    "Terraform Boundary",
+    "phase4_prod_ingress_implementation_enabled = false",
+    'Declare no `resource "google_*"` blocks',
+    "allUsers",
+    "allAuthenticatedUsers",
+    "Public endpoint exposure",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($prodIngressPlan -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 production ingress implementation plan content: $expected"
     }
 }
 
@@ -313,6 +360,72 @@ foreach ($expected in @(
     }
 }
 
+$prodIngressConfig = Get-Content "config/phase4-prod-ingress-implementation-plan.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase4-prod-ingress-implementation-plan-rc1",
+    "status: implementation_plan_ready",
+    "inherits_from: phase4-hsm-kms-implementation-plan-rc1",
+    "track: phase4-no-gke-preprod-readiness",
+    "env: SANDBOX",
+    "real_value: false",
+    "redeemable: false",
+    "creates_paid_resources: false",
+    "changes_google_cloud_resources: false",
+    "terraform_apply_allowed: false",
+    "creates_external_https_load_balancer: false",
+    "creates_api_gateway: false",
+    "creates_reserved_static_ip: false",
+    "creates_dns_record: false",
+    "creates_certificate_manager_certificate: false",
+    "creates_certificate_manager_trust_config: false",
+    "applies_cloud_armor_policy: false",
+    "changes_cloud_run_ingress: false",
+    "enables_institution_mtls: false",
+    "enables_public_endpoint_exposure: false",
+    "target_components:",
+    "external_https_load_balancer_or_api_gateway_decision:",
+    "serverless_neg_to_cloud_run_api:",
+    "certificate_manager_tls_certificate:",
+    "certificate_manager_trust_config:",
+    "institution_mtls:",
+    "cloud_armor_waf:",
+    "admin_oidc:",
+    "private_cloud_run_ingress:",
+    "request_paths:",
+    "institution_api_path:",
+    "admin_api_path:",
+    "validator_internal_path:",
+    "health_path:",
+    "implementation_stages:",
+    "stage_0_design_only:",
+    "stage_6_production_candidate:",
+    "required_gates_before_apply:",
+    "terraform_boundary:",
+    "design_file: infra/terraform/phase4_prod_ingress_implementation_plan.tf",
+    "guard_variable: phase4_prod_ingress_implementation_enabled",
+    "guard_default: false",
+    "declares_google_cloud_resources: false",
+    "output_only: true",
+    "iam_boundary:",
+    "allUsers",
+    "allAuthenticatedUsers",
+    "external_https_load_balancer_created: false",
+    "api_gateway_created: false",
+    "dns_record_created: false",
+    "certificate_manager_certificate_created: false",
+    "certificate_manager_trust_config_created: false",
+    "institution_mtls_enabled: false",
+    "cloud_armor_waf_applied: false",
+    "cloud_run_ingress_changed: false",
+    "public_endpoint_exposure_enabled: false",
+    "real_value_settlement_enabled: false",
+    "phase4_validator_includes_prod_ingress_plan: true"
+)) {
+    if ($prodIngressConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 production ingress implementation plan config content: $expected"
+    }
+}
+
 $hsmKmsTerraform = Get-Content "infra/terraform/phase4_hsm_kms_implementation_plan.tf" -Raw
 foreach ($expected in @(
     'variable "phase4_hsm_kms_implementation_enabled"',
@@ -332,6 +445,34 @@ foreach ($expected in @(
     }
 }
 
+$prodIngressTerraform = Get-Content "infra/terraform/phase4_prod_ingress_implementation_plan.tf" -Raw
+foreach ($expected in @(
+    'variable "phase4_prod_ingress_implementation_enabled"',
+    "default     = false",
+    "phase4-prod-ingress-implementation-plan-rc1",
+    "active_runtime_baseline        = `"phase2-lean-no-gke`"",
+    "creates_paid_resources         = false",
+    "changes_google_cloud_resources = false",
+    "creates_real_value_capability  = false",
+    "public_endpoint_exposure       = false",
+    "production_ingress_enabled     = false",
+    "institution_api_path",
+    "admin_api_path",
+    "validator_internal_path",
+    "stage_0_design_only",
+    "stage_3_mtls_trust_design",
+    "google_compute_global_address",
+    "google_certificate_manager_certificate",
+    "google_certificate_manager_trust_config",
+    "google_api_gateway_api",
+    "google_dns_record_set",
+    'output "phase4_prod_ingress_implementation_plan"'
+)) {
+    if ($prodIngressTerraform -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 4 production ingress Terraform design content: $expected"
+    }
+}
+
 foreach ($forbidden in @(
     "creates_paid_resources",
     "changes_google_cloud_resources",
@@ -344,8 +485,28 @@ foreach ($forbidden in @(
     "gke_cluster_enabled",
     "production_bft_validator_network_enabled",
     "production_ingress_enabled",
+    "creates_external_https_load_balancer",
+    "creates_api_gateway",
+    "creates_reserved_static_ip",
+    "creates_dns_record",
+    "creates_certificate_manager_certificate",
+    "creates_certificate_manager_trust_config",
+    "applies_cloud_armor_policy",
+    "changes_cloud_run_ingress",
+    "enables_institution_mtls",
+    "enables_public_endpoint_exposure",
+    "external_https_load_balancer_created",
+    "api_gateway_created",
+    "reserved_static_ip_created",
+    "dns_record_created",
+    "certificate_manager_certificate_created",
+    "certificate_manager_trust_config_created",
     "cloud_armor_waf_applied",
+    "cloud_armor_rate_limits_applied",
     "mtls_trust_config_applied",
+    "institution_mtls_enabled",
+    "cloud_run_ingress_changed",
+    "public_endpoint_exposure_enabled",
     "hsm_kms_production_signing_enabled",
     "external_institution_onboarding_enabled",
     "real_value_settlement_enabled",
@@ -366,6 +527,9 @@ foreach ($forbidden in @(
     if ($hsmKmsConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 4 HSM/KMS implementation plan must not enable $forbidden"
     }
+    if ($prodIngressConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 4 production ingress implementation plan must not enable $forbidden"
+    }
 }
 
 if ($costConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
@@ -384,8 +548,24 @@ if ($hsmKmsConfig -match "(?m)^\s*enables_kms_hsm_signing:\s+true\s*$") {
     throw "Phase 4 HSM/KMS implementation plan must not enable KMS/HSM signing"
 }
 
+if ($prodIngressConfig -match "(?m)^\s*terraform_apply_allowed:\s+true\s*$") {
+    throw "Phase 4 production ingress implementation plan must not allow Terraform apply"
+}
+
+if ($prodIngressConfig -match "(?m)^\s*enables_public_endpoint_exposure:\s+true\s*$") {
+    throw "Phase 4 production ingress implementation plan must not enable public endpoint exposure"
+}
+
+if ($prodIngressConfig -match "(?m)^\s*production_ingress_enabled:\s+true\s*$") {
+    throw "Phase 4 production ingress implementation plan must not enable production ingress"
+}
+
 if ($hsmKmsTerraform -match 'resource\s+"google_') {
     throw "phase4_hsm_kms_implementation_plan.tf must remain design-only and must not declare Google Cloud resources"
+}
+
+if ($prodIngressTerraform -match 'resource\s+"google_') {
+    throw "phase4_prod_ingress_implementation_plan.tf must remain design-only and must not declare Google Cloud resources"
 }
 
 if ($costConfig -match "(?m)^\s*fixed_live_prices_recorded:\s+true\s*$") {
@@ -414,5 +594,6 @@ if ($gateCount -lt 13) {
     cost_model_rc1 = $true
     security_review_scope_rc1 = $true
     hsm_kms_implementation_plan_rc1 = $true
+    prod_ingress_implementation_plan_rc1 = $true
     result = "ok"
 }

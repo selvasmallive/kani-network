@@ -98,6 +98,8 @@ The Phase 4 security review scope checkpoint is recorded in `PHASE4_SECURITY_REV
 
 The Phase 4 HSM/KMS implementation plan checkpoint is recorded in `PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md`, `config/phase4-hsm-kms-implementation-plan.yaml`, `infra/terraform/phase4_hsm_kms_implementation_plan.tf`, and `scripts/phase4-hsm-kms-implementation-plan.ps1`. It defines future signing purposes, key lifecycle, staged adapters, signing request contracts, required apply gates, and design-only Terraform outputs without creating key rings, keys, HSM resources, signing services, or production signing capability.
 
+The Phase 4 production ingress implementation plan checkpoint is recorded in `PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md`, `config/phase4-prod-ingress-implementation-plan.yaml`, `infra/terraform/phase4_prod_ingress_implementation_plan.tf`, and `scripts/phase4-prod-ingress-implementation-plan.ps1`. It defines future edge components, request paths, mTLS trust, Cloud Armor, admin OIDC, Cloud Run ingress rollback gates, and design-only Terraform outputs without creating load balancers, API Gateway resources, DNS records, certificates, trust configs, Cloud Armor policies, public endpoint exposure, or production ingress capability.
+
 The planned validator-operations split is:
 
 ```text
@@ -114,6 +116,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase4-validate.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-cost-model.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-security-review-scope.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase4-hsm-kms-implementation-plan.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase4-prod-ingress-implementation-plan.ps1
 ```
 
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
