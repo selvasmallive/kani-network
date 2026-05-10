@@ -5,14 +5,17 @@ $requiredFiles = @(
     "PHASE5A_VALIDATOR_RECONCILIATION.md",
     "PHASE5A_SCHEDULER_RUNBOOKS.md",
     "PHASE5A_FAILURE_RETRY_DRILLS.md",
+    "PHASE5A_LEDGER_REPLAY_FINALITY.md",
     "config/phase5a-validator-hardening-plan.yaml",
     "config/phase5a-validator-reconciliation.yaml",
     "config/phase5a-scheduler-runbooks.yaml",
     "config/phase5a-failure-retry-drills.yaml",
+    "config/phase5a-ledger-replay-finality.yaml",
     "scripts/phase5a-validator-hardening-plan.ps1",
     "scripts/phase5a-validator-reconciliation.ps1",
     "scripts/phase5a-scheduler-runbooks.ps1",
     "scripts/phase5a-failure-retry-drills.ps1",
+    "scripts/phase5a-ledger-replay-finality.ps1",
     "PHASE4_WRAPUP.md",
     "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
@@ -139,6 +142,33 @@ foreach ($expected in @(
 )) {
     if ($failureRetryDrills -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5A failure and retry drill content: $expected"
+    }
+}
+
+$ledgerReplayFinality = Get-Content "PHASE5A_LEDGER_REPLAY_FINALITY.md" -Raw
+foreach ($expected in @(
+    "Status: ledger replay and finality checkpoint ready",
+    "phase5a-ledger-replay-finality-rc1",
+    "ledger_replay_and_finality_verification",
+    "phase5a-failure-retry-drills-rc1",
+    "phase2-lean-no-gke",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Verification Objective",
+    "Replay Inputs",
+    "Replay Procedure",
+    "Required Replay Checks",
+    "block_heights_are_monotonic",
+    "block_prev_hash_chain_is_contiguous",
+    "finality_votes_are_at_least_two_of_three",
+    "replayed_balances_match_account_balances",
+    "replayed_issued_supply_matches_asset_supply",
+    "Replay Evidence Pack Schema",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($ledgerReplayFinality -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A ledger replay and finality content: $expected"
     }
 }
 
@@ -275,6 +305,44 @@ foreach ($expected in @(
     }
 }
 
+$ledgerReplayConfig = Get-Content "config/phase5a-ledger-replay-finality.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5a-ledger-replay-finality-rc1",
+    "status: ledger_replay_finality_checkpoint_ready",
+    "inherits_from: phase5a-failure-retry-drills-rc1",
+    "track: phase5a-no-gke-validator-hardening",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_phase: phase5b-gke-validator-ops",
+    "validator_count: 3",
+    "production_replay_enabled: false",
+    "replay_inputs:",
+    "block_page: GET /v1/blocks?limit=500&offset=0",
+    "latest_block: GET /v1/blocks/latest",
+    "sampled_transactions: GET /v1/transactions/{id}",
+    "issued_supply: GET /v1/assets/{asset}/issued",
+    "replay_procedure:",
+    "required_replay_checks:",
+    "block_heights_are_monotonic:",
+    "block_prev_hash_chain_is_contiguous:",
+    "block_hashes_are_stable:",
+    "block_validators_are_in_validator_set:",
+    "finality_votes_are_at_least_two_of_three:",
+    "finality_votes_are_in_validator_set:",
+    "replayed_balances_match_account_balances:",
+    "replayed_issued_supply_matches_asset_supply:",
+    "settlement_report_matches_replayed_totals:",
+    "audit_events_include_block_and_transaction_evidence:",
+    "camt053_entries_match_replayed_journal_entries:",
+    "pending_transactions_zero_or_explained:",
+    "evidence_pack_schema:",
+    "phase5a_ledger_replay_finality_checked_in: true",
+    "aggregate_phase5a_validator_includes_ledger_replay_finality: true"
+)) {
+    if ($ledgerReplayConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A ledger replay and finality config content: $expected"
+    }
+}
+
 $phase4Wrapup = Get-Content "config/phase4-wrapup.yaml" -Raw
 foreach ($expected in @(
     "next_phase: phase5a-no-gke-validator-hardening",
@@ -308,6 +376,7 @@ foreach ($forbidden in @(
     "failure_injection_enabled",
     "live_failure_drills_enabled",
     "live_retry_drills_enabled",
+    "production_replay_enabled",
     "restore_drill_executed",
     "production_recovery_executed",
     "external_institution_onboarding_enabled",
@@ -330,6 +399,9 @@ foreach ($forbidden in @(
     }
     if ($failureRetryConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5A aggregate validator must not allow $forbidden in failure and retry drills"
+    }
+    if ($ledgerReplayConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5A aggregate validator must not allow $forbidden in ledger replay and finality"
     }
 }
 
@@ -355,6 +427,11 @@ if ($schedulerValidatorCount -ne 3) {
 $failureRetryValidatorCount = ([regex]::Matches($failureRetryConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
 if ($failureRetryValidatorCount -ne 3) {
     throw "Expected exactly 3 Phase 5A failure and retry validators, found $failureRetryValidatorCount"
+}
+
+$ledgerReplayValidatorCount = ([regex]::Matches($ledgerReplayConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
+if ($ledgerReplayValidatorCount -ne 3) {
+    throw "Expected exactly 3 Phase 5A ledger replay validators, found $ledgerReplayValidatorCount"
 }
 
 $workstreamCount = ([regex]::Matches($config, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
@@ -402,6 +479,16 @@ if ($failureRetryRequiredEvidenceCount -lt 19) {
     throw "Expected at least 19 Phase 5A failure and retry evidence items, found $failureRetryRequiredEvidenceCount"
 }
 
+$ledgerReplayInputCount = ([regex]::Matches($ledgerReplayConfig, "(?m)^\s{2}[a-z0-9_]+:\s+GET\s+")).Count
+if ($ledgerReplayInputCount -lt 11) {
+    throw "Expected at least 11 Phase 5A ledger replay inputs, found $ledgerReplayInputCount"
+}
+
+$ledgerReplayCheckCount = ([regex]::Matches($ledgerReplayConfig, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
+if ($ledgerReplayCheckCount -lt 12) {
+    throw "Expected at least 12 Phase 5A ledger replay checks, found $ledgerReplayCheckCount"
+}
+
 $blockedGateCount = ([regex]::Matches($config, ":\s+blocked")).Count
 if ($blockedGateCount -lt 7) {
     throw "Expected at least 7 blocked Phase 5A live-drill gates, found $blockedGateCount"
@@ -416,6 +503,7 @@ if ($blockedGateCount -lt 7) {
     reconciliation_rc1 = $true
     scheduler_runbooks_rc1 = $true
     failure_retry_drills_rc1 = $true
+    ledger_replay_finality_rc1 = $true
     evidence_source_count = $evidenceSourceCount
     reconciliation_check_count = 10
     scheduler_approval_gate_count = $schedulerApprovalGateCount
@@ -424,6 +512,8 @@ if ($blockedGateCount -lt 7) {
     failure_retry_drill_count = 8
     failure_retry_approval_gate_count = $failureRetryBlockedGateCount
     failure_retry_required_evidence_count = $failureRetryRequiredEvidenceCount
+    ledger_replay_input_count = $ledgerReplayInputCount
+    ledger_replay_check_count = 12
     blocked_live_drill_gate_count = $blockedGateCount
     active_runtime_baseline = "phase2-lean-no-gke"
     gke_required = $false
@@ -434,6 +524,7 @@ if ($blockedGateCount -lt 7) {
     failure_injection_enabled = $false
     live_failure_drills_enabled = $false
     live_retry_drills_enabled = $false
+    production_replay_enabled = $false
     real_value_capability_enabled = $false
     result = "ok"
 }

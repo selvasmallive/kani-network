@@ -1,0 +1,187 @@
+release_candidate: phase5a-ledger-replay-finality-rc1
+status: ledger_replay_finality_checkpoint_ready
+inherits_from: phase5a-failure-retry-drills-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  production_replay_enabled: false
+
+validator_model:
+  runtime: cloud_run_job_plus_cloud_scheduler
+  run_mode: sweep
+  scheduler_cadence: "*/15 * * * *"
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+replay_inputs:
+  block_page: GET /v1/blocks?limit=500&offset=0
+  latest_block: GET /v1/blocks/latest
+  sampled_transactions: GET /v1/transactions/{id}
+  issued_supply: GET /v1/assets/{asset}/issued
+  corp_a_balance: GET /v1/accounts/CORP_A/balances/{asset}
+  corp_b_balance: GET /v1/accounts/CORP_B/balances/{asset}
+  audit_events: GET /v1/audit-events?limit=500&offset=0
+  settlement_summary: GET /v1/reports/settlement-summary?limit=500&offset=0
+  validator_finality: GET /v1/reports/validator-finality?limit=500&offset=0
+  validators: GET /v1/validators
+  camt053_statement: GET /v1/iso20022/camt053/accounts/CORP_A?asset={asset}&limit=500&offset=0
+
+replay_procedure:
+  steps:
+    - select_fresh_sandbox_evidence_asset
+    - collect_replay_inputs
+    - sort_finalized_blocks_by_height
+    - document_first_collected_prev_hash_boundary
+    - verify_prev_hash_chain_contiguity
+    - verify_block_hash_stability
+    - verify_block_validator_membership
+    - verify_finality_votes
+    - replay_mint_burn_transfer_effects
+    - reconcile_balances_supply_reports_audit_and_camt053
+
+required_replay_checks:
+  block_heights_are_monotonic:
+    status: required
+    invariant: block heights strictly increase in replay order
+  block_prev_hash_chain_is_contiguous:
+    status: required
+    invariant: each block prev_hash equals previous collected block hash after the first boundary
+  block_hashes_are_stable:
+    status: required
+    invariant: collected block hash remains stable for replay evidence
+  block_validators_are_in_validator_set:
+    status: required
+    invariant: block.validator in validator-a, validator-b, validator-c
+  finality_votes_are_at_least_two_of_three:
+    status: required
+    invariant: finalized_by count >= 2
+  finality_votes_are_in_validator_set:
+    status: required
+    invariant: every finalized_by validator is in the configured validator set
+  replayed_balances_match_account_balances:
+    status: required
+    invariant: replayed balances equal account balance API evidence
+  replayed_issued_supply_matches_asset_supply:
+    status: required
+    invariant: replayed supply equals issued supply API evidence
+  settlement_report_matches_replayed_totals:
+    status: required
+    invariant: settlement report totals equal replayed mint and transfer totals
+  audit_events_include_block_and_transaction_evidence:
+    status: required
+    invariant: audit evidence includes block finalization and transaction evidence
+  camt053_entries_match_replayed_journal_entries:
+    status: required
+    invariant: camt053 credit and debit entries match replayed journal entries
+  pending_transactions_zero_or_explained:
+    status: required
+    invariant: pending transactions are zero or explicitly explained in the evidence pack
+
+evidence_pack_schema:
+  required_fields:
+    - run_id
+    - operator
+    - environment
+    - asset
+    - started_at
+    - completed_at
+    - block_page_snapshot
+    - latest_block_snapshot
+    - sampled_transaction_snapshots
+    - validator_set
+    - validator_finality_report_snapshot
+    - validator_state_snapshot
+    - issued_supply_snapshot
+    - account_balance_snapshots
+    - settlement_report_snapshot
+    - audit_event_snapshot
+    - camt053_statement_snapshot
+    - replayed_balance_result
+    - replayed_supply_result
+    - finality_verification_result
+    - hash_chain_verification_result
+    - replay_discrepancies
+    - operator_conclusion
+  forbidden_fields:
+    - api_keys
+    - bearer_tokens
+    - secret_manager_values
+    - raw_private_keys
+    - customer_data
+    - real_value_records
+
+non_enablement:
+  production_replay_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_ledger_replay_finality_checked_in: true
+  structured_phase5a_ledger_replay_config_exists: true
+  static_phase5a_ledger_replay_validator_required: true
+  aggregate_phase5a_validator_includes_ledger_replay_finality: true
+  phase5a_failure_retry_validator_required: true
+  phase5a_scheduler_runbooks_validator_required: true
+  phase5a_reconciliation_validator_required: true
+  phase5a_hardening_plan_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_scheduler_changes_enabled: true
+  no_failure_injection_enabled: true
+  no_live_failure_drills_enabled: true
+  no_live_retry_drills_enabled: true
+  no_production_replay_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true
