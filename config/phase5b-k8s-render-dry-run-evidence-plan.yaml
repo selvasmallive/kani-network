@@ -1,0 +1,216 @@
+release_candidate: phase5b-k8s-render-dry-run-evidence-plan-rc1
+status: k8s_render_dry_run_evidence_plan_ready
+inherits_from: phase5b-k8s-manifest-design-plan-rc1
+track: phase5b-gke-validator-ops
+active_runtime_baseline: phase2-lean-no-gke
+phase5a_baseline: phase5a-wrapup-rc1
+terraform_design_baseline: phase5b-gke-terraform-design-plan-rc1
+k8s_manifest_design_baseline: phase5b-k8s-manifest-design-plan-rc1
+evidence_plan_file: k8s/phase5b-render-dry-run-evidence-plan.yaml
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+evidence_boundary:
+  design_only: true
+  render_execution_enabled: false
+  local_render_execution_approved_by_this_checkpoint: false
+  client_dry_run_execution_approved_by_this_checkpoint: false
+  server_dry_run_execution_approved_by_this_checkpoint: false
+  kubectl_apply_allowed: false
+  kubernetes_manifest_deployment_enabled: false
+  kustomization_inclusion_allowed: false
+  included_in_kustomization: false
+  kubeconfig_mutation_allowed: false
+  cluster_context_mutation_allowed: false
+  cluster_connection_required_by_this_checkpoint: false
+  generated_evidence_committed: false
+  contains_deployable_kubernetes_objects: false
+  declares_top_level_api_version_or_kind: false
+  produces_planning_metadata_only: true
+  gke_validator_workloads_deferred: true
+  live_validator_operations_enabled: false
+
+command_template_scope:
+  commands_documented_only: true
+  kubectl_version_client_template: required_not_executed
+  kustomize_render_template: required_not_executed
+  client_dry_run_template: required_not_executed
+  server_dry_run_template: required_not_executed
+  non_dry_run_apply_template_allowed: false
+  command_execution_approval_required_later: true
+  evidence_redaction_required: true
+
+required_evidence_pack_sections:
+  operator_identity: required
+  reviewer_identity: required
+  approval_reference: required
+  repo_commit: required
+  release_candidate: required
+  tool_versions: required
+  kube_context_name: required
+  target_project: required
+  target_cluster: required
+  target_namespace: required
+  manifest_source_inventory: required
+  placeholder_replacement_evidence: required
+  kustomization_inventory: required
+  render_command: required
+  render_stdout_redacted: required
+  render_stderr_redacted: required
+  rendered_manifest_sha256: required
+  client_dry_run_command: required
+  client_dry_run_stdout_redacted: required
+  client_dry_run_stderr_redacted: required
+  server_dry_run_command: required
+  server_dry_run_stdout_redacted: required
+  server_dry_run_stderr_redacted: required
+  schema_validation_output: required
+  policy_check_output: required
+  secret_redaction_evidence: required
+  no_apply_confirmation: required
+  no_live_validator_confirmation: required
+  rollback_notes: required
+  teardown_notes: required
+  reviewer_signoff: required
+
+required_review_gates:
+  cost_estimate_attached: blocked
+  selected_profile_approved: blocked
+  terraform_design_reviewed: blocked
+  manifest_design_reviewed: blocked
+  render_evidence_plan_reviewed: blocked
+  gke_cluster_available: blocked
+  kubectl_installed: blocked
+  kubectl_context_verified: blocked
+  kubeconfig_access_reviewed: blocked
+  operator_identity_verified: blocked
+  reviewer_assigned: blocked
+  namespace_isolation_reviewed: blocked
+  placeholder_values_prepared: blocked
+  secret_redaction_reviewed: blocked
+  artifact_registry_pull_access_reviewed: blocked
+  workload_identity_reviewed: blocked
+  database_connectivity_reviewed: blocked
+  network_policy_reviewed: blocked
+  pod_security_reviewed: blocked
+  resource_limits_reviewed: blocked
+  schema_validation_reviewed: blocked
+  policy_check_reviewed: blocked
+  client_dry_run_reviewed: blocked
+  server_dry_run_reviewed: blocked
+  no_apply_command_confirmed: blocked
+  rollback_plan_approved: blocked
+  teardown_plan_approved: blocked
+  no_real_value_capability_enabled: blocked
+
+implementation_stages:
+  stage_0_evidence_plan_only:
+    allowed_by_this_checkpoint: true
+  stage_1_command_template_review:
+    allowed_by_this_checkpoint: true
+  stage_2_evidence_pack_template_review:
+    allowed_by_this_checkpoint: true
+  stage_3_security_review:
+    allowed_by_this_checkpoint: true
+  stage_4_local_render_candidate:
+    allowed_by_this_checkpoint: false
+  stage_5_client_dry_run_candidate:
+    allowed_by_this_checkpoint: false
+  stage_6_server_dry_run_candidate:
+    allowed_by_this_checkpoint: false
+  stage_7_apply_candidate:
+    allowed_by_this_checkpoint: false
+  stage_8_sandbox_gke_validator_pilot:
+    allowed_by_this_checkpoint: false
+  stage_9_teardown_or_pause:
+    allowed_by_this_checkpoint: false
+
+non_enablement:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  terraform_gke_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  gke_cluster_enabled: false
+  gke_cluster_creation_enabled: false
+  gke_node_pool_creation_enabled: false
+  gke_resource_creation_allowed: false
+  workload_identity_iam_mutation_enabled: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  render_execution_enabled: false
+  local_render_execution_approved_by_this_checkpoint: false
+  client_dry_run_execution_approved_by_this_checkpoint: false
+  server_dry_run_execution_approved_by_this_checkpoint: false
+  kustomization_inclusion_allowed: false
+  kubeconfig_mutation_allowed: false
+  cluster_context_mutation_allowed: false
+  live_validator_operations_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  cloud_run_job_execution_approved_by_this_checkpoint: false
+  secret_rotation_approved_by_this_checkpoint: false
+  cloud_smoke_execution_approved_by_this_checkpoint: false
+  local_smoke_execution_approved_by_this_checkpoint: false
+  live_sandbox_smoke_execution_enabled: false
+  destructive_smoke_reset_enabled: false
+  external_endpoint_smoke_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  live_recovery_drills_enabled: false
+  live_drill_execution_approved_by_this_checkpoint: false
+  production_replay_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5b_k8s_render_dry_run_evidence_plan_checked_in: true
+  structured_phase5b_k8s_render_dry_run_evidence_config_exists: true
+  non_deployable_render_dry_run_evidence_contract_exists: true
+  static_phase5b_k8s_render_dry_run_evidence_validator_required: true
+  aggregate_phase5b_validator_includes_k8s_render_dry_run_evidence_plan: true
+  phase5b_k8s_manifest_design_plan_validator_required: true
+  phase5b_gke_terraform_design_plan_validator_required: true
+  phase5b_gke_cost_resource_plan_validator_required: true
+  phase5a_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_kubernetes_resources_deployed: true
+  no_render_or_dry_run_executed: true
+  no_gke_enabled: true
+  no_gke_node_pool_creation_enabled: true
+  no_workload_identity_iam_mutation_enabled: true
+  no_terraform_apply_enabled: true
+  no_kubectl_apply_enabled: true
+  no_kustomization_inclusion_enabled: true
+  no_live_validator_operations_enabled: true
+  no_production_authorization_enabled: true
+  no_legal_or_compliance_approval_enabled: true
+  no_real_value_capability_enabled: true

@@ -1,0 +1,131 @@
+release_candidate: phase5b-k8s-render-dry-run-evidence-plan-rc1
+status: render_dry_run_evidence_contract
+track: phase5b-gke-validator-ops
+active_runtime_baseline: phase2-lean-no-gke
+inherits_from: phase5b-k8s-manifest-design-plan-rc1
+
+design_boundary:
+  do_not_apply_with_kubectl: true
+  not_included_in_kustomization: true
+  contains_deployable_kubernetes_objects: false
+  declares_top_level_api_version_or_kind: false
+  render_execution_enabled: false
+  client_dry_run_execution_approved_by_this_checkpoint: false
+  server_dry_run_execution_approved_by_this_checkpoint: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  kustomization_inclusion_allowed: false
+  kubeconfig_mutation_allowed: false
+  cluster_context_mutation_allowed: false
+  gke_validator_workloads_deferred: true
+  live_validator_operations_enabled: false
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+future_command_templates:
+  kubectl_client_version:
+    command: kubectl version --client --output=yaml
+    execution_status: deferred
+  kustomize_render:
+    command: kubectl kustomize k8s
+    execution_status: deferred
+  client_dry_run:
+    command: kubectl apply --dry-run=client -k k8s
+    execution_status: deferred
+  server_dry_run:
+    command: kubectl apply --dry-run=server -k k8s
+    execution_status: deferred
+  non_dry_run_apply:
+    command_allowed: false
+    execution_status: blocked
+
+future_evidence_pack:
+  metadata:
+    operator_identity: required
+    reviewer_identity: required
+    approval_reference: required
+    repo_commit: required
+    release_candidate: required
+  target:
+    kube_context_name: required
+    target_project: required
+    target_cluster: required
+    target_namespace: required
+  source_inventory:
+    manifest_source_inventory: required
+    kustomization_inventory: required
+    placeholder_replacement_evidence: required
+  render_evidence:
+    render_command: required
+    render_stdout_redacted: required
+    render_stderr_redacted: required
+    rendered_manifest_sha256: required
+  dry_run_evidence:
+    client_dry_run_command: required
+    client_dry_run_stdout_redacted: required
+    client_dry_run_stderr_redacted: required
+    server_dry_run_command: required
+    server_dry_run_stdout_redacted: required
+    server_dry_run_stderr_redacted: required
+  review_evidence:
+    schema_validation_output: required
+    policy_check_output: required
+    secret_redaction_evidence: required
+    no_apply_confirmation: required
+    no_live_validator_confirmation: required
+    rollback_notes: required
+    teardown_notes: required
+    reviewer_signoff: required
+
+redaction_rules:
+  database_urls: redact
+  api_keys: redact
+  private_keys: redact
+  bearer_tokens: redact
+  access_tokens: redact
+  secret_manager_payloads: redact
+  kubernetes_secret_data: redact
+
+review_gates:
+  render_evidence_plan_reviewed: blocked
+  kubectl_context_verified: blocked
+  kubeconfig_access_reviewed: blocked
+  placeholder_values_prepared: blocked
+  secret_redaction_reviewed: blocked
+  schema_validation_reviewed: blocked
+  client_dry_run_reviewed: blocked
+  server_dry_run_reviewed: blocked
+  no_apply_command_confirmed: blocked
+  no_real_value_capability_enabled: blocked
+
+non_enablement:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  gke_cluster_enabled: false
+  gke_node_pool_creation_enabled: false
+  workload_identity_iam_mutation_enabled: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  render_execution_enabled: false
+  client_dry_run_execution_approved_by_this_checkpoint: false
+  server_dry_run_execution_approved_by_this_checkpoint: false
+  kustomization_inclusion_allowed: false
+  kubeconfig_mutation_allowed: false
+  cluster_context_mutation_allowed: false
+  live_validator_operations_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false

@@ -14,6 +14,8 @@ The API remains a Cloud Run service in Phase 2. These Kubernetes manifests are o
 
 `phase5b-validator-manifest-design.yaml` is a non-deployable design contract for the later `phase5b-gke-validator-ops` track. It is not included in `kustomization.yaml`, must not be applied with `kubectl`, and does not approve GKE validator deployment.
 
+`phase5b-render-dry-run-evidence-plan.yaml` is a non-deployable evidence contract for future manifest render and dry-run review. It is not included in `kustomization.yaml`, must not be applied with `kubectl`, and does not execute render or dry-run commands.
+
 The active runtime remains `phase2-lean-no-gke` until a later approved GKE apply checkpoint.
 
 ## Before Applying
