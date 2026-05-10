@@ -5,5 +5,5 @@ metadata:
   labels:
     app.kubernetes.io/name: kani
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
     kani.environment: sandbox

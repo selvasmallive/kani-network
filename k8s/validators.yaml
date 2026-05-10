@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: kani-validator
     app.kubernetes.io/instance: validator-a
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
 spec:
   replicas: 1
   selector:
@@ -19,9 +19,14 @@ spec:
         app.kubernetes.io/name: kani-validator
         app.kubernetes.io/instance: validator-a
         app.kubernetes.io/part-of: kani-network
-        kani.phase: "phase-2"
+        kani.phase: "phase-5b"
     spec:
+      automountServiceAccountToken: true
       serviceAccountName: kani-validator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kani-node
           image: kani-validator-image
@@ -79,7 +84,7 @@ metadata:
     app.kubernetes.io/name: kani-validator
     app.kubernetes.io/instance: validator-b
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
 spec:
   replicas: 1
   selector:
@@ -92,9 +97,14 @@ spec:
         app.kubernetes.io/name: kani-validator
         app.kubernetes.io/instance: validator-b
         app.kubernetes.io/part-of: kani-network
-        kani.phase: "phase-2"
+        kani.phase: "phase-5b"
     spec:
+      automountServiceAccountToken: true
       serviceAccountName: kani-validator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kani-node
           image: kani-validator-image
@@ -152,7 +162,7 @@ metadata:
     app.kubernetes.io/name: kani-validator
     app.kubernetes.io/instance: validator-c
     app.kubernetes.io/part-of: kani-network
-    kani.phase: "phase-2"
+    kani.phase: "phase-5b"
 spec:
   replicas: 1
   selector:
@@ -165,9 +175,14 @@ spec:
         app.kubernetes.io/name: kani-validator
         app.kubernetes.io/instance: validator-c
         app.kubernetes.io/part-of: kani-network
-        kani.phase: "phase-2"
+        kani.phase: "phase-5b"
     spec:
+      automountServiceAccountToken: true
       serviceAccountName: kani-validator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kani-node
           image: kani-validator-image
