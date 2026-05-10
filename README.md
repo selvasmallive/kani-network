@@ -13,6 +13,14 @@ Phase 1 local MVP for a private, permissioned settlement network. Phase 2 cloud 
 - OpenAPI 3.1 contract for the Phase 1 API, served from `/openapi.json`.
 - PostgreSQL migration schema for the production ledger tables.
 
+## Provisional Patent Documentation
+
+An engineering disclosure package for a potential U.S. provisional patent filing is in `docs/patent/`. It includes a provisional specification draft, figure set, sandbox MVP evidence appendix, USPTO filing worksheet, and a local validation script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\patent-package-validate.ps1
+```
+
 ## Phase 2 Cloud MVP
 
 Phase 2 starts the Google Cloud sandbox deployment path while keeping real value disabled.
