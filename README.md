@@ -140,6 +140,8 @@ The third Phase 5A implementation checkpoint is `phase5a-failure-retry-drills-rc
 
 The fourth Phase 5A implementation checkpoint is `phase5a-ledger-replay-finality-rc1`. `PHASE5A_LEDGER_REPLAY_FINALITY.md`, `config/phase5a-ledger-replay-finality.yaml`, and `scripts/phase5a-ledger-replay-finality.ps1` define the sandbox ledger replay and PoA finality verification contract for finalized blocks, hash links, finality votes, balances, issued supply, reports, audit evidence, and `camt.053` journal evidence.
 
+The fifth Phase 5A implementation checkpoint is `phase5a-operator-evidence-packs-rc1`. `PHASE5A_OPERATOR_EVIDENCE_PACKS.md`, `config/phase5a-operator-evidence-packs.yaml`, and `scripts/phase5a-operator-evidence-packs.ps1` define common evidence pack types, metadata, required sections, redaction rules, review states, and retention labels for the no-GKE validator hardening track.
+
 This checkpoint does not create Google Cloud resources, apply Terraform, change Scheduler jobs, run live failure drills, enable GKE, enable production BFT networking, onboard external institutions, or allow real-value settlement. It keeps the active runtime on `phase2-lean-no-gke` and carries forward the sandbox boundary:
 
 ```text
@@ -168,6 +170,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validator-reconciliat
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-scheduler-runbooks.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-failure-retry-drills.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-ledger-replay-finality.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-operator-evidence-packs.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 ```
 

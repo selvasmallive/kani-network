@@ -6,16 +6,19 @@ $requiredFiles = @(
     "PHASE5A_SCHEDULER_RUNBOOKS.md",
     "PHASE5A_FAILURE_RETRY_DRILLS.md",
     "PHASE5A_LEDGER_REPLAY_FINALITY.md",
+    "PHASE5A_OPERATOR_EVIDENCE_PACKS.md",
     "config/phase5a-validator-hardening-plan.yaml",
     "config/phase5a-validator-reconciliation.yaml",
     "config/phase5a-scheduler-runbooks.yaml",
     "config/phase5a-failure-retry-drills.yaml",
     "config/phase5a-ledger-replay-finality.yaml",
+    "config/phase5a-operator-evidence-packs.yaml",
     "scripts/phase5a-validator-hardening-plan.ps1",
     "scripts/phase5a-validator-reconciliation.ps1",
     "scripts/phase5a-scheduler-runbooks.ps1",
     "scripts/phase5a-failure-retry-drills.ps1",
     "scripts/phase5a-ledger-replay-finality.ps1",
+    "scripts/phase5a-operator-evidence-packs.ps1",
     "PHASE4_WRAPUP.md",
     "config/phase4-wrapup.yaml",
     "scripts/phase4-validate.ps1",
@@ -169,6 +172,36 @@ foreach ($expected in @(
 )) {
     if ($ledgerReplayFinality -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5A ledger replay and finality content: $expected"
+    }
+}
+
+$operatorEvidencePacks = Get-Content "PHASE5A_OPERATOR_EVIDENCE_PACKS.md" -Raw
+foreach ($expected in @(
+    "Status: operator evidence packs checkpoint ready",
+    "phase5a-operator-evidence-packs-rc1",
+    "operator_evidence_packs",
+    "phase5a-ledger-replay-finality-rc1",
+    "phase2-lean-no-gke",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Evidence Pack Types",
+    "validator_reconciliation_pack",
+    "scheduler_pause_resume_pack",
+    "failure_retry_drill_pack",
+    "ledger_replay_finality_pack",
+    "alert_response_recovery_pack",
+    "sandbox_smoke_test_pack",
+    "phase5a_wrapup_pack",
+    "Required Common Metadata",
+    "Required Evidence Sections",
+    "Redaction Rules",
+    "Review Workflow",
+    "Retention Labels",
+    "No Google Cloud resources are created or changed"
+)) {
+    if ($operatorEvidencePacks -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A operator evidence pack content: $expected"
     }
 }
 
@@ -343,6 +376,38 @@ foreach ($expected in @(
     }
 }
 
+$operatorEvidenceConfig = Get-Content "config/phase5a-operator-evidence-packs.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5a-operator-evidence-packs-rc1",
+    "status: operator_evidence_packs_checkpoint_ready",
+    "inherits_from: phase5a-ledger-replay-finality-rc1",
+    "track: phase5a-no-gke-validator-hardening",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_phase: phase5b-gke-validator-ops",
+    "validator_count: 3",
+    "external_evidence_export_enabled: false",
+    "production_approval_via_evidence_pack_enabled: false",
+    "evidence_pack_types:",
+    "validator_reconciliation_pack:",
+    "scheduler_pause_resume_pack:",
+    "failure_retry_drill_pack:",
+    "ledger_replay_finality_pack:",
+    "alert_response_recovery_pack:",
+    "sandbox_smoke_test_pack:",
+    "phase5a_wrapup_pack:",
+    "required_common_metadata:",
+    "required_evidence_sections:",
+    "redaction_rules:",
+    "review_workflow:",
+    "retention_labels:",
+    "phase5a_operator_evidence_packs_checked_in: true",
+    "aggregate_phase5a_validator_includes_operator_evidence_packs: true"
+)) {
+    if ($operatorEvidenceConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5A operator evidence pack config content: $expected"
+    }
+}
+
 $phase4Wrapup = Get-Content "config/phase4-wrapup.yaml" -Raw
 foreach ($expected in @(
     "next_phase: phase5a-no-gke-validator-hardening",
@@ -377,6 +442,8 @@ foreach ($forbidden in @(
     "live_failure_drills_enabled",
     "live_retry_drills_enabled",
     "production_replay_enabled",
+    "external_evidence_export_enabled",
+    "production_approval_via_evidence_pack_enabled",
     "restore_drill_executed",
     "production_recovery_executed",
     "external_institution_onboarding_enabled",
@@ -403,6 +470,13 @@ foreach ($forbidden in @(
     if ($ledgerReplayConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5A aggregate validator must not allow $forbidden in ledger replay and finality"
     }
+    if ($operatorEvidenceConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5A aggregate validator must not allow $forbidden in operator evidence packs"
+    }
+}
+
+if ($operatorEvidenceConfig -match "(?m)^\s*production_approval_allowed:\s+true\s*$") {
+    throw "Phase 5A operator evidence packs must not allow production approval"
 }
 
 if ($failureRetryConfig -match "(?m)^\s*live_execution_allowed:\s+true\s*$") {
@@ -432,6 +506,11 @@ if ($failureRetryValidatorCount -ne 3) {
 $ledgerReplayValidatorCount = ([regex]::Matches($ledgerReplayConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
 if ($ledgerReplayValidatorCount -ne 3) {
     throw "Expected exactly 3 Phase 5A ledger replay validators, found $ledgerReplayValidatorCount"
+}
+
+$operatorEvidenceValidatorCount = ([regex]::Matches($operatorEvidenceConfig, "(?m)^\s+- validator-[abc]\s*$")).Count
+if ($operatorEvidenceValidatorCount -ne 3) {
+    throw "Expected exactly 3 Phase 5A operator evidence validators, found $operatorEvidenceValidatorCount"
 }
 
 $workstreamCount = ([regex]::Matches($config, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
@@ -489,6 +568,16 @@ if ($ledgerReplayCheckCount -lt 12) {
     throw "Expected at least 12 Phase 5A ledger replay checks, found $ledgerReplayCheckCount"
 }
 
+$operatorEvidencePackTypeCount = ([regex]::Matches($operatorEvidenceConfig, "(?m)^\s{2}[a-z0-9_]+:\s*$")).Count
+if ($operatorEvidencePackTypeCount -lt 7) {
+    throw "Expected at least 7 Phase 5A operator evidence pack types, found $operatorEvidencePackTypeCount"
+}
+
+$operatorEvidenceForbiddenFieldCount = ([regex]::Matches($operatorEvidenceConfig, "(?m)^\s{4}- [a-z0-9_]+\s*$")).Count
+if ($operatorEvidenceForbiddenFieldCount -lt 9) {
+    throw "Expected at least 9 Phase 5A operator evidence redaction fields, found $operatorEvidenceForbiddenFieldCount"
+}
+
 $blockedGateCount = ([regex]::Matches($config, ":\s+blocked")).Count
 if ($blockedGateCount -lt 7) {
     throw "Expected at least 7 blocked Phase 5A live-drill gates, found $blockedGateCount"
@@ -504,6 +593,7 @@ if ($blockedGateCount -lt 7) {
     scheduler_runbooks_rc1 = $true
     failure_retry_drills_rc1 = $true
     ledger_replay_finality_rc1 = $true
+    operator_evidence_packs_rc1 = $true
     evidence_source_count = $evidenceSourceCount
     reconciliation_check_count = 10
     scheduler_approval_gate_count = $schedulerApprovalGateCount
@@ -514,6 +604,8 @@ if ($blockedGateCount -lt 7) {
     failure_retry_required_evidence_count = $failureRetryRequiredEvidenceCount
     ledger_replay_input_count = $ledgerReplayInputCount
     ledger_replay_check_count = 12
+    operator_evidence_pack_type_count = 7
+    operator_evidence_redaction_field_count = $operatorEvidenceForbiddenFieldCount
     blocked_live_drill_gate_count = $blockedGateCount
     active_runtime_baseline = "phase2-lean-no-gke"
     gke_required = $false
@@ -525,6 +617,8 @@ if ($blockedGateCount -lt 7) {
     live_failure_drills_enabled = $false
     live_retry_drills_enabled = $false
     production_replay_enabled = $false
+    external_evidence_export_enabled = $false
+    production_approval_via_evidence_pack_enabled = $false
     real_value_capability_enabled = $false
     result = "ok"
 }

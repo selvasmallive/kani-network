@@ -1,0 +1,194 @@
+release_candidate: phase5a-operator-evidence-packs-rc1
+status: operator_evidence_packs_checkpoint_ready
+inherits_from: phase5a-ledger-replay-finality-rc1
+track: phase5a-no-gke-validator-hardening
+active_runtime_baseline: phase2-lean-no-gke
+gke_phase: phase5b-gke-validator-ops
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+resource_boundary:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  production_replay_enabled: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+
+validator_model:
+  runtime: cloud_run_job_plus_cloud_scheduler
+  run_mode: sweep
+  scheduler_cadence: "*/15 * * * *"
+  consensus: phase1-poa
+  finality_model: two_of_three
+  required_finality_votes: 2
+  validator_count: 3
+  validators:
+    - validator-a
+    - validator-b
+    - validator-c
+
+evidence_pack_types:
+  validator_reconciliation_pack:
+    source_checkpoint: phase5a-validator-reconciliation-rc1
+    status: defined
+  scheduler_pause_resume_pack:
+    source_checkpoint: phase5a-scheduler-runbooks-rc1
+    status: defined
+  failure_retry_drill_pack:
+    source_checkpoint: phase5a-failure-retry-drills-rc1
+    status: defined
+  ledger_replay_finality_pack:
+    source_checkpoint: phase5a-ledger-replay-finality-rc1
+    status: defined
+  alert_response_recovery_pack:
+    source_checkpoint: phase5a-alert-response-recovery-rc1
+    status: planned
+  sandbox_smoke_test_pack:
+    source_checkpoint: phase5a-sandbox-smoke-coverage-rc1
+    status: planned
+  phase5a_wrapup_pack:
+    source_checkpoint: phase5a-wrapup-rc1
+    status: planned
+
+required_common_metadata:
+  - pack_id
+  - pack_type
+  - release_candidate
+  - environment
+  - real_value
+  - redeemable
+  - operator
+  - reviewer
+  - started_at
+  - completed_at
+  - base_url
+  - project_id
+  - region
+  - asset
+  - purpose
+  - change_window
+  - related_incident
+  - source_scripts
+  - source_commit
+  - source_tag
+  - result
+  - residual_risk
+  - follow_up_actions
+
+required_evidence_sections:
+  - sandbox_boundary
+  - runtime_context
+  - validator_context
+  - scheduler_context
+  - block_context
+  - ledger_context
+  - reporting_context
+  - audit_context
+  - reconciliation_context
+  - operator_decision
+  - reviewer_decision
+  - redaction_attestation
+
+redaction_rules:
+  forbidden_fields:
+    - api_keys
+    - bearer_tokens
+    - secret_manager_values
+    - raw_private_keys
+    - signing_material
+    - customer_data
+    - real_value_records
+    - terraform_state_secrets
+    - database_passwords
+  redaction_attestation_required: true
+  secret_leak_review_required: true
+
+review_workflow:
+  allowed_states:
+    - draft
+    - operator_complete
+    - reviewer_approved
+    - archived
+    - returned_for_correction
+  forbidden_states:
+    - production_approved
+    - real_value_approved
+    - external_delivery_approved
+  reviewer_required: true
+  production_approval_allowed: false
+
+retention_labels:
+  - sandbox_only
+  - no_real_value
+  - no_gke
+  - no_production_authorization
+  - phase5a_no_gke_validator_hardening
+
+non_enablement:
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+  production_replay_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  gke_cluster_enabled: false
+  gke_required: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  terraform_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5a_operator_evidence_packs_checked_in: true
+  structured_phase5a_operator_evidence_pack_config_exists: true
+  static_phase5a_operator_evidence_pack_validator_required: true
+  aggregate_phase5a_validator_includes_operator_evidence_packs: true
+  phase5a_ledger_replay_validator_required: true
+  phase5a_failure_retry_validator_required: true
+  phase5a_scheduler_runbooks_validator_required: true
+  phase5a_reconciliation_validator_required: true
+  phase5a_hardening_plan_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_external_evidence_export_enabled: true
+  no_production_approval_via_evidence_pack_enabled: true
+  no_scheduler_changes_enabled: true
+  no_failure_injection_enabled: true
+  no_live_failure_drills_enabled: true
+  no_live_retry_drills_enabled: true
+  no_production_replay_enabled: true
+  no_gke_enabled: true
+  no_production_authorization_enabled: true
+  no_real_value_capability_enabled: true
