@@ -1,0 +1,220 @@
+release_candidate: phase5b-gke-apply-readiness-gate-rc1
+status: gke_apply_readiness_gate_defined_and_blocked
+inherits_from: phase5b-k8s-render-dry-run-evidence-plan-rc1
+track: phase5b-gke-validator-ops
+active_runtime_baseline: phase2-lean-no-gke
+phase5a_baseline: phase5a-wrapup-rc1
+gke_cost_resource_baseline: phase5b-gke-cost-resource-plan-rc1
+terraform_design_baseline: phase5b-gke-terraform-design-plan-rc1
+k8s_manifest_design_baseline: phase5b-k8s-manifest-design-plan-rc1
+k8s_render_dry_run_evidence_baseline: phase5b-k8s-render-dry-run-evidence-plan-rc1
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+gate_outcome:
+  apply_readiness_gate_state: BLOCKED
+  apply_readiness_gate_passed: false
+  gke_apply_ready: false
+  apply_window_approved: false
+  terraform_plan_execution_approved_by_this_checkpoint: false
+  terraform_apply_execution_approved_by_this_checkpoint: false
+  kubernetes_apply_execution_approved_by_this_checkpoint: false
+  live_validator_operations_enabled: false
+
+required_baselines:
+  phase5a_wrapup_rc1: required
+  gke_cost_resource_plan_rc1: required
+  gke_terraform_design_plan_rc1: required
+  k8s_manifest_design_plan_rc1: required
+  k8s_render_dry_run_evidence_plan_rc1: required
+
+required_evidence_inputs:
+  billing_account_confirmed: required
+  cost_estimate_attached: required
+  free_trial_credit_reviewed: required
+  monthly_budget_limit_approved: required
+  budget_alert_channel_verified: required
+  cost_guardrail_behavior_reviewed: required
+  selected_profile_approved: required
+  quota_review_completed: required
+  region_and_zone_selection_approved: required
+  terraform_design_reviewed: required
+  terraform_plan_artifact_attached: required
+  terraform_plan_diff_reviewed: required
+  terraform_state_backend_reviewed: required
+  iam_boundary_reviewed: required
+  workload_identity_reviewed: required
+  artifact_registry_pull_access_reviewed: required
+  secret_access_reviewed: required
+  database_connectivity_reviewed: required
+  networking_reviewed: required
+  pod_security_reviewed: required
+  resource_limits_reviewed: required
+  manifest_design_reviewed: required
+  render_evidence_reviewed: required
+  client_dry_run_reviewed: required
+  server_dry_run_reviewed: required
+  schema_validation_reviewed: required
+  policy_check_reviewed: required
+  no_public_ingress_confirmed: required
+  no_real_value_capability_enabled: required
+  sandbox_runtime_flags_confirmed: required
+  operator_assigned: required
+  reviewer_assigned: required
+  apply_window_approved: required
+  rollback_plan_approved: required
+  teardown_plan_approved: required
+  incident_response_owner_assigned: required
+  evidence_retention_location_defined: required
+
+required_review_gates:
+  phase5b_cost_plan_approved: blocked
+  phase5b_terraform_design_approved: blocked
+  phase5b_manifest_design_approved: blocked
+  phase5b_render_dry_run_evidence_approved: blocked
+  billing_account_confirmed: blocked
+  budget_limit_approved: blocked
+  cost_guardrail_reviewed: blocked
+  quota_review_completed: blocked
+  selected_profile_approved: blocked
+  terraform_plan_reviewed: blocked
+  terraform_apply_window_approved: blocked
+  iam_boundary_approved: blocked
+  workload_identity_approved: blocked
+  artifact_registry_access_approved: blocked
+  secret_access_approved: blocked
+  database_connectivity_approved: blocked
+  networking_approved: blocked
+  pod_security_approved: blocked
+  resource_limits_approved: blocked
+  manifest_dry_run_approved: blocked
+  server_dry_run_approved: blocked
+  policy_checks_approved: blocked
+  no_public_ingress_approved: blocked
+  sandbox_runtime_boundary_approved: blocked
+  operator_assigned: blocked
+  reviewer_assigned: blocked
+  rollback_plan_approved: blocked
+  teardown_plan_approved: blocked
+  incident_response_owner_assigned: blocked
+  evidence_retention_approved: blocked
+  legal_boundary_acknowledged: blocked
+  compliance_boundary_acknowledged: blocked
+  no_external_institution_onboarding_enabled: blocked
+  no_production_authorization_enabled: blocked
+  no_real_value_capability_enabled: blocked
+
+implementation_stages:
+  stage_0_apply_readiness_gate_defined:
+    allowed_by_this_checkpoint: true
+  stage_1_prerequisite_inventory_review:
+    allowed_by_this_checkpoint: true
+  stage_2_evidence_pack_review:
+    allowed_by_this_checkpoint: true
+  stage_3_security_and_cost_review:
+    allowed_by_this_checkpoint: true
+  stage_4_terraform_plan_candidate:
+    allowed_by_this_checkpoint: false
+  stage_5_apply_window_candidate:
+    allowed_by_this_checkpoint: false
+  stage_6_terraform_apply_candidate:
+    allowed_by_this_checkpoint: false
+  stage_7_kubernetes_apply_candidate:
+    allowed_by_this_checkpoint: false
+  stage_8_sandbox_gke_validator_pilot:
+    allowed_by_this_checkpoint: false
+  stage_9_teardown_or_pause:
+    allowed_by_this_checkpoint: false
+
+non_enablement:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_plan_execution_approved_by_this_checkpoint: false
+  terraform_apply_execution_approved_by_this_checkpoint: false
+  kubernetes_apply_execution_approved_by_this_checkpoint: false
+  terraform_apply_allowed: false
+  terraform_gke_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  cloud_billing_change_allowed: false
+  gcloud_mutation_allowed: false
+  gke_cluster_enabled: false
+  gke_cluster_creation_enabled: false
+  gke_node_pool_creation_enabled: false
+  gke_resource_creation_allowed: false
+  workload_identity_iam_mutation_enabled: false
+  kubernetes_manifest_deployment_enabled: false
+  kubectl_apply_allowed: false
+  render_execution_enabled: false
+  local_render_execution_approved_by_this_checkpoint: false
+  client_dry_run_execution_approved_by_this_checkpoint: false
+  server_dry_run_execution_approved_by_this_checkpoint: false
+  kustomization_inclusion_allowed: false
+  kubeconfig_mutation_allowed: false
+  cluster_context_mutation_allowed: false
+  live_validator_operations_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  cloud_run_job_execution_approved_by_this_checkpoint: false
+  secret_rotation_approved_by_this_checkpoint: false
+  cloud_smoke_execution_approved_by_this_checkpoint: false
+  local_smoke_execution_approved_by_this_checkpoint: false
+  live_sandbox_smoke_execution_enabled: false
+  destructive_smoke_reset_enabled: false
+  external_endpoint_smoke_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  live_recovery_drills_enabled: false
+  live_drill_execution_approved_by_this_checkpoint: false
+  production_replay_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5b_gke_apply_readiness_gate_checked_in: true
+  structured_phase5b_gke_apply_readiness_gate_config_exists: true
+  static_phase5b_gke_apply_readiness_gate_validator_required: true
+  aggregate_phase5b_validator_includes_gke_apply_readiness_gate: true
+  prior_phase5b_planning_checkpoints_required: true
+  phase5a_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_kubernetes_resources_deployed: true
+  no_terraform_plan_or_apply_executed: true
+  no_render_or_dry_run_executed: true
+  no_gke_enabled: true
+  no_gke_node_pool_creation_enabled: true
+  no_workload_identity_iam_mutation_enabled: true
+  no_terraform_apply_enabled: true
+  no_kubectl_apply_enabled: true
+  no_kustomization_inclusion_enabled: true
+  no_live_validator_operations_enabled: true
+  no_production_authorization_enabled: true
+  no_legal_or_compliance_approval_enabled: true
+  no_real_value_capability_enabled: true

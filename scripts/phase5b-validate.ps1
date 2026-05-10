@@ -5,10 +5,12 @@ $requiredFiles = @(
     "PHASE5B_GKE_TERRAFORM_DESIGN_PLAN.md",
     "PHASE5B_K8S_MANIFEST_DESIGN_PLAN.md",
     "PHASE5B_K8S_RENDER_DRY_RUN_EVIDENCE_PLAN.md",
+    "PHASE5B_GKE_APPLY_READINESS_GATE.md",
     "config/phase5b-gke-cost-resource-plan.yaml",
     "config/phase5b-gke-terraform-design-plan.yaml",
     "config/phase5b-k8s-manifest-design-plan.yaml",
     "config/phase5b-k8s-render-dry-run-evidence-plan.yaml",
+    "config/phase5b-gke-apply-readiness-gate.yaml",
     "infra/terraform/phase5b_gke_terraform_design_plan.tf",
     "k8s/phase5b-validator-manifest-design.yaml",
     "k8s/phase5b-render-dry-run-evidence-plan.yaml",
@@ -16,6 +18,7 @@ $requiredFiles = @(
     "scripts/phase5b-gke-terraform-design-plan.ps1",
     "scripts/phase5b-k8s-manifest-design-plan.ps1",
     "scripts/phase5b-k8s-render-dry-run-evidence-plan.ps1",
+    "scripts/phase5b-gke-apply-readiness-gate.ps1",
     "PHASE5A_WRAPUP.md",
     "config/phase5a-wrapup.yaml",
     "scripts/phase5a-validate.ps1",
@@ -136,6 +139,31 @@ foreach ($expected in @(
 )) {
     if ($k8sRenderDryRunEvidencePlan -notmatch [regex]::Escape($expected)) {
         throw "Expected Phase 5B Kubernetes render/dry-run evidence plan content: $expected"
+    }
+}
+
+$gkeApplyReadinessGatePlan = Get-Content "PHASE5B_GKE_APPLY_READINESS_GATE.md" -Raw
+foreach ($expected in @(
+    "Status: GKE apply-readiness gate defined and blocked",
+    "phase5b-gke-apply-readiness-gate-rc1",
+    "phase5b-k8s-render-dry-run-evidence-plan-rc1",
+    "phase5b-gke-validator-ops",
+    "ENV = SANDBOX",
+    "REAL_VALUE = FALSE",
+    "REDEEMABLE = FALSE",
+    "Gate Outcome",
+    "apply_readiness_gate_state = BLOCKED",
+    "gke_apply_ready = FALSE",
+    "Required Evidence Inputs",
+    "terraform_plan_artifact_attached",
+    "Required Review Gates",
+    "terraform_apply_window_approved",
+    "Implementation Stages",
+    "stage_7_kubernetes_apply_candidate",
+    "No Terraform plan, Terraform apply, render, dry-run"
+)) {
+    if ($gkeApplyReadinessGatePlan -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B GKE apply-readiness gate content: $expected"
     }
 }
 
@@ -427,6 +455,49 @@ foreach ($match in $applyTemplateMatches) {
     }
 }
 
+$gkeApplyReadinessConfig = Get-Content "config/phase5b-gke-apply-readiness-gate.yaml" -Raw
+foreach ($expected in @(
+    "release_candidate: phase5b-gke-apply-readiness-gate-rc1",
+    "status: gke_apply_readiness_gate_defined_and_blocked",
+    "inherits_from: phase5b-k8s-render-dry-run-evidence-plan-rc1",
+    "track: phase5b-gke-validator-ops",
+    "active_runtime_baseline: phase2-lean-no-gke",
+    "gke_cost_resource_baseline: phase5b-gke-cost-resource-plan-rc1",
+    "terraform_design_baseline: phase5b-gke-terraform-design-plan-rc1",
+    "k8s_manifest_design_baseline: phase5b-k8s-manifest-design-plan-rc1",
+    "k8s_render_dry_run_evidence_baseline: phase5b-k8s-render-dry-run-evidence-plan-rc1",
+    "gate_outcome:",
+    "apply_readiness_gate_state: BLOCKED",
+    "apply_readiness_gate_passed: false",
+    "gke_apply_ready: false",
+    "apply_window_approved: false",
+    "terraform_plan_execution_approved_by_this_checkpoint: false",
+    "terraform_apply_execution_approved_by_this_checkpoint: false",
+    "kubernetes_apply_execution_approved_by_this_checkpoint: false",
+    "required_baselines:",
+    "k8s_render_dry_run_evidence_plan_rc1: required",
+    "required_evidence_inputs:",
+    "terraform_plan_artifact_attached: required",
+    "server_dry_run_reviewed: required",
+    "required_review_gates:",
+    "terraform_apply_window_approved: blocked",
+    "server_dry_run_approved: blocked",
+    "no_real_value_capability_enabled: blocked",
+    "implementation_stages:",
+    "stage_0_apply_readiness_gate_defined:",
+    "stage_7_kubernetes_apply_candidate:",
+    "non_enablement:",
+    "gke_cluster_creation_enabled: false",
+    "gke_node_pool_creation_enabled: false",
+    "gcloud_mutation_allowed: false",
+    "phase5b_gke_apply_readiness_gate_checked_in: true",
+    "aggregate_phase5b_validator_includes_gke_apply_readiness_gate: true"
+)) {
+    if ($gkeApplyReadinessConfig -notmatch [regex]::Escape($expected)) {
+        throw "Expected Phase 5B GKE apply-readiness gate config content: $expected"
+    }
+}
+
 $phase5aWrapup = Get-Content "config/phase5a-wrapup.yaml" -Raw
 foreach ($expected in @(
     "release_candidate: phase5a-wrapup-rc1",
@@ -441,12 +512,20 @@ foreach ($expected in @(
 }
 
 foreach ($forbidden in @(
+    "apply_readiness_gate_passed",
+    "gke_apply_ready",
+    "apply_window_approved",
     "creates_paid_resources",
     "changes_google_cloud_resources",
+    "terraform_plan_execution_approved_by_this_checkpoint",
+    "terraform_apply_execution_approved_by_this_checkpoint",
+    "kubernetes_apply_execution_approved_by_this_checkpoint",
     "terraform_apply_allowed",
     "terraform_gke_apply_allowed",
     "google_cloud_resource_creation_allowed",
     "paid_resource_enablement_allowed",
+    "cloud_billing_change_allowed",
+    "gcloud_mutation_allowed",
     "gke_cluster_enabled",
     "gke_cluster_creation_enabled",
     "gke_node_pool_creation_enabled",
@@ -491,6 +570,9 @@ foreach ($forbidden in @(
     }
     if ($renderDryRunEvidenceFile -match "(?m)^\s*$($forbidden):\s+true\s*$") {
         throw "Phase 5B aggregate validator must not allow $forbidden in render/dry-run evidence contract"
+    }
+    if ($gkeApplyReadinessConfig -match "(?m)^\s*$($forbidden):\s+true\s*$") {
+        throw "Phase 5B aggregate validator must not allow $forbidden in GKE apply-readiness gate"
     }
 }
 
@@ -574,10 +656,25 @@ if ($renderDryRunBlockedStageCount -lt 6) {
     throw "Expected at least 6 blocked Phase 5B render/dry-run execution stages, found $renderDryRunBlockedStageCount"
 }
 
+$applyReadinessEvidenceInputCount = ([regex]::Matches($gkeApplyReadinessConfig, "(?m)^\s{2}[a-z0-9_]+:\s+required\s*$")).Count
+if ($applyReadinessEvidenceInputCount -lt 37) {
+    throw "Expected at least 37 Phase 5B apply-readiness evidence inputs, found $applyReadinessEvidenceInputCount"
+}
+
+$applyReadinessBlockedGateCount = ([regex]::Matches($gkeApplyReadinessConfig, ":\s+blocked")).Count
+if ($applyReadinessBlockedGateCount -lt 35) {
+    throw "Expected at least 35 Phase 5B apply-readiness gates, found $applyReadinessBlockedGateCount"
+}
+
+$applyReadinessBlockedStageCount = ([regex]::Matches($gkeApplyReadinessConfig, "allowed_by_this_checkpoint:\s+false")).Count
+if ($applyReadinessBlockedStageCount -lt 6) {
+    throw "Expected at least 6 blocked Phase 5B apply-readiness stages, found $applyReadinessBlockedStageCount"
+}
+
 [pscustomobject]@{
     phase = "phase-5b-gke-validator-ops"
-    release_candidate = "phase5b-k8s-render-dry-run-evidence-plan-rc1"
-    status = "gke-k8s-render-dry-run-evidence-ready"
+    release_candidate = "phase5b-gke-apply-readiness-gate-rc1"
+    status = "gke-apply-readiness-gate-blocked"
     active_runtime_baseline = "phase2-lean-no-gke"
     phase5a_baseline = "phase5a-wrapup-rc1"
     candidate_resource_profile_count = $candidateProfileCount
@@ -599,11 +696,19 @@ if ($renderDryRunBlockedStageCount -lt 6) {
     render_dry_run_required_evidence_section_count = $renderDryRunEvidenceSectionCount
     render_dry_run_blocked_gate_count = $renderDryRunBlockedGateCount
     render_dry_run_blocked_stage_count = $renderDryRunBlockedStageCount
+    gke_apply_readiness_gate_rc1 = $true
+    apply_readiness_required_evidence_input_count = $applyReadinessEvidenceInputCount
+    apply_readiness_blocked_gate_count = $applyReadinessBlockedGateCount
+    apply_readiness_blocked_stage_count = $applyReadinessBlockedStageCount
+    apply_readiness_gate_passed = $false
+    gke_apply_ready = $false
+    apply_window_approved = $false
     gke_enabled = $false
     gke_cluster_creation_enabled = $false
     gke_node_pool_creation_enabled = $false
     gke_resource_creation_allowed = $false
     workload_identity_iam_mutation_enabled = $false
+    terraform_plan_execution_approved = $false
     terraform_apply_allowed = $false
     kubectl_apply_allowed = $false
     render_execution_enabled = $false
