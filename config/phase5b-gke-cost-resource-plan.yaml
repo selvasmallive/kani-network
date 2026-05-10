@@ -1,0 +1,208 @@
+release_candidate: phase5b-gke-cost-resource-plan-rc1
+status: gke_cost_resource_planning_checkpoint_ready
+inherits_from: phase5a-wrapup-rc1
+track: phase5b-gke-validator-ops
+active_runtime_baseline: phase2-lean-no-gke
+phase5a_baseline: phase5a-wrapup-rc1
+
+runtime_boundary:
+  env: SANDBOX
+  real_value: false
+  redeemable: false
+  production_value_movement_allowed: false
+
+pricing_inputs:
+  source: official_google_cloud_gke_pricing_and_pricing_calculator
+  captured_date: 2026-05-10
+  cluster_management_fee_usd_per_cluster_hour: 0.10
+  monthly_free_tier_credit_usd: 74.40
+  free_tier_applies_to:
+    - autopilot_clusters
+    - zonal_standard_clusters
+  free_tier_excludes:
+    - compute_charges
+    - regional_cluster_fee
+  standard_node_pool_billing: compute_engine_instances_until_deleted
+  autopilot_general_purpose_billing: pod_resource_requests
+  operator_must_recalculate_in_pricing_calculator: true
+
+candidate_resource_profiles:
+  lean_sandbox_standard_zonal:
+    cluster_mode: standard_zonal
+    purpose: lowest_cost_gke_learning_environment
+    region: northamerica-northeast1
+    zone_count: 1
+    cluster_count: 1
+    node_pool_count: 1
+    min_nodes: 1
+    max_nodes: 3
+    machine_type_candidates:
+      - e2-small
+      - e2-medium
+    boot_disk_gb_per_node: 30
+    validator_replicas: 3
+    production_fault_domain_guarantee: false
+    public_production_ingress: false
+    explicit_teardown_required: true
+    creation_allowed_by_this_checkpoint: false
+  validator_ops_standard_multizone:
+    cluster_mode: standard_multizone
+    purpose: operational_rehearsal_across_failure_domains
+    region: northamerica-northeast1
+    zone_count: 3
+    cluster_count: 1
+    node_pool_count: 1
+    min_nodes: 3
+    max_nodes: 6
+    machine_type_candidates:
+      - e2-medium
+      - e2-standard-2
+    boot_disk_gb_per_node: 30
+    validator_replicas: 3
+    pod_anti_affinity_required: true
+    production_fault_domain_guarantee: false
+    public_production_ingress: false
+    explicit_teardown_required: true
+    creation_allowed_by_this_checkpoint: false
+  autopilot_small_pod_request:
+    cluster_mode: autopilot
+    purpose: compare_pod_request_billing_model
+    region: northamerica-northeast1
+    zone_count: managed_by_gke
+    cluster_count: 1
+    node_pool_count: managed_by_gke
+    validator_replicas: 3
+    validator_pod_cpu_request: 250m
+    validator_pod_memory_request: 512Mi
+    validator_pod_ephemeral_storage_request: 1Gi
+    production_fault_domain_guarantee: false
+    public_production_ingress: false
+    explicit_teardown_required: true
+    creation_allowed_by_this_checkpoint: false
+
+required_estimate_inputs:
+  billing_account_and_project: required
+  region_and_selected_zones: required
+  cluster_mode: required
+  cluster_count: required
+  node_pool_count: required
+  minimum_nodes: required
+  maximum_nodes: required
+  machine_type_candidates: required
+  boot_disk_type_and_size: required
+  validator_replica_count: required
+  validator_cpu_memory_request_per_pod: required
+  expected_daily_runtime_hours: required
+  expected_monthly_runtime_hours: required
+  logging_retention_and_expected_ingestion: required
+  monitoring_metrics_and_alerting_scope: required
+  load_balancer_requirement: required
+  private_cluster_cloud_nat_or_static_ip_requirement: required
+  artifact_registry_image_pull_storage_assumptions: required
+  budget_threshold: required
+  teardown_owner_and_command_plan: required
+
+required_approval_gates:
+  billing_account_confirmed: blocked
+  free_trial_credit_reviewed: blocked
+  pricing_calculator_estimate_saved: blocked
+  selected_resource_profile_approved: blocked
+  monthly_budget_limit_approved: blocked
+  quota_review_completed: blocked
+  region_and_zone_selection_approved: blocked
+  terraform_plan_reviewed: blocked
+  terraform_apply_window_approved: blocked
+  teardown_plan_approved: blocked
+  operator_assigned: blocked
+  reviewer_assigned: blocked
+  security_boundary_reviewed: blocked
+  workload_identity_plan_reviewed: blocked
+  networking_plan_reviewed: blocked
+  observability_plan_reviewed: blocked
+  no_real_value_capability_enabled: blocked
+
+implementation_plan:
+  estimate_profiles:
+    allowed_by_this_checkpoint: true
+  select_profile:
+    allowed_by_this_checkpoint: true
+  draft_terraform:
+    allowed_by_this_checkpoint: true
+  terraform_plan_review:
+    allowed_by_this_checkpoint: true
+  apply_gke_resources:
+    allowed_by_this_checkpoint: false
+  deploy_validator_manifests:
+    allowed_by_this_checkpoint: false
+  run_gke_smoke_tests:
+    allowed_by_this_checkpoint: false
+  observe_cost_and_health:
+    allowed_by_this_checkpoint: false
+  teardown_or_pause:
+    allowed_by_this_checkpoint: false
+
+non_enablement:
+  creates_paid_resources: false
+  changes_google_cloud_resources: false
+  terraform_apply_allowed: false
+  terraform_gke_apply_allowed: false
+  google_cloud_resource_creation_allowed: false
+  paid_resource_enablement_allowed: false
+  gke_cluster_enabled: false
+  gke_resource_creation_allowed: false
+  kubernetes_manifest_deployment_enabled: false
+  live_validator_operations_enabled: false
+  production_bft_validator_network_enabled: false
+  production_ingress_enabled: false
+  public_endpoint_exposure_enabled: false
+  cloud_armor_waf_applied: false
+  mtls_trust_config_applied: false
+  hsm_kms_production_signing_enabled: false
+  scheduler_changes_enabled: false
+  automatic_scheduler_mutation_enabled: false
+  manual_scheduler_action_approved_by_this_checkpoint: false
+  cloud_run_job_execution_approved_by_this_checkpoint: false
+  secret_rotation_approved_by_this_checkpoint: false
+  cloud_smoke_execution_approved_by_this_checkpoint: false
+  local_smoke_execution_approved_by_this_checkpoint: false
+  live_sandbox_smoke_execution_enabled: false
+  destructive_smoke_reset_enabled: false
+  external_endpoint_smoke_enabled: false
+  failure_injection_enabled: false
+  live_failure_drills_enabled: false
+  live_retry_drills_enabled: false
+  live_recovery_drills_enabled: false
+  live_drill_execution_approved_by_this_checkpoint: false
+  production_replay_enabled: false
+  restore_drill_executed: false
+  production_recovery_executed: false
+  external_evidence_export_enabled: false
+  production_approval_via_evidence_pack_enabled: false
+  external_institution_onboarding_enabled: false
+  production_authorization_granted: false
+  legal_or_compliance_approval_enabled: false
+  real_value_settlement_enabled: false
+  fiat_deposit_or_redemption_enabled: false
+  custody_for_others_enabled: false
+  trading_enabled: false
+  production_go_live_allowed: false
+
+acceptance:
+  phase5b_gke_cost_resource_plan_checked_in: true
+  structured_phase5b_gke_cost_resource_plan_config_exists: true
+  static_phase5b_gke_cost_resource_plan_validator_required: true
+  aggregate_phase5b_validator_includes_gke_cost_resource_plan: true
+  phase5a_validator_required: true
+  phase4_validator_required: true
+  phase3_validator_required: true
+  phase2_validator_required: true
+  terraform_validate_required: true
+  rust_workspace_checks_required: true
+  no_google_cloud_resources_created: true
+  no_gke_enabled: true
+  no_terraform_apply_enabled: true
+  no_kubernetes_manifest_deployment_enabled: true
+  no_live_validator_operations_enabled: true
+  no_production_authorization_enabled: true
+  no_legal_or_compliance_approval_enabled: true
+  no_real_value_capability_enabled: true

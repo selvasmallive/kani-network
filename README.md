@@ -185,6 +185,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\phase5a-validate.ps1
 
 GKE remains deferred to `phase5b-gke-validator-ops`.
 
+## Phase 5B GKE Validator Ops
+
+Phase 5B has started on the `phase5b-gke-validator-ops` track. The first checkpoint is `phase5b-gke-cost-resource-plan-rc1`. `PHASE5B_GKE_COST_RESOURCE_PLAN.md`, `config/phase5b-gke-cost-resource-plan.yaml`, and `scripts/phase5b-gke-cost-resource-plan.ps1` define the GKE cost/resource planning inputs, candidate resource profiles, approval gates, and implementation blocks before any GKE resources are created.
+
+This checkpoint keeps the active runtime on `phase2-lean-no-gke`. It does not create Google Cloud resources, apply Terraform, enable GKE, deploy Kubernetes manifests, run live validator operations, enable production ingress, onboard external institutions, or allow real-value settlement.
+
+Run the Phase 5B planning checks from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-gke-cost-resource-plan.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\phase5b-validate.ps1
+```
+
 After cloud resources are applied and the image is deployed, run the no-GKE cloud smoke test:
 
 ```powershell
