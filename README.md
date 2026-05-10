@@ -21,6 +21,16 @@ An engineering disclosure package for a potential U.S. provisional patent filing
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\patent-package-validate.ps1
 ```
 
+## Enterprise Sandbox Evidence Pack
+
+The enterprise sandbox evidence pack is in `docs/research/` and `docs/presentations/`. It packages the implemented sandbox MVP as a research and PowerPoint-ready proof set with a readiness report, controls matrix, metrics CSV, evidence index, structured summary, and editable presentation deck.
+
+Validate the research data pack with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\enterprise-sandbox-evidence-validate.ps1
+```
+
 ## Phase 2 Cloud MVP
 
 Phase 2 starts the Google Cloud sandbox deployment path while keeping real value disabled.

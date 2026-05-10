@@ -1,0 +1,13 @@
+artifact,type,primary_use,key_evidence,confidentiality_note
+PHASE5B_GKE_DAY0_OBSERVATION.md,markdown,Live day-zero proof,"GKE validators running; smoke test passed; block 42; pending 0",No secrets included
+config/phase5b-gke-day0-observation.yaml,yaml,Structured evidence,"Runtime boundary; budget; pod status; smoke output",No secrets included
+config/phase5b-gke-apply-pilot-evidence.yaml,yaml,First GKE apply proof,"Pilot applied; GKE cluster and validators captured",No secrets included
+README.md,markdown,Implementation summary,"Implemented components and API surfaces",Public-safe summary
+docs/patent/PROVISIONAL_SPECIFICATION_DRAFT.md,markdown,Patent disclosure,"Invention narrative and embodiments",Review before filing
+docs/patent/FIGURES.md,markdown,Patent figures,"Architecture and flow diagrams",Review before filing
+docs/patent/SANDBOX_MVP_EVIDENCE_APPENDIX.md,markdown,Patent support,"End-to-end sandbox proof",Review before filing
+docs/research/KANI_ENTERPRISE_SANDBOX_READINESS_REPORT.md,markdown,Research report,"Enterprise sandbox status and gaps",Presentation-ready
+docs/research/data/enterprise_readiness_controls.csv,csv,Controls matrix,"Domain status and next action",Presentation-ready
+docs/research/data/enterprise_readiness_metrics.csv,csv,Metrics dataset,"Measured sandbox proof points",Presentation-ready
+docs/presentations/kani_enterprise_sandbox_proof_deck.pptx,pptx,PowerPoint presentation,"Executive proof deck",Editable deck
+

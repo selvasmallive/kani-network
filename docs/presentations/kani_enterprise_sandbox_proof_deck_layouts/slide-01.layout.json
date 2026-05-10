@@ -1,0 +1,1720 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/apclr6",
+    "id": "apclr6",
+    "slide": 1,
+    "layoutId": "d300bfa5-2461-4746-a396-9779380f667f",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "b5d8ea4f-586f-43da-87a7-f583840fa642",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#18201D",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Aptos"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "d300bfa5-2461-4746-a396-9779380f667f",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "b5d8ea4f-586f-43da-87a7-f583840fa642",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "b5d8ea4f-586f-43da-87a7-f583840fa642",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0nuxc3yl",
+      "id": "1",
+      "bbox": [
+        96,
+        76,
+        14,
+        14
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.0.0"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#0E8F6E"
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/72x4nap4",
+      "id": "2",
+      "bbox": [
+        124,
+        72,
+        1700,
+        24
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.0.1"
+      },
+      "geometry": "rect",
+      "text": "KANI Private Settlement Network",
+      "textPreview": "KANI Private Settlement Network",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "fontSize": 19,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "KANI Private Settlement Network"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "KANI Private Settlement Network",
+          "runs": [
+            {
+              "index": 1,
+              "text": "KANI Private Settlement Network",
+              "fontSize": 19,
+              "typeface": "Aptos",
+              "color": "#D7E5DC",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ih4byhgn",
+      "id": "3",
+      "name": "cover-title",
+      "bbox": [
+        96,
+        362,
+        902,
+        184
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.0"
+      },
+      "geometry": "rect",
+      "text": "Sandbox proof for enterprise review",
+      "textPreview": "Sandbox proof for enterprise review",
+      "resolvedFontSize": 76,
+      "resolvedTextStyle": {
+        "fontSize": 76,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Sandbox proof for"
+          },
+          {
+            "index": 2,
+            "text": "enterprise review"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Sandbox proof for enterprise review",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Sandbox proof for enterprise review",
+              "fontSize": 76,
+              "typeface": "Aptos",
+              "color": "#FFFFFF",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pkzupwb2",
+      "id": "4",
+      "name": "cover-subtitle",
+      "bbox": [
+        96,
+        572,
+        800,
+        68
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.1"
+      },
+      "geometry": "rect",
+      "text": "Implemented settlement lifecycle, live GKE validator evidence, and the controls still required before production.",
+      "textPreview": "Implemented settlement lifecycle, live GKE validator evidence, and the controls still required before production.",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "fontSize": 28,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Implemented settlement lifecycle, live GKE validator evidence, and the"
+          },
+          {
+            "index": 2,
+            "text": "controls still required before production."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Implemented settlement lifecycle, live GKE validator evidence, and the controls still required before production.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Implemented settlement lifecycle, live GKE validator evidence, and the controls still required before production.",
+              "fontSize": 28,
+              "typeface": "Aptos",
+              "color": "#C8D9CF"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0z61032l",
+      "id": "5",
+      "name": "pill-sandbox-only",
+      "bbox": [
+        96,
+        664.2,
+        146.92,
+        36.4
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.2.0"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#D9F2E9"
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7ed8bat4",
+      "id": "6",
+      "bbox": [
+        114,
+        672,
+        110,
+        22
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.2.0.0"
+      },
+      "geometry": "rect",
+      "text": "SANDBOX ONLY",
+      "textPreview": "SANDBOX ONLY",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "SANDBOX"
+          },
+          {
+            "index": 2,
+            "text": "ONLY"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "SANDBOX ONLY",
+          "runs": [
+            {
+              "index": 1,
+              "text": "SANDBOX ONLY",
+              "fontSize": 17,
+              "typeface": "Aptos",
+              "color": "#0E8F6E",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/itgfmlkj",
+      "id": "7",
+      "name": "pill-real-value-false",
+      "bbox": [
+        256.92,
+        664.2,
+        165.1,
+        56.8
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.2.1"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#FFF0CE"
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pwb2hwfy",
+      "id": "8",
+      "bbox": [
+        274,
+        672,
+        130,
+        42
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.2.1.0"
+      },
+      "geometry": "rect",
+      "text": "REAL VALUE FALSE",
+      "textPreview": "REAL VALUE FALSE",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "REAL VALUE FALSE"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "REAL VALUE FALSE",
+          "runs": [
+            {
+              "index": 1,
+              "text": "REAL VALUE FALSE",
+              "fontSize": 17,
+              "typeface": "Aptos",
+              "color": "#D98A12",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0bi9s36h",
+      "id": "9",
+      "name": "pill-gke-pilot-running",
+      "bbox": [
+        436.02,
+        664.2,
+        181.74,
+        56.8
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.2.2"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#E1E8FF"
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u18jqh0f",
+      "id": "10",
+      "bbox": [
+        454,
+        672,
+        146,
+        42
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1.2.2.0"
+      },
+      "geometry": "rect",
+      "text": "GKE PILOT RUNNING",
+      "textPreview": "GKE PILOT RUNNING",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "GKE PILOT RUNNING"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "GKE PILOT RUNNING",
+          "runs": [
+            {
+              "index": 1,
+              "text": "GKE PILOT RUNNING",
+              "fontSize": 17,
+              "typeface": "Aptos",
+              "color": "#2D5BFF",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jm1cfa9w",
+      "id": "11",
+      "name": "cover-block-number",
+      "bbox": [
+        1054,
+        348,
+        770,
+        216
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0"
+      },
+      "geometry": "rect",
+      "text": "42",
+      "textPreview": "42",
+      "resolvedFontSize": 180,
+      "resolvedTextStyle": {
+        "fontSize": 180,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "42"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "42",
+          "runs": [
+            {
+              "index": 1,
+              "text": "42",
+              "fontSize": 180,
+              "typeface": "Aptos",
+              "color": "#0E8F6E",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/c7u54zid",
+      "id": "12",
+      "name": "cover-block-label",
+      "bbox": [
+        1054,
+        582,
+        518,
+        58
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1"
+      },
+      "geometry": "rect",
+      "text": "latest finalized block in the day-zero cloud smoke test",
+      "textPreview": "latest finalized block in the day-zero cloud smoke test",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "latest finalized block in the day-zero cloud smoke test"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "latest finalized block in the day-zero cloud smoke test",
+          "runs": [
+            {
+              "index": 1,
+              "text": "latest finalized block in the day-zero cloud smoke test",
+              "fontSize": 24,
+              "typeface": "Aptos",
+              "color": "#D7E5DC"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1orytsvu",
+      "id": "13",
+      "bbox": [
+        1054,
+        658,
+        260,
+        5
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.2"
+      },
+      "geometry": "rect",
+      "fillColor": "#D98A12",
+      "lineColor": "#D98A12",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u9knih4b",
+      "id": "14",
+      "name": "cover-proof-line",
+      "bbox": [
+        1054,
+        680,
+        524,
+        56
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.3"
+      },
+      "geometry": "rect",
+      "text": "3 validators running / 0 restarts / 0 pending transactions",
+      "textPreview": "3 validators running / 0 restarts / 0 pending transactions",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "fontSize": 23,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "3 validators running / 0 restarts / 0 pending transactions"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "3 validators running / 0 restarts / 0 pending transactions",
+          "runs": [
+            {
+              "index": 1,
+              "text": "3 validators running / 0 restarts / 0 pending transactions",
+              "fontSize": 23,
+              "typeface": "Aptos",
+              "color": "#D7E5DC"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/judg7ads",
+      "id": "15",
+      "bbox": [
+        96,
+        988,
+        902,
+        20
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.3"
+      },
+      "geometry": "rect",
+      "text": "Research and evidence package - May 10, 2026",
+      "textPreview": "Research and evidence package - May 10, 2026",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Research and evidence package - May 10, 2026"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Research and evidence package - May 10, 2026",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Research and evidence package - May 10, 2026",
+              "fontSize": 16,
+              "typeface": "Aptos",
+              "color": "#A9B9AF"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "composeRuns": [
+    {
+      "index": 1,
+      "frame": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 1080
+      },
+      "baseUnit": 8,
+      "root": {
+        "path": "0",
+        "kind": "grid",
+        "name": "cover-root",
+        "requestedSize": {
+          "width": {
+            "mode": "fill",
+            "value": 1
+          },
+          "height": {
+            "mode": "fill",
+            "value": 1
+          }
+        },
+        "intrinsicSize": {
+          "width": 248,
+          "height": 250
+        },
+        "frame": {
+          "left": 0,
+          "top": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "children": [
+          {
+            "path": "0.0",
+            "kind": "row",
+            "requestedSize": {
+              "width": {
+                "mode": "fill",
+                "value": 1
+              },
+              "height": {
+                "mode": "hug"
+              }
+            },
+            "intrinsicSize": {
+              "width": 28,
+              "height": 22.8
+            },
+            "frame": {
+              "left": 96,
+              "top": 72,
+              "width": 1728,
+              "height": 22.8
+            },
+            "children": [
+              {
+                "path": "0.0.0",
+                "kind": "shape",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fixed",
+                    "value": 14
+                  },
+                  "height": {
+                    "mode": "fixed",
+                    "value": 14
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 14,
+                  "height": 14
+                },
+                "frame": {
+                  "left": 96,
+                  "top": 76,
+                  "width": 14,
+                  "height": 14
+                },
+                "snappedFrame": {
+                  "left": 96,
+                  "top": 76,
+                  "width": 14,
+                  "height": 14
+                },
+                "children": [],
+                "geometry": "rect",
+                "element": {
+                  "aid": "sh/0nuxc3yl",
+                  "id": "1",
+                  "kind": "shape"
+                }
+              },
+              {
+                "path": "0.0.1",
+                "kind": "text",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fill",
+                    "value": 1
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 0,
+                  "height": 22.8
+                },
+                "frame": {
+                  "left": 124,
+                  "top": 72,
+                  "width": 1700,
+                  "height": 24
+                },
+                "snappedFrame": {
+                  "left": 124,
+                  "top": 72,
+                  "width": 1700,
+                  "height": 24
+                },
+                "children": [],
+                "text": "KANI Private Settlement Network",
+                "transform": "none",
+                "element": {
+                  "aid": "sh/72x4nap4",
+                  "id": "2",
+                  "kind": "shape"
+                }
+              }
+            ],
+            "padding": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "gap": 14,
+            "effectiveGap": 14,
+            "justifyOffset": 0,
+            "align": "center",
+            "justify": "start",
+            "contentFrame": {
+              "left": 96,
+              "top": 72,
+              "width": 1728,
+              "height": 22.8
+            },
+            "items": [
+              {
+                "path": "0.0.0",
+                "frame": {
+                  "left": 96,
+                  "top": 76,
+                  "width": 14,
+                  "height": 14
+                }
+              },
+              {
+                "path": "0.0.1",
+                "frame": {
+                  "left": 124,
+                  "top": 72,
+                  "width": 1700,
+                  "height": 24
+                }
+              }
+            ]
+          },
+          {
+            "path": "0.1",
+            "kind": "column",
+            "requestedSize": {
+              "width": {
+                "mode": "fill",
+                "value": 1
+              },
+              "height": {
+                "mode": "fill",
+                "value": 1
+              }
+            },
+            "intrinsicSize": {
+              "width": 799.44,
+              "height": 246.8
+            },
+            "frame": {
+              "left": 96,
+              "top": 126.8,
+              "width": 902.88,
+              "height": 830
+            },
+            "children": [
+              {
+                "path": "0.1.0",
+                "kind": "text",
+                "name": "cover-title",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fill",
+                    "value": 1
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 0,
+                  "height": 91.2
+                },
+                "frame": {
+                  "left": 96,
+                  "top": 362.6,
+                  "width": 902.88,
+                  "height": 182.4
+                },
+                "snappedFrame": {
+                  "left": 96,
+                  "top": 362,
+                  "width": 902,
+                  "height": 184
+                },
+                "children": [],
+                "text": "Sandbox proof for enterprise review",
+                "transform": "none",
+                "element": {
+                  "aid": "sh/ih4byhgn",
+                  "id": "3",
+                  "kind": "shape"
+                }
+              },
+              {
+                "path": "0.1.1",
+                "kind": "text",
+                "name": "cover-subtitle",
+                "requestedSize": {
+                  "width": {
+                    "mode": "wrap",
+                    "max": 880
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 799.44,
+                  "height": 67.2
+                },
+                "frame": {
+                  "left": 96,
+                  "top": 571,
+                  "width": 799.44,
+                  "height": 67.2
+                },
+                "snappedFrame": {
+                  "left": 96,
+                  "top": 572,
+                  "width": 800,
+                  "height": 68
+                },
+                "children": [],
+                "text": "Implemented settlement lifecycle, live GKE validator evidence, and the controls still required before production.",
+                "transform": "none",
+                "element": {
+                  "aid": "sh/pkzupwb2",
+                  "id": "4",
+                  "kind": "shape"
+                }
+              },
+              {
+                "path": "0.1.2",
+                "kind": "row",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fill",
+                    "value": 1
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 521.76,
+                  "height": 36.4
+                },
+                "frame": {
+                  "left": 96,
+                  "top": 664.2,
+                  "width": 902.88,
+                  "height": 56.8
+                },
+                "children": [
+                  {
+                    "path": "0.1.2.0",
+                    "kind": "panel",
+                    "name": "pill-sandbox-only",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "hug"
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 146.92,
+                      "height": 36.4
+                    },
+                    "frame": {
+                      "left": 96,
+                      "top": 664.2,
+                      "width": 146.92,
+                      "height": 36.4
+                    },
+                    "snappedFrame": {
+                      "left": 96,
+                      "top": 664.2,
+                      "width": 146.92,
+                      "height": 36.4
+                    },
+                    "children": [
+                      {
+                        "path": "0.1.2.0.0",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "hug"
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 110.92,
+                          "height": 20.4
+                        },
+                        "frame": {
+                          "left": 114,
+                          "top": 672.2,
+                          "width": 110.92,
+                          "height": 20.4
+                        },
+                        "snappedFrame": {
+                          "left": 114,
+                          "top": 672,
+                          "width": 110,
+                          "height": 22
+                        },
+                        "children": [],
+                        "text": "SANDBOX ONLY",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/7ed8bat4",
+                          "id": "6",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 8,
+                      "right": 18,
+                      "bottom": 8,
+                      "left": 18
+                    },
+                    "align": "start",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 114,
+                      "top": 672.2,
+                      "width": 110.92,
+                      "height": 20.4
+                    },
+                    "element": {
+                      "aid": "sh/0z61032l",
+                      "id": "5",
+                      "kind": "shape"
+                    }
+                  },
+                  {
+                    "path": "0.1.2.1",
+                    "kind": "panel",
+                    "name": "pill-real-value-false",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "hug"
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 165.1,
+                      "height": 36.4
+                    },
+                    "frame": {
+                      "left": 256.92,
+                      "top": 664.2,
+                      "width": 165.1,
+                      "height": 56.8
+                    },
+                    "snappedFrame": {
+                      "left": 256.92,
+                      "top": 664.2,
+                      "width": 165.1,
+                      "height": 56.8
+                    },
+                    "children": [
+                      {
+                        "path": "0.1.2.1.0",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "hug"
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 129.1,
+                          "height": 20.4
+                        },
+                        "frame": {
+                          "left": 274.92,
+                          "top": 672.2,
+                          "width": 129.1,
+                          "height": 40.8
+                        },
+                        "snappedFrame": {
+                          "left": 274,
+                          "top": 672,
+                          "width": 130,
+                          "height": 42
+                        },
+                        "children": [],
+                        "text": "REAL VALUE FALSE",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/pwb2hwfy",
+                          "id": "8",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 8,
+                      "right": 18,
+                      "bottom": 8,
+                      "left": 18
+                    },
+                    "align": "start",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 274.92,
+                      "top": 672.2,
+                      "width": 129.1,
+                      "height": 40.8
+                    },
+                    "element": {
+                      "aid": "sh/itgfmlkj",
+                      "id": "7",
+                      "kind": "shape"
+                    }
+                  },
+                  {
+                    "path": "0.1.2.2",
+                    "kind": "panel",
+                    "name": "pill-gke-pilot-running",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "hug"
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 181.74,
+                      "height": 36.4
+                    },
+                    "frame": {
+                      "left": 436.02,
+                      "top": 664.2,
+                      "width": 181.74,
+                      "height": 56.8
+                    },
+                    "snappedFrame": {
+                      "left": 436.02,
+                      "top": 664.2,
+                      "width": 181.74,
+                      "height": 56.8
+                    },
+                    "children": [
+                      {
+                        "path": "0.1.2.2.0",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "hug"
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 145.74,
+                          "height": 20.4
+                        },
+                        "frame": {
+                          "left": 454.02,
+                          "top": 672.2,
+                          "width": 145.74,
+                          "height": 40.8
+                        },
+                        "snappedFrame": {
+                          "left": 454,
+                          "top": 672,
+                          "width": 146,
+                          "height": 42
+                        },
+                        "children": [],
+                        "text": "GKE PILOT RUNNING",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/u18jqh0f",
+                          "id": "10",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 8,
+                      "right": 18,
+                      "bottom": 8,
+                      "left": 18
+                    },
+                    "align": "start",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 454.02,
+                      "top": 672.2,
+                      "width": 145.74,
+                      "height": 40.8
+                    },
+                    "element": {
+                      "aid": "sh/0bi9s36h",
+                      "id": "9",
+                      "kind": "shape"
+                    }
+                  }
+                ],
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "gap": 14,
+                "effectiveGap": 14,
+                "justifyOffset": 0,
+                "align": "start",
+                "justify": "start",
+                "contentFrame": {
+                  "left": 96,
+                  "top": 664.2,
+                  "width": 902.88,
+                  "height": 56.8
+                },
+                "items": [
+                  {
+                    "path": "0.1.2.0",
+                    "frame": {
+                      "left": 96,
+                      "top": 664.2,
+                      "width": 146.92,
+                      "height": 36.4
+                    }
+                  },
+                  {
+                    "path": "0.1.2.1",
+                    "frame": {
+                      "left": 256.92,
+                      "top": 664.2,
+                      "width": 165.1,
+                      "height": 56.8
+                    }
+                  },
+                  {
+                    "path": "0.1.2.2",
+                    "frame": {
+                      "left": 436.02,
+                      "top": 664.2,
+                      "width": 181.74,
+                      "height": 56.8
+                    }
+                  }
+                ]
+              }
+            ],
+            "padding": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "gap": 26,
+            "effectiveGap": 26,
+            "justifyOffset": 235.8,
+            "align": "start",
+            "justify": "center",
+            "contentFrame": {
+              "left": 96,
+              "top": 126.8,
+              "width": 902.88,
+              "height": 830
+            },
+            "items": [
+              {
+                "path": "0.1.0",
+                "frame": {
+                  "left": 96,
+                  "top": 362.6,
+                  "width": 902.88,
+                  "height": 182.4
+                }
+              },
+              {
+                "path": "0.1.1",
+                "frame": {
+                  "left": 96,
+                  "top": 571,
+                  "width": 799.44,
+                  "height": 67.2
+                }
+              },
+              {
+                "path": "0.1.2",
+                "frame": {
+                  "left": 96,
+                  "top": 664.2,
+                  "width": 902.88,
+                  "height": 56.8
+                }
+              }
+            ]
+          },
+          {
+            "path": "0.2",
+            "kind": "column",
+            "requestedSize": {
+              "width": {
+                "mode": "fill",
+                "value": 1
+              },
+              "height": {
+                "mode": "fill",
+                "value": 1
+              }
+            },
+            "intrinsicSize": {
+              "width": 523.81,
+              "height": 331.4
+            },
+            "frame": {
+              "left": 1054.88,
+              "top": 126.8,
+              "width": 769.12,
+              "height": 830
+            },
+            "children": [
+              {
+                "path": "0.2.0",
+                "kind": "text",
+                "name": "cover-block-number",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fill",
+                    "value": 1
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 0,
+                  "height": 216
+                },
+                "frame": {
+                  "left": 1054.88,
+                  "top": 347.9,
+                  "width": 769.12,
+                  "height": 216
+                },
+                "snappedFrame": {
+                  "left": 1054,
+                  "top": 348,
+                  "width": 770,
+                  "height": 216
+                },
+                "children": [],
+                "text": "42",
+                "transform": "none",
+                "element": {
+                  "aid": "sh/jm1cfa9w",
+                  "id": "11",
+                  "kind": "shape"
+                }
+              },
+              {
+                "path": "0.2.1",
+                "kind": "text",
+                "name": "cover-block-label",
+                "requestedSize": {
+                  "width": {
+                    "mode": "wrap",
+                    "max": 650
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 517.5,
+                  "height": 28.8
+                },
+                "frame": {
+                  "left": 1054.88,
+                  "top": 581.9,
+                  "width": 517.5,
+                  "height": 57.6
+                },
+                "snappedFrame": {
+                  "left": 1054,
+                  "top": 582,
+                  "width": 518,
+                  "height": 58
+                },
+                "children": [],
+                "text": "latest finalized block in the day-zero cloud smoke test",
+                "transform": "none",
+                "element": {
+                  "aid": "sh/c7u54zid",
+                  "id": "12",
+                  "kind": "shape"
+                }
+              },
+              {
+                "path": "0.2.2",
+                "kind": "rule",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fixed",
+                    "value": 260
+                  },
+                  "height": {
+                    "mode": "fixed",
+                    "value": 5
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 260,
+                  "height": 5
+                },
+                "frame": {
+                  "left": 1054.88,
+                  "top": 657.5,
+                  "width": 260,
+                  "height": 5
+                },
+                "snappedFrame": {
+                  "left": 1054,
+                  "top": 658,
+                  "width": 260,
+                  "height": 5
+                },
+                "children": [],
+                "weight": 5,
+                "element": {
+                  "aid": "sh/1orytsvu",
+                  "id": "13",
+                  "kind": "shape"
+                }
+              },
+              {
+                "path": "0.2.3",
+                "kind": "text",
+                "name": "cover-proof-line",
+                "requestedSize": {
+                  "width": {
+                    "mode": "wrap",
+                    "max": 690
+                  },
+                  "height": {
+                    "mode": "hug"
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 523.81,
+                  "height": 27.6
+                },
+                "frame": {
+                  "left": 1054.88,
+                  "top": 680.5,
+                  "width": 523.81,
+                  "height": 55.2
+                },
+                "snappedFrame": {
+                  "left": 1054,
+                  "top": 680,
+                  "width": 524,
+                  "height": 56
+                },
+                "children": [],
+                "text": "3 validators running / 0 restarts / 0 pending transactions",
+                "transform": "none",
+                "element": {
+                  "aid": "sh/u9knih4b",
+                  "id": "14",
+                  "kind": "shape"
+                }
+              }
+            ],
+            "padding": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "gap": 18,
+            "effectiveGap": 18,
+            "justifyOffset": 221.1,
+            "align": "start",
+            "justify": "center",
+            "contentFrame": {
+              "left": 1054.88,
+              "top": 126.8,
+              "width": 769.12,
+              "height": 830
+            },
+            "items": [
+              {
+                "path": "0.2.0",
+                "frame": {
+                  "left": 1054.88,
+                  "top": 347.9,
+                  "width": 769.12,
+                  "height": 216
+                }
+              },
+              {
+                "path": "0.2.1",
+                "frame": {
+                  "left": 1054.88,
+                  "top": 581.9,
+                  "width": 517.5,
+                  "height": 57.6
+                }
+              },
+              {
+                "path": "0.2.2",
+                "frame": {
+                  "left": 1054.88,
+                  "top": 657.5,
+                  "width": 260,
+                  "height": 5
+                }
+              },
+              {
+                "path": "0.2.3",
+                "frame": {
+                  "left": 1054.88,
+                  "top": 680.5,
+                  "width": 523.81,
+                  "height": 55.2
+                }
+              }
+            ]
+          },
+          {
+            "path": "0.3",
+            "kind": "text",
+            "requestedSize": {
+              "width": {
+                "mode": "fill",
+                "value": 1
+              },
+              "height": {
+                "mode": "hug"
+              }
+            },
+            "intrinsicSize": {
+              "width": 0,
+              "height": 19.2
+            },
+            "frame": {
+              "left": 96,
+              "top": 988.8,
+              "width": 902.88,
+              "height": 19.2
+            },
+            "snappedFrame": {
+              "left": 96,
+              "top": 988,
+              "width": 902,
+              "height": 20
+            },
+            "children": [],
+            "text": "Research and evidence package - May 10, 2026",
+            "transform": "none",
+            "element": {
+              "aid": "sh/judg7ads",
+              "id": "15",
+              "kind": "shape"
+            }
+          }
+        ],
+        "padding": {
+          "top": 72,
+          "right": 96,
+          "bottom": 72,
+          "left": 96
+        },
+        "columnGap": 56,
+        "rowGap": 32,
+        "alignItems": "stretch",
+        "justifyItems": "stretch",
+        "contentFrame": {
+          "left": 96,
+          "top": 72,
+          "width": 1728,
+          "height": 936
+        },
+        "columns": [
+          {
+            "mode": "fr",
+            "value": 1.08
+          },
+          {
+            "mode": "fr",
+            "value": 0.92
+          }
+        ],
+        "rows": [
+          "auto",
+          {
+            "mode": "fr",
+            "value": 1
+          },
+          "auto"
+        ],
+        "autoRows": "auto",
+        "resolvedRows": [
+          "auto",
+          {
+            "mode": "fr",
+            "value": 1
+          },
+          "auto"
+        ],
+        "columnSizes": [
+          902.88,
+          769.12
+        ],
+        "rowSizes": [
+          22.8,
+          830,
+          19.2
+        ],
+        "cells": [
+          {
+            "path": "0.0",
+            "column": 0,
+            "row": 0,
+            "columnSpan": 2,
+            "rowSpan": 1,
+            "cellFrame": {
+              "left": 96,
+              "top": 72,
+              "width": 1728,
+              "height": 22.8
+            }
+          },
+          {
+            "path": "0.1",
+            "column": 0,
+            "row": 1,
+            "columnSpan": 1,
+            "rowSpan": 1,
+            "cellFrame": {
+              "left": 96,
+              "top": 126.8,
+              "width": 902.88,
+              "height": 830
+            }
+          },
+          {
+            "path": "0.2",
+            "column": 1,
+            "row": 1,
+            "columnSpan": 1,
+            "rowSpan": 1,
+            "cellFrame": {
+              "left": 1054.88,
+              "top": 126.8,
+              "width": 769.12,
+              "height": 830
+            }
+          },
+          {
+            "path": "0.3",
+            "column": 0,
+            "row": 2,
+            "columnSpan": 1,
+            "rowSpan": 1,
+            "cellFrame": {
+              "left": 96,
+              "top": 988.8,
+              "width": 902.88,
+              "height": 19.2
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

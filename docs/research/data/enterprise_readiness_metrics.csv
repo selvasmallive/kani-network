@@ -1,0 +1,23 @@
+metric,value,unit,status,evidence_file,presentation_label
+observation_start,2026-05-10,date,recorded,config/phase5b-gke-day0-observation.yaml,Observation start
+observation_end,2026-06-10,date,planned,config/phase5b-gke-day0-observation.yaml,Observation end
+budget_guardrail,200,CAD,verified,config/phase5b-gke-day0-observation.yaml,CAD guardrail
+budget_threshold_half,100,CAD,configured,config/phase5b-gke-day0-observation.yaml,50 percent alert
+budget_threshold_warning,160,CAD,configured,config/phase5b-gke-day0-observation.yaml,80 percent alert
+budget_threshold_full,200,CAD,configured,config/phase5b-gke-day0-observation.yaml,100 percent alert
+gke_node_count,1,count,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,GKE nodes
+gke_validator_pods,3,count,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,Validator pods
+validator_restarts,0,count,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,Pod restarts
+node_cpu,201,millicores,observed,PHASE5B_GKE_DAY0_OBSERVATION.md,Node CPU
+node_cpu_percent,21,percent,observed,PHASE5B_GKE_DAY0_OBSERVATION.md,Node CPU percent
+node_memory,1343,MiB,observed,PHASE5B_GKE_DAY0_OBSERVATION.md,Node memory
+node_memory_percent,47,percent,observed,PHASE5B_GKE_DAY0_OBSERVATION.md,Node memory percent
+corp_a_balance,875000,minor_units,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,CORP_A balance
+corp_b_balance,125000,minor_units,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,CORP_B balance
+latest_block_height,42,height,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,Latest block
+pending_count,0,count,verified,PHASE5B_GKE_DAY0_OBSERVATION.md,Pending transactions
+settlement_report_transactions,42,count,verified,config/phase5b-gke-day0-observation.yaml,Settlement report txns
+compliance_report_events,20,count,verified,config/phase5b-gke-day0-observation.yaml,Compliance events
+validator_report_finalized_blocks,42,count,verified,config/phase5b-gke-day0-observation.yaml,Validator report blocks
+kani_system_error_rows,0,count,verified,config/phase5b-gke-day0-observation.yaml,kani-system errors
+

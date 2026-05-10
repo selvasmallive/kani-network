@@ -1,0 +1,2129 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/9uawhn",
+    "id": "9uawhn",
+    "slide": 4,
+    "layoutId": "d300bfa5-2461-4746-a396-9779380f667f",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "b5d8ea4f-586f-43da-87a7-f583840fa642",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7F8F3",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Aptos"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "d300bfa5-2461-4746-a396-9779380f667f",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "b5d8ea4f-586f-43da-87a7-f583840fa642",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "b5d8ea4f-586f-43da-87a7-f583840fa642",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6hcrmhk3",
+      "id": "1",
+      "name": "slide-title",
+      "bbox": [
+        86,
+        58,
+        1748,
+        66
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.0"
+      },
+      "geometry": "rect",
+      "text": "Ledger controls are already visible in the MVP",
+      "textPreview": "Ledger controls are already visible in the MVP",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "fontSize": 54,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Ledger controls are already visible in the MVP"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Ledger controls are already visible in the MVP",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Ledger controls are already visible in the MVP",
+              "fontSize": 54,
+              "typeface": "Aptos",
+              "color": "#111827",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d8v6psfi",
+      "id": "2",
+      "name": "slide-subtitle",
+      "bbox": [
+        86,
+        156,
+        980,
+        30
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1"
+      },
+      "geometry": "rect",
+      "text": "The sandbox demonstrates settlement mechanics without enabling production value movement.",
+      "textPreview": "The sandbox demonstrates settlement mechanics without enabling production value movement.",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "fontSize": 25,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The sandbox demonstrates settlement mechanics without enabling production value movement."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The sandbox demonstrates settlement mechanics without enabling production value movement.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "The sandbox demonstrates settlement mechanics without enabling production value movement.",
+              "fontSize": 25,
+              "typeface": "Aptos",
+              "color": "#5B6472"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/onyd0z61",
+      "id": "3",
+      "name": "metric-test-asset-used-in-cloud-smoke",
+      "bbox": [
+        86,
+        220,
+        758,
+        66
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0.0.0"
+      },
+      "geometry": "rect",
+      "text": "KCAD_TEST",
+      "textPreview": "KCAD_TEST",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "fontSize": 54,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "KCAD_TEST"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "KCAD_TEST",
+          "runs": [
+            {
+              "index": 1,
+              "text": "KCAD_TEST",
+              "fontSize": 54,
+              "typeface": "Aptos",
+              "color": "#0E8F6E",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vahoza1g",
+      "id": "4",
+      "name": "metric-label-test-asset-used-in-cloud-smoke",
+      "bbox": [
+        86,
+        292,
+        758,
+        22
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0.0.1"
+      },
+      "geometry": "rect",
+      "text": "test asset used in cloud smoke",
+      "textPreview": "test asset used in cloud smoke",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "test asset used in cloud smoke"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "test asset used in cloud smoke",
+          "runs": [
+            {
+              "index": 1,
+              "text": "test asset used in cloud smoke",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#5B6472"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6tovahoz",
+      "id": "5",
+      "name": "metric-corp-a-post-test-balance",
+      "bbox": [
+        86,
+        338,
+        758,
+        66
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0.1.0"
+      },
+      "geometry": "rect",
+      "text": "875,000",
+      "textPreview": "875,000",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "fontSize": 54,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "875,000"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "875,000",
+          "runs": [
+            {
+              "index": 1,
+              "text": "875,000",
+              "fontSize": 54,
+              "typeface": "Aptos",
+              "color": "#2D5BFF",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dg7adsji",
+      "id": "6",
+      "name": "metric-label-corp-a-post-test-balance",
+      "bbox": [
+        86,
+        408,
+        758,
+        22
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0.1.1"
+      },
+      "geometry": "rect",
+      "text": "CORP_A post-test balance",
+      "textPreview": "CORP_A post-test balance",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CORP_A post-test balance"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CORP_A post-test balance",
+          "runs": [
+            {
+              "index": 1,
+              "text": "CORP_A post-test balance",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#5B6472"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ovahoza1",
+      "id": "7",
+      "name": "metric-corp-b-post-test-balance",
+      "bbox": [
+        86,
+        454,
+        758,
+        66
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0.2.0"
+      },
+      "geometry": "rect",
+      "text": "125,000",
+      "textPreview": "125,000",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "fontSize": 54,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "125,000"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "125,000",
+          "runs": [
+            {
+              "index": 1,
+              "text": "125,000",
+              "fontSize": 54,
+              "typeface": "Aptos",
+              "color": "#D98A12",
+              "bold": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vmtwra5g",
+      "id": "8",
+      "name": "metric-label-corp-b-post-test-balance",
+      "bbox": [
+        86,
+        524,
+        758,
+        22
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.0.2.1"
+      },
+      "geometry": "rect",
+      "text": "CORP_B post-test balance",
+      "textPreview": "CORP_B post-test balance",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CORP_B post-test balance"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CORP_B post-test balance",
+          "runs": [
+            {
+              "index": 1,
+              "text": "CORP_B post-test balance",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#5B6472"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/61032lsz",
+      "id": "9",
+      "bbox": [
+        906,
+        230,
+        9,
+        9
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.0.0"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#0E8F6E"
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wval87ed",
+      "id": "10",
+      "bbox": [
+        930,
+        222,
+        904,
+        28
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.0.1"
+      },
+      "geometry": "rect",
+      "text": "Mint and transfer paths run through ledger validation.",
+      "textPreview": "Mint and transfer paths run through ledger validation.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Mint and transfer paths run through ledger validation."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Mint and transfer paths run through ledger validation.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Mint and transfer paths run through ledger validation.",
+              "fontSize": 24,
+              "typeface": "Aptos",
+              "color": "#111827"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pg3ex0nu",
+      "id": "11",
+      "bbox": [
+        906,
+        284,
+        9,
+        9
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.1.0"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#2D5BFF"
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/epkzupwb",
+      "id": "12",
+      "bbox": [
+        930,
+        274,
+        904,
+        28
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.1.1"
+      },
+      "geometry": "rect",
+      "text": "No-negative-balance and request validation are covered by smoke tests.",
+      "textPreview": "No-negative-balance and request validation are covered by smoke tests.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "No-negative-balance and request validation are covered by smoke tests."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "No-negative-balance and request validation are covered by smoke tests.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "No-negative-balance and request validation are covered by smoke tests.",
+              "fontSize": 24,
+              "typeface": "Aptos",
+              "color": "#111827"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7adsji5s",
+      "id": "13",
+      "bbox": [
+        906,
+        336,
+        9,
+        9
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.2.0"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#D98A12"
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w7mp0bi9",
+      "id": "14",
+      "bbox": [
+        930,
+        326,
+        904,
+        28
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.2.1"
+      },
+      "geometry": "rect",
+      "text": "Journal, audit, and report surfaces give reviewers traceability.",
+      "textPreview": "Journal, audit, and report surfaces give reviewers traceability.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Journal, audit, and report surfaces give reviewers traceability."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Journal, audit, and report surfaces give reviewers traceability.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Journal, audit, and report surfaces give reviewers traceability.",
+              "fontSize": 24,
+              "typeface": "Aptos",
+              "color": "#111827"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/psfil0rq",
+      "id": "15",
+      "bbox": [
+        906,
+        390,
+        9,
+        9
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.3.0"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#C84D3A"
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e1w7mp0b",
+      "id": "16",
+      "bbox": [
+        930,
+        380,
+        904,
+        28
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2.1.3.1"
+      },
+      "geometry": "rect",
+      "text": "Production assets remain disabled until legal and compliance gates pass.",
+      "textPreview": "Production assets remain disabled until legal and compliance gates pass.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Production assets remain disabled until legal and compliance gates pass."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Production assets remain disabled until legal and compliance gates pass.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Production assets remain disabled until legal and compliance gates pass.",
+              "fontSize": 24,
+              "typeface": "Aptos",
+              "color": "#111827"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "composeRuns": [
+    {
+      "index": 1,
+      "frame": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 1080
+      },
+      "baseUnit": 8,
+      "root": {
+        "path": "0",
+        "kind": "column",
+        "name": "slide-root",
+        "requestedSize": {
+          "width": {
+            "mode": "fill",
+            "value": 1
+          },
+          "height": {
+            "mode": "fill",
+            "value": 1
+          }
+        },
+        "intrinsicSize": {
+          "width": 1151.74,
+          "height": 278.8
+        },
+        "frame": {
+          "left": 0,
+          "top": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "children": [
+          {
+            "path": "0.0",
+            "kind": "text",
+            "name": "slide-title",
+            "requestedSize": {
+              "width": {
+                "mode": "fill",
+                "value": 1
+              },
+              "height": {
+                "mode": "hug"
+              }
+            },
+            "intrinsicSize": {
+              "width": 0,
+              "height": 64.8
+            },
+            "frame": {
+              "left": 86,
+              "top": 58,
+              "width": 1748,
+              "height": 64.8
+            },
+            "snappedFrame": {
+              "left": 86,
+              "top": 58,
+              "width": 1748,
+              "height": 66
+            },
+            "children": [],
+            "text": "Ledger controls are already visible in the MVP",
+            "transform": "none",
+            "element": {
+              "aid": "sh/6hcrmhk3",
+              "id": "1",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.1",
+            "kind": "text",
+            "name": "slide-subtitle",
+            "requestedSize": {
+              "width": {
+                "mode": "wrap",
+                "max": 1320
+              },
+              "height": {
+                "mode": "hug"
+              }
+            },
+            "intrinsicSize": {
+              "width": 979.74,
+              "height": 30
+            },
+            "frame": {
+              "left": 86,
+              "top": 156.8,
+              "width": 979.74,
+              "height": 30
+            },
+            "snappedFrame": {
+              "left": 86,
+              "top": 156,
+              "width": 980,
+              "height": 30
+            },
+            "children": [],
+            "text": "The sandbox demonstrates settlement mechanics without enabling production value movement.",
+            "transform": "none",
+            "element": {
+              "aid": "sh/d8v6psfi",
+              "id": "2",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.2",
+            "kind": "grid",
+            "name": "two-col",
+            "requestedSize": {
+              "width": {
+                "mode": "fill",
+                "value": 1
+              },
+              "height": {
+                "mode": "fill",
+                "value": 1
+              }
+            },
+            "intrinsicSize": {
+              "width": 62,
+              "height": 0
+            },
+            "frame": {
+              "left": 86,
+              "top": 220.8,
+              "width": 1748,
+              "height": 801.2
+            },
+            "children": [
+              {
+                "path": "0.2.0",
+                "kind": "column",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fill",
+                    "value": 1
+                  },
+                  "height": {
+                    "mode": "fill",
+                    "value": 1
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 0,
+                  "height": 325.2
+                },
+                "frame": {
+                  "left": 86,
+                  "top": 220.8,
+                  "width": 758.7,
+                  "height": 801.2
+                },
+                "children": [
+                  {
+                    "path": "0.2.0.0",
+                    "kind": "column",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 0,
+                      "height": 92.4
+                    },
+                    "frame": {
+                      "left": 86,
+                      "top": 220.8,
+                      "width": 758.7,
+                      "height": 92.4
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.0.0.0",
+                        "kind": "text",
+                        "name": "metric-test-asset-used-in-cloud-smoke",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 64.8
+                        },
+                        "frame": {
+                          "left": 86,
+                          "top": 220.8,
+                          "width": 758.7,
+                          "height": 64.8
+                        },
+                        "snappedFrame": {
+                          "left": 86,
+                          "top": 220,
+                          "width": 758,
+                          "height": 66
+                        },
+                        "children": [],
+                        "text": "KCAD_TEST",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/onyd0z61",
+                          "id": "3",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.0.0.1",
+                        "kind": "text",
+                        "name": "metric-label-test-asset-used-in-cloud-smoke",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 21.6
+                        },
+                        "frame": {
+                          "left": 86,
+                          "top": 291.6,
+                          "width": 758.7,
+                          "height": 21.6
+                        },
+                        "snappedFrame": {
+                          "left": 86,
+                          "top": 292,
+                          "width": 758,
+                          "height": 22
+                        },
+                        "children": [],
+                        "text": "test asset used in cloud smoke",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/vahoza1g",
+                          "id": "4",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 6,
+                    "effectiveGap": 6,
+                    "justifyOffset": 0,
+                    "align": "start",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 86,
+                      "top": 220.8,
+                      "width": 758.7,
+                      "height": 92.4
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.0.0.0",
+                        "frame": {
+                          "left": 86,
+                          "top": 220.8,
+                          "width": 758.7,
+                          "height": 64.8
+                        }
+                      },
+                      {
+                        "path": "0.2.0.0.1",
+                        "frame": {
+                          "left": 86,
+                          "top": 291.6,
+                          "width": 758.7,
+                          "height": 21.6
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "path": "0.2.0.1",
+                    "kind": "column",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 0,
+                      "height": 92.4
+                    },
+                    "frame": {
+                      "left": 86,
+                      "top": 337.2,
+                      "width": 758.7,
+                      "height": 92.4
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.0.1.0",
+                        "kind": "text",
+                        "name": "metric-corp-a-post-test-balance",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 64.8
+                        },
+                        "frame": {
+                          "left": 86,
+                          "top": 337.2,
+                          "width": 758.7,
+                          "height": 64.8
+                        },
+                        "snappedFrame": {
+                          "left": 86,
+                          "top": 338,
+                          "width": 758,
+                          "height": 66
+                        },
+                        "children": [],
+                        "text": "875,000",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/6tovahoz",
+                          "id": "5",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.0.1.1",
+                        "kind": "text",
+                        "name": "metric-label-corp-a-post-test-balance",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 21.6
+                        },
+                        "frame": {
+                          "left": 86,
+                          "top": 408,
+                          "width": 758.7,
+                          "height": 21.6
+                        },
+                        "snappedFrame": {
+                          "left": 86,
+                          "top": 408,
+                          "width": 758,
+                          "height": 22
+                        },
+                        "children": [],
+                        "text": "CORP_A post-test balance",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/dg7adsji",
+                          "id": "6",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 6,
+                    "effectiveGap": 6,
+                    "justifyOffset": 0,
+                    "align": "start",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 86,
+                      "top": 337.2,
+                      "width": 758.7,
+                      "height": 92.4
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.0.1.0",
+                        "frame": {
+                          "left": 86,
+                          "top": 337.2,
+                          "width": 758.7,
+                          "height": 64.8
+                        }
+                      },
+                      {
+                        "path": "0.2.0.1.1",
+                        "frame": {
+                          "left": 86,
+                          "top": 408,
+                          "width": 758.7,
+                          "height": 21.6
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "path": "0.2.0.2",
+                    "kind": "column",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 0,
+                      "height": 92.4
+                    },
+                    "frame": {
+                      "left": 86,
+                      "top": 453.6,
+                      "width": 758.7,
+                      "height": 92.4
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.0.2.0",
+                        "kind": "text",
+                        "name": "metric-corp-b-post-test-balance",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 64.8
+                        },
+                        "frame": {
+                          "left": 86,
+                          "top": 453.6,
+                          "width": 758.7,
+                          "height": 64.8
+                        },
+                        "snappedFrame": {
+                          "left": 86,
+                          "top": 454,
+                          "width": 758,
+                          "height": 66
+                        },
+                        "children": [],
+                        "text": "125,000",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/ovahoza1",
+                          "id": "7",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.0.2.1",
+                        "kind": "text",
+                        "name": "metric-label-corp-b-post-test-balance",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 21.6
+                        },
+                        "frame": {
+                          "left": 86,
+                          "top": 524.4,
+                          "width": 758.7,
+                          "height": 21.6
+                        },
+                        "snappedFrame": {
+                          "left": 86,
+                          "top": 524,
+                          "width": 758,
+                          "height": 22
+                        },
+                        "children": [],
+                        "text": "CORP_B post-test balance",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/vmtwra5g",
+                          "id": "8",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 6,
+                    "effectiveGap": 6,
+                    "justifyOffset": 0,
+                    "align": "start",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 86,
+                      "top": 453.6,
+                      "width": 758.7,
+                      "height": 92.4
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.0.2.0",
+                        "frame": {
+                          "left": 86,
+                          "top": 453.6,
+                          "width": 758.7,
+                          "height": 64.8
+                        }
+                      },
+                      {
+                        "path": "0.2.0.2.1",
+                        "frame": {
+                          "left": 86,
+                          "top": 524.4,
+                          "width": 758.7,
+                          "height": 21.6
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "gap": 24,
+                "effectiveGap": 24,
+                "justifyOffset": 0,
+                "align": "start",
+                "justify": "start",
+                "contentFrame": {
+                  "left": 86,
+                  "top": 220.8,
+                  "width": 758.7,
+                  "height": 801.2
+                },
+                "items": [
+                  {
+                    "path": "0.2.0.0",
+                    "frame": {
+                      "left": 86,
+                      "top": 220.8,
+                      "width": 758.7,
+                      "height": 92.4
+                    }
+                  },
+                  {
+                    "path": "0.2.0.1",
+                    "frame": {
+                      "left": 86,
+                      "top": 337.2,
+                      "width": 758.7,
+                      "height": 92.4
+                    }
+                  },
+                  {
+                    "path": "0.2.0.2",
+                    "frame": {
+                      "left": 86,
+                      "top": 453.6,
+                      "width": 758.7,
+                      "height": 92.4
+                    }
+                  }
+                ]
+              },
+              {
+                "path": "0.2.1",
+                "kind": "column",
+                "requestedSize": {
+                  "width": {
+                    "mode": "fill",
+                    "value": 1
+                  },
+                  "height": {
+                    "mode": "fill",
+                    "value": 1
+                  }
+                },
+                "intrinsicSize": {
+                  "width": 0,
+                  "height": 187.2
+                },
+                "frame": {
+                  "left": 906.7,
+                  "top": 220.8,
+                  "width": 927.3,
+                  "height": 801.2
+                },
+                "children": [
+                  {
+                    "path": "0.2.1.0",
+                    "kind": "row",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 23,
+                      "height": 28.8
+                    },
+                    "frame": {
+                      "left": 906.7,
+                      "top": 220.8,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.1.0.0",
+                        "kind": "shape",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fixed",
+                            "value": 9
+                          },
+                          "height": {
+                            "mode": "fixed",
+                            "value": 9
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 9,
+                          "height": 9
+                        },
+                        "frame": {
+                          "left": 906.7,
+                          "top": 230,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "snappedFrame": {
+                          "left": 906,
+                          "top": 230,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "children": [],
+                        "geometry": "rect",
+                        "element": {
+                          "aid": "sh/61032lsz",
+                          "id": "9",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.1.0.1",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 28.8
+                        },
+                        "frame": {
+                          "left": 929.7,
+                          "top": 222,
+                          "width": 904.3,
+                          "height": 28
+                        },
+                        "snappedFrame": {
+                          "left": 930,
+                          "top": 222,
+                          "width": 904,
+                          "height": 28
+                        },
+                        "children": [],
+                        "text": "Mint and transfer paths run through ledger validation.",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/wval87ed",
+                          "id": "10",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 14,
+                    "effectiveGap": 14,
+                    "justifyOffset": 0,
+                    "align": "center",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 906.7,
+                      "top": 220.8,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.1.0.0",
+                        "frame": {
+                          "left": 906.7,
+                          "top": 230,
+                          "width": 9,
+                          "height": 9
+                        }
+                      },
+                      {
+                        "path": "0.2.1.0.1",
+                        "frame": {
+                          "left": 929.7,
+                          "top": 222,
+                          "width": 904.3,
+                          "height": 28
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "path": "0.2.1.1",
+                    "kind": "row",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 23,
+                      "height": 28.8
+                    },
+                    "frame": {
+                      "left": 906.7,
+                      "top": 273.6,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.1.1.0",
+                        "kind": "shape",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fixed",
+                            "value": 9
+                          },
+                          "height": {
+                            "mode": "fixed",
+                            "value": 9
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 9,
+                          "height": 9
+                        },
+                        "frame": {
+                          "left": 906.7,
+                          "top": 284,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "snappedFrame": {
+                          "left": 906,
+                          "top": 284,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "children": [],
+                        "geometry": "rect",
+                        "element": {
+                          "aid": "sh/pg3ex0nu",
+                          "id": "11",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.1.1.1",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 28.8
+                        },
+                        "frame": {
+                          "left": 929.7,
+                          "top": 274,
+                          "width": 904.3,
+                          "height": 28
+                        },
+                        "snappedFrame": {
+                          "left": 930,
+                          "top": 274,
+                          "width": 904,
+                          "height": 28
+                        },
+                        "children": [],
+                        "text": "No-negative-balance and request validation are covered by smoke tests.",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/epkzupwb",
+                          "id": "12",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 14,
+                    "effectiveGap": 14,
+                    "justifyOffset": 0,
+                    "align": "center",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 906.7,
+                      "top": 273.6,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.1.1.0",
+                        "frame": {
+                          "left": 906.7,
+                          "top": 284,
+                          "width": 9,
+                          "height": 9
+                        }
+                      },
+                      {
+                        "path": "0.2.1.1.1",
+                        "frame": {
+                          "left": 929.7,
+                          "top": 274,
+                          "width": 904.3,
+                          "height": 28
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "path": "0.2.1.2",
+                    "kind": "row",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 23,
+                      "height": 28.8
+                    },
+                    "frame": {
+                      "left": 906.7,
+                      "top": 326.4,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.1.2.0",
+                        "kind": "shape",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fixed",
+                            "value": 9
+                          },
+                          "height": {
+                            "mode": "fixed",
+                            "value": 9
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 9,
+                          "height": 9
+                        },
+                        "frame": {
+                          "left": 906.7,
+                          "top": 336,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "snappedFrame": {
+                          "left": 906,
+                          "top": 336,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "children": [],
+                        "geometry": "rect",
+                        "element": {
+                          "aid": "sh/7adsji5s",
+                          "id": "13",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.1.2.1",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 28.8
+                        },
+                        "frame": {
+                          "left": 929.7,
+                          "top": 326,
+                          "width": 904.3,
+                          "height": 28
+                        },
+                        "snappedFrame": {
+                          "left": 930,
+                          "top": 326,
+                          "width": 904,
+                          "height": 28
+                        },
+                        "children": [],
+                        "text": "Journal, audit, and report surfaces give reviewers traceability.",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/w7mp0bi9",
+                          "id": "14",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 14,
+                    "effectiveGap": 14,
+                    "justifyOffset": 0,
+                    "align": "center",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 906.7,
+                      "top": 326.4,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.1.2.0",
+                        "frame": {
+                          "left": 906.7,
+                          "top": 336,
+                          "width": 9,
+                          "height": 9
+                        }
+                      },
+                      {
+                        "path": "0.2.1.2.1",
+                        "frame": {
+                          "left": 929.7,
+                          "top": 326,
+                          "width": 904.3,
+                          "height": 28
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "path": "0.2.1.3",
+                    "kind": "row",
+                    "requestedSize": {
+                      "width": {
+                        "mode": "fill",
+                        "value": 1
+                      },
+                      "height": {
+                        "mode": "hug"
+                      }
+                    },
+                    "intrinsicSize": {
+                      "width": 23,
+                      "height": 28.8
+                    },
+                    "frame": {
+                      "left": 906.7,
+                      "top": 379.2,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "children": [
+                      {
+                        "path": "0.2.1.3.0",
+                        "kind": "shape",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fixed",
+                            "value": 9
+                          },
+                          "height": {
+                            "mode": "fixed",
+                            "value": 9
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 9,
+                          "height": 9
+                        },
+                        "frame": {
+                          "left": 906.7,
+                          "top": 390,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "snappedFrame": {
+                          "left": 906,
+                          "top": 390,
+                          "width": 9,
+                          "height": 9
+                        },
+                        "children": [],
+                        "geometry": "rect",
+                        "element": {
+                          "aid": "sh/psfil0rq",
+                          "id": "15",
+                          "kind": "shape"
+                        }
+                      },
+                      {
+                        "path": "0.2.1.3.1",
+                        "kind": "text",
+                        "requestedSize": {
+                          "width": {
+                            "mode": "fill",
+                            "value": 1
+                          },
+                          "height": {
+                            "mode": "hug"
+                          }
+                        },
+                        "intrinsicSize": {
+                          "width": 0,
+                          "height": 28.8
+                        },
+                        "frame": {
+                          "left": 929.7,
+                          "top": 380,
+                          "width": 904.3,
+                          "height": 28
+                        },
+                        "snappedFrame": {
+                          "left": 930,
+                          "top": 380,
+                          "width": 904,
+                          "height": 28
+                        },
+                        "children": [],
+                        "text": "Production assets remain disabled until legal and compliance gates pass.",
+                        "transform": "none",
+                        "element": {
+                          "aid": "sh/e1w7mp0b",
+                          "id": "16",
+                          "kind": "shape"
+                        }
+                      }
+                    ],
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "gap": 14,
+                    "effectiveGap": 14,
+                    "justifyOffset": 0,
+                    "align": "center",
+                    "justify": "start",
+                    "contentFrame": {
+                      "left": 906.7,
+                      "top": 379.2,
+                      "width": 927.3,
+                      "height": 28.8
+                    },
+                    "items": [
+                      {
+                        "path": "0.2.1.3.0",
+                        "frame": {
+                          "left": 906.7,
+                          "top": 390,
+                          "width": 9,
+                          "height": 9
+                        }
+                      },
+                      {
+                        "path": "0.2.1.3.1",
+                        "frame": {
+                          "left": 929.7,
+                          "top": 380,
+                          "width": 904.3,
+                          "height": 28
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "gap": 24,
+                "effectiveGap": 24,
+                "justifyOffset": 0,
+                "align": "start",
+                "justify": "start",
+                "contentFrame": {
+                  "left": 906.7,
+                  "top": 220.8,
+                  "width": 927.3,
+                  "height": 801.2
+                },
+                "items": [
+                  {
+                    "path": "0.2.1.0",
+                    "frame": {
+                      "left": 906.7,
+                      "top": 220.8,
+                      "width": 927.3,
+                      "height": 28.8
+                    }
+                  },
+                  {
+                    "path": "0.2.1.1",
+                    "frame": {
+                      "left": 906.7,
+                      "top": 273.6,
+                      "width": 927.3,
+                      "height": 28.8
+                    }
+                  },
+                  {
+                    "path": "0.2.1.2",
+                    "frame": {
+                      "left": 906.7,
+                      "top": 326.4,
+                      "width": 927.3,
+                      "height": 28.8
+                    }
+                  },
+                  {
+                    "path": "0.2.1.3",
+                    "frame": {
+                      "left": 906.7,
+                      "top": 379.2,
+                      "width": 927.3,
+                      "height": 28.8
+                    }
+                  }
+                ]
+              }
+            ],
+            "padding": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "columnGap": 62,
+            "rowGap": 0,
+            "alignItems": "stretch",
+            "justifyItems": "stretch",
+            "contentFrame": {
+              "left": 86,
+              "top": 220.8,
+              "width": 1748,
+              "height": 801.2
+            },
+            "columns": [
+              {
+                "mode": "fr",
+                "value": 0.9
+              },
+              {
+                "mode": "fr",
+                "value": 1.1
+              }
+            ],
+            "rows": [
+              {
+                "mode": "fr",
+                "value": 1
+              }
+            ],
+            "autoRows": "auto",
+            "resolvedRows": [
+              {
+                "mode": "fr",
+                "value": 1
+              }
+            ],
+            "columnSizes": [
+              758.7,
+              927.3
+            ],
+            "rowSizes": [
+              801.2
+            ],
+            "cells": [
+              {
+                "path": "0.2.0",
+                "column": 0,
+                "row": 0,
+                "columnSpan": 1,
+                "rowSpan": 1,
+                "cellFrame": {
+                  "left": 86,
+                  "top": 220.8,
+                  "width": 758.7,
+                  "height": 801.2
+                }
+              },
+              {
+                "path": "0.2.1",
+                "column": 1,
+                "row": 0,
+                "columnSpan": 1,
+                "rowSpan": 1,
+                "cellFrame": {
+                  "left": 906.7,
+                  "top": 220.8,
+                  "width": 927.3,
+                  "height": 801.2
+                }
+              }
+            ]
+          }
+        ],
+        "padding": {
+          "top": 58,
+          "right": 86,
+          "bottom": 58,
+          "left": 86
+        },
+        "gap": 34,
+        "effectiveGap": 34,
+        "justifyOffset": 0,
+        "align": "start",
+        "justify": "start",
+        "contentFrame": {
+          "left": 86,
+          "top": 58,
+          "width": 1748,
+          "height": 964
+        },
+        "items": [
+          {
+            "path": "0.0",
+            "frame": {
+              "left": 86,
+              "top": 58,
+              "width": 1748,
+              "height": 64.8
+            }
+          },
+          {
+            "path": "0.1",
+            "frame": {
+              "left": 86,
+              "top": 156.8,
+              "width": 979.74,
+              "height": 30
+            }
+          },
+          {
+            "path": "0.2",
+            "frame": {
+              "left": 86,
+              "top": 220.8,
+              "width": 1748,
+              "height": 801.2
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

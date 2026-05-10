@@ -1,0 +1,21 @@
+domain,control,status,evidence_file,evidence_value,next_action,presentation_use
+Sandbox boundary,SANDBOX/REAL_VALUE/REDEEMABLE flags,ready,config/phase5b-gke-day0-observation.yaml,"env=SANDBOX; real_value=false; redeemable=false",Keep production and real-value gates blocked,Boundary proof
+Ledger integrity,Accounts balances journals finalized blocks,ready,README.md,"ledger supports balances issuance journals audit events and blocks",Add ledger replay evidence for one-month run,Architecture proof
+Payment lifecycle,API mint transfer and lookup,ready,PHASE5B_GKE_DAY0_OBSERVATION.md,"mint and transfer completed with status ok",Repeat in scheduled observation reports,Smoke proof
+ISO 20022 compatibility,pacs008 pacs002 camt053 sandbox flow,ready,README.md,"pacs.008 submit; pacs.002 status; camt.053 statement",Expand message validation cases,Standards proof
+Compliance gating,Sandbox STP and blocked self-transfer,ready,PHASE5B_GKE_DAY0_OBSERVATION.md,"compliance_blocked_self_transfer=true",Add manual review case drill,Compliance proof
+Validator finality,3 PoA validators with 2-of-3 finality,ready,PHASE5B_GKE_DAY0_OBSERVATION.md,"latest_block_finalized_by=validator-c,validator-a",Run validator restart/failure drill,Finality proof
+GKE runtime,Three validator pods on one e2-medium node,ready_for_observation,PHASE5B_GKE_DAY0_OBSERVATION.md,"3 pods running; 0 restarts",Complete one-month observation,Cloud proof
+Legacy validator fallback,Cloud Scheduler validator job paused,ready,config/phase5b-gke-day0-observation.yaml,"state=PAUSED",Document resume procedure after GKE teardown,Operations proof
+Cloud SQL recovery,Backups and PITR enabled,ready,PHASE5B_GKE_DAY0_OBSERVATION.md,"backups_enabled=true; point_in_time_recovery_enabled=true",Execute restore-to-separate-target drill,Recovery proof
+Secrets,Sandbox API keys and DB URL in Secret Manager,ready,README.md,"cloud keys loaded from Secret Manager",Rotate one sandbox key and record evidence,Security proof
+Monitoring,Application namespace error query,ready,PHASE5B_GKE_DAY0_OBSERVATION.md,"kani-system severity>=ERROR returned no rows",Add weekly log review exports,Observability proof
+Budget guardrail,CAD 200 budget thresholds,ready,config/phase5b-gke-day0-observation.yaml,"thresholds=50%,80%,100%",Capture actual billing review May 11-13,Cost proof
+Cost brake,Pub/Sub to cost guard service,partial,README.md,"cost guard pauses legacy Scheduler at threshold",Clarify that GKE is not stopped by brake,Risk proof
+Security review,Formal security review scope,partial,PHASE4_SECURITY_REVIEW_SCOPE.md,"scope documented",Execute security review and remediation register,Gap proof
+Disaster recovery,DR readiness design,partial,PHASE4_DR_READINESS.md,"restore drill planned",Run restore drill,Gap proof
+Key management,HSM/KMS design-only plan,design_only,PHASE4_HSM_KMS_IMPLEMENTATION_PLAN.md,"production signing disabled",Keep disabled until approved,Future proof
+Production ingress,mTLS/OIDC/Cloud Armor design-only plan,design_only,PHASE4_PROD_INGRESS_IMPLEMENTATION_PLAN.md,"production ingress disabled",Keep disabled until security/legal gates pass,Future proof
+Regulatory readiness,Legal/compliance evidence gate,blocked,PHASE4_LEGAL_COMPLIANCE_EVIDENCE.md,"production authorization not approved",Counsel and compliance review before production,Boundary proof
+Real-value settlement,Fiat deposits redemption custody trading,blocked,README.md,"not enabled",Do not enable in sandbox,Boundary proof
+
